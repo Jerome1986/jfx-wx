@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import uni from '@dcloudio/vite-plugin-uni'
+import { resolve } from 'path'
 
 import Components from '@uni-helper/vite-plugin-uni-components'
 import { WotV2Resolver } from '@uni-helper/vite-plugin-uni-components/resolvers'
@@ -14,6 +15,8 @@ export default defineConfig({
     preprocessorOptions: {
       scss: {
         silenceDeprecations: ['legacy-js-api'],
+        additionalData: `@use "styles/base" as *;`,
+        includePaths: [resolve(__dirname, 'src')],
       },
     },
   },

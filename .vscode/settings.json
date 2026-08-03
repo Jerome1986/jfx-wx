@@ -4,7 +4,7 @@
   // 在保存时格式化文件
   "editor.formatOnSave": true,
   // 延迟自动保存，并在自动保存时触发格式化
-  "files.autoSave": "afterDelay",
+  "files.autoSave": "off",
   "files.autoSaveDelay": 1000,
   // 使用 ESLint 执行代码格式化，使 .eslintrc.cjs 中的规则生效
   "eslint.enable": true,

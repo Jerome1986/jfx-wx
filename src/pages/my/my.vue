@@ -1,28 +1,14 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useMemberStore } from '@/stores'
+import CustomerMy from '@/components/my/CustomerMy.vue'
+import EmployeeMy from '@/components/my/EmployeeMy.vue'
 
 const memberStore = useMemberStore()
+const isEmployee = computed(() => memberStore.profile?.role === 'employee')
 </script>
 
 <template>
-  <view class="my">
-    <view>会员信息：{{ memberStore.profile }}</view>
-    <button
-      @tap="
-        memberStore.setProfile({
-          nickname: '黑马先锋',
-        })
-      "
-      size="mini"
-      plain
-      type="primary"
-    >
-      保存用户信息
-    </button>
-    <button @tap="memberStore.clearProfile()" size="mini" plain type="warn">清理用户信息</button>
-  </view>
+  <EmployeeMy v-if="isEmployee" />
+  <CustomerMy v-else />
 </template>
-
-<style lang="scss">
-//
-</style>

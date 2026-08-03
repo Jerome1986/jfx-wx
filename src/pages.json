@@ -4,39 +4,274 @@
     {
       "path": "pages/home/home",
       "style": {
-        "navigationBarTitleText": "首页"
+        "navigationBarTitleText": "首页",
+        "navigationStyle": "custom",
+        "enableShareAppMessage": true,
+        "enableShareTimeline": true
       }
     },
     {
       "path": "pages/my/my",
       "style": {
-        "navigationBarTitleText": "我的"
+        "navigationBarTitleText": "我的",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/cart/cart",
       "style": {
-        "navigationBarTitleText": "购物车"
+        "navigationBarTitleText": "购物车",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/product/product",
       "style": {
-        "navigationBarTitleText": "商品"
+        "navigationBarTitleText": "分类"
+      }
+    },
+    {
+      "path": "pages/search/search",
+      "style": {
+        "navigationBarTitleText": "搜索",
+        "navigationBarBackgroundColor": "#F8F7F5"
+      }
+    },
+    {
+      "path": "pages/productDetail/productDetail",
+      "style": {
+        "navigationBarTitleText": "商品详情",
+        "navigationBarBackgroundColor": "#F8F7F5"
+      }
+    },
+    {
+      "path": "pages/confirmOrder/confirmOrder",
+      "style": {
+        "navigationBarTitleText": "确认订单",
+        "navigationBarBackgroundColor": "#F8F7F5"
       }
     },
     {
       "path": "pages/login/login",
       "style": {
-        "navigationBarTitleText": "登录"
+        "navigationBarTitleText": "登录",
+        "navigationStyle": "custom",
+        "backgroundColor": "#FFFFFF"
       }
+    },
+    {
+      "path": "pages/spaceRenewal/spaceRenewal",
+      "style": {
+        "navigationBarTitleText": "空间焕新",
+        "navigationBarBackgroundColor": "#F8F7F5"
+      }
+    },
+    {
+      "path": "pages/spaceRenewalDetail/spaceRenewalDetail",
+      "style": {
+        "navigationBarTitleText": "厨房动线优化",
+        "navigationBarBackgroundColor": "#F8F7F5"
+      }
+    },
+    {
+      "path": "pages/renovationBudget/renovationBudget",
+      "style": {
+        "navigationBarTitleText": "装修预算",
+        "navigationBarBackgroundColor": "#FFFFFF"
+      }
+    },
+    {
+      "path": "pages/caseList/caseList",
+      "style": {
+        "navigationBarTitleText": "精选案例",
+        "navigationBarBackgroundColor": "#F8F7F5"
+      }
+    },
+    {
+      "path": "pages/caseDetail/caseDetail",
+      "style": {
+        "navigationBarTitleText": "案例详情",
+        "navigationBarBackgroundColor": "#F8F7F5"
+      }
+    }
+  ],
+  "subPackages": [
+    {
+      "root": "pages-sub/my",
+      "pages": [
+        {
+          "path": "points/points",
+          "style": {
+            "navigationBarTitleText": "我的积分",
+            "navigationBarBackgroundColor": "#F8F7F5"
+          }
+        },
+        {
+          "path": "favorites/favorites",
+          "style": {
+            "navigationBarTitleText": "我的收藏",
+            "navigationBarBackgroundColor": "#F8F7F5"
+          }
+        },
+        {
+          "path": "coupons/coupons",
+          "style": {
+            "navigationBarTitleText": "优惠券",
+            "navigationBarBackgroundColor": "#F8F7F5"
+          }
+        },
+        {
+          "path": "decorationOrder/decorationOrder",
+          "style": {
+            "navigationBarTitleText": "预约管理",
+            "navigationBarBackgroundColor": "#F8F7F5"
+          }
+        },
+        {
+          "path": "decorationOrderDetail/decorationOrderDetail",
+          "style": {
+            "navigationBarTitleText": "预约详情",
+            "navigationBarBackgroundColor": "#F8F7F5"
+          }
+        },
+        {
+          "path": "renovationOrder/renovationOrder",
+          "style": {
+            "navigationBarTitleText": "装修订单",
+            "navigationBarBackgroundColor": "#F8F7F5"
+          }
+        },
+        {
+          "path": "employeeRenovationOrder/employeeRenovationOrder",
+          "style": {
+            "navigationBarTitleText": "装修订单",
+            "navigationBarBackgroundColor": "#F8F7F5",
+            "navigationBarTextStyle": "black",
+            "backgroundColor": "#F8F7F5"
+          }
+        },
+        {
+          "path": "employeeRenovationOrderDetail/employeeRenovationOrderDetail",
+          "style": {
+            "navigationBarTitleText": "项目详情",
+            "navigationBarBackgroundColor": "#F8F7F5",
+            "navigationBarTextStyle": "black",
+            "backgroundColor": "#F8F7F5"
+          }
+        },
+        {
+          "path": "performanceCenter/performanceCenter",
+          "style": {
+            "navigationBarTitleText": "业绩中心",
+            "navigationStyle": "custom",
+            "backgroundColor": "#F8F7F5"
+          }
+        },
+        {
+          "path": "renovationOrderDetail/renovationOrderDetail",
+          "style": {
+            "navigationBarTitleText": "装修订单详情",
+            "navigationBarBackgroundColor": "#F8F7F5"
+          }
+        },
+        {
+          "path": "quoteDetail/quoteDetail",
+          "style": {
+            "navigationBarTitleText": "报价明细",
+            "navigationBarBackgroundColor": "#F8F7F5"
+          }
+        },
+        {
+          "path": "quoteProductList/quoteProductList",
+          "style": {
+            "navigationBarTitleText": "选择替换商品",
+            "navigationBarBackgroundColor": "#F8F7F5"
+          }
+        },
+        {
+          "path": "productOrder/productOrder",
+          "style": {
+            "navigationBarTitleText": "商品订单",
+            "navigationBarBackgroundColor": "#F8F7F5"
+          }
+        },
+        {
+          "path": "productOrderDetail/productOrderDetail",
+          "style": {
+            "navigationBarTitleText": "订单详情",
+            "navigationBarBackgroundColor": "#F8F7F5"
+          }
+        },
+        {
+          "path": "appointment/appointment",
+          "style": {
+            "navigationBarTitleText": "预约安装",
+            "navigationBarBackgroundColor": "#F8F7F5"
+          }
+        },
+        {
+          "path": "appointmentService/appointmentService",
+          "style": {
+            "navigationBarTitleText": "预约服务",
+            "navigationBarBackgroundColor": "#F8F7F5",
+            "navigationBarTextStyle": "black",
+            "backgroundColor": "#F8F7F5"
+          }
+        },
+        {
+          "path": "houseQuoteAppointmentDetail/houseQuoteAppointmentDetail",
+          "style": {
+            "navigationBarTitleText": "预约详情",
+            "navigationBarBackgroundColor": "#F8F7F5",
+            "navigationBarTextStyle": "black",
+            "backgroundColor": "#F8F7F5"
+          }
+        },
+        {
+          "path": "freeMeasurementAppointmentDetail/freeMeasurementAppointmentDetail",
+          "style": {
+            "navigationBarTitleText": "预约详情",
+            "navigationBarBackgroundColor": "#F8F7F5",
+            "navigationBarTextStyle": "black",
+            "backgroundColor": "#F8F7F5"
+          }
+        },
+        {
+          "path": "address/address",
+          "style": {
+            "navigationBarTitleText": "服务地址",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "addressForm/addressForm",
+          "style": {
+            "navigationBarTitleText": "服务地址",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "serviceOutlets/serviceOutlets",
+          "style": {
+            "navigationBarTitleText": "服务网点",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "feedback/feedback",
+          "style": {
+            "navigationBarTitleText": "意见反馈",
+            "navigationBarBackgroundColor": "#F8F7F5"
+          }
+        }
+      ]
     }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "",
-    "navigationBarBackgroundColor": "#F8F8F8",
-    "backgroundColor": "#F8F8F8"
+    "navigationBarBackgroundColor": "#F8F7F5",
+    "backgroundColor": "#F8F7F5"
   },
   // 设置 TabBar
   "tabBar": {

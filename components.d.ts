@@ -11,6 +11,25 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
-    WdButton: typeof import('@wot-ui/ui/components/wd-button/wd-button.vue')['WdButton']
+    AppointmentServiceDetail: typeof import('./src/components/AppointmentServiceDetail.vue')['default']
+    CustomerMy: typeof import('./src/components/my/CustomerMy.vue')['default']
+    CustomNavHome: typeof import('./src/components/CustomNavHome.vue')['default']
+    EmployeeMy: typeof import('./src/components/my/EmployeeMy.vue')['default']
+    RenovationCalculator: typeof import('./src/components/RenovationCalculator.vue')['default']
+    SectionHeader: typeof import('./src/components/SectionHeader.vue')['default']
+    WdCalendar: typeof import('@wot-ui/ui/components/wd-calendar/wd-calendar.vue')['WdCalendar']
+    WdCell: typeof import('@wot-ui/ui/components/wd-cell/wd-cell.vue')['WdCell']
+    WdCheckbox: typeof import('@wot-ui/ui/components/wd-checkbox/wd-checkbox.vue')['WdCheckbox']
+    WdDatetimePicker: typeof import('@wot-ui/ui/components/wd-datetime-picker/wd-datetime-picker.vue')['WdDatetimePicker']
+    WdForm: typeof import('@wot-ui/ui/components/wd-form/wd-form.vue')['WdForm']
+    WdFormItem: typeof import('@wot-ui/ui/components/wd-form-item/wd-form-item.vue')['WdFormItem']
+    WdIcon: typeof import('@wot-ui/ui/components/wd-icon/wd-icon.vue')['WdIcon']
+    WdImg: typeof import('@wot-ui/ui/components/wd-img/wd-img.vue')['WdImg']
+    WdInput: typeof import('@wot-ui/ui/components/wd-input/wd-input.vue')['WdInput']
+    WdPicker: typeof import('@wot-ui/ui/components/wd-picker/wd-picker.vue')['WdPicker']
+    WdPopup: typeof import('@wot-ui/ui/components/wd-popup/wd-popup.vue')['WdPopup']
+    WdRadio: typeof import('@wot-ui/ui/components/wd-radio/wd-radio.vue')['WdRadio']
+    WdRadioGroup: typeof import('@wot-ui/ui/components/wd-radio-group/wd-radio-group.vue')['WdRadioGroup']
+    WdSwiper: typeof import('@wot-ui/ui/components/wd-swiper/wd-swiper.vue')['WdSwiper']
   }
 }
