@@ -7,6 +7,7 @@ import type {
   ProductOrderStatus as OrderStatus,
 } from '@/types/product-order'
 
+// 商品订单筛选项
 const filters: Array<{ label: string; value: FilterStatus }> = [
   { label: '全部', value: 'all' },
   { label: '待付款', value: 'pending-payment' },
@@ -15,6 +16,7 @@ const filters: Array<{ label: string; value: FilterStatus }> = [
   { label: '已完成', value: 'completed' },
 ]
 
+// 状态文案
 const statusText: Record<OrderStatus, string> = {
   'pending-payment': '待付款',
   'pending-installation': '待安装',
@@ -22,7 +24,9 @@ const statusText: Record<OrderStatus, string> = {
   completed: '已完成',
 }
 
+// 当前筛选条件
 const activeFilter = ref<FilterStatus>('all')
+// 订单列表
 const orders = ref<ProductOrder[]>([
   {
     id: 1,
@@ -57,6 +61,7 @@ const orders = ref<ProductOrder[]>([
   },
 ])
 
+// 可见订单列表
 const visibleOrders = computed(() =>
   activeFilter.value === 'all'
     ? orders.value
@@ -64,20 +69,24 @@ const visibleOrders = computed(() =>
 )
 
 onLoad((query) => {
+  // 状态
   const status = query?.status as FilterStatus | undefined
   if (filters.some((item) => item.value === status)) activeFilter.value = status!
 })
 
+// 选择筛选条件
 const selectFilter = (status: FilterStatus) => {
   activeFilter.value = status
 }
 
+// 打开商品订单详情
 const openDetails = (order: ProductOrder) => {
   uni.navigateTo({
     url: `/pages-sub/my/productOrderDetail/productOrderDetail?id=${order.id}&status=${order.status}`,
   })
 }
 
+// 执行操作
 const runSecondaryAction = (order: ProductOrder) => {
   if (order.secondaryAction === '取消') {
     uni.showModal({
@@ -102,6 +111,7 @@ const runSecondaryAction = (order: ProductOrder) => {
   }
 }
 
+// 执行主要操作
 const runPrimaryAction = (order: ProductOrder) => {
   if (order.primaryAction === '付款') {
     uni.showToast({ title: '支付功能建设中', icon: 'none' })

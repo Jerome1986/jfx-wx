@@ -1,20 +1,50 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { onMounted, ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { getAddressListApi } from '@/api/address'
 import { type ServiceAddress, useAddressStore } from '@/stores/modules/address'
+import type { AddressItem } from '@/types/address-api'
 
 // 自定义导航栏尺寸
 const statusBarHeight = ref(0)
+// 导航栏高度
 const navigationHeight = ref(44)
 
 // 持久化服务地址与当前选择
 const addressStore = useAddressStore()
 const { addresses, selectedId, selectedAddress } = storeToRefs(addressStore)
 
+// 服务地址
+const toServiceAddress = (item: AddressItem): ServiceAddress => ({
+  id: item.id,
+  name: item.contactName,
+  phone: item.phone,
+  locationName: item.locationName,
+  address: item.address,
+  doorplate: item.doorplate,
+  latitude: item.latitude,
+  longitude: item.longitude,
+})
+
+// 加载地址列表
+const loadAddressList = async () => {
+  try {
+    const { data } = await getAddressListApi()
+    addressStore.setAddresses(data.map(toServiceAddress))
+  } catch (error) {
+    console.error('获取地址列表失败：', error)
+  }
+}
+
+onShow(loadAddressList)
+
 // 读取状态栏和小程序胶囊尺寸
 onMounted(() => {
+  // 系统信息
   const systemInfo = uni.getSystemInfoSync()
   statusBarHeight.value = systemInfo.statusBarHeight || 0
+  // 菜单按钮
   const menuButton = uni.getMenuButtonBoundingClientRect()
   if (menuButton?.height && menuButton?.top) {
     navigationHeight.value = (menuButton.top - statusBarHeight.value) * 2 + menuButton.height
@@ -23,10 +53,14 @@ onMounted(() => {
 
 // 页面导航与地址操作
 const goBack = () => uni.navigateBack()
+// 选择地址
 const selectAddress = (id: number) => addressStore.selectAddress(id)
+// 获取编辑模式下的地址
 const editAddress = (item: ServiceAddress) =>
   uni.navigateTo({ url: `/pages-sub/my/addressForm/addressForm?mode=edit&id=${item.id}` })
+// 添加地址
 const addAddress = () => uni.navigateTo({ url: '/pages-sub/my/addressForm/addressForm?mode=add' })
+// 确认地址
 const confirmAddress = () => uni.navigateBack()
 </script>
 

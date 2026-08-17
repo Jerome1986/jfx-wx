@@ -1,47 +1,56 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { wxLoginApi } from '@/api/user'
 import { useMemberStore } from '@/stores'
-import type { UserRole } from '@/types/member'
+import { ref } from 'vue'
 
+// 品牌 Logo 图片地址
 const brandImage = 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/tubiao/logo2-1.png'
+// 微信图标图片地址
 const wechatIcon =
   'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/tubiao/%E5%BE%AE%E4%BF%A11.png'
 
+// 是否已同意用户协议和隐私政策
 const agreed = ref(false)
+// 是否正在进行手机号授权
 const authorizing = ref(false)
+// 会员登录状态
 const memberStore = useMemberStore()
 
-const enterTestRole = (role: UserRole) => {
-  const isEmployee = role === 'employee'
-  memberStore.setProfile({
-    role,
-    employeeId: isEmployee ? 'EMPLOYEE_TEST_001' : undefined,
-    nickname: isEmployee ? '张经理' : '张先生',
-    mobile: isEmployee ? '15822221111' : '13812345682',
+// 获取微信临时登录凭证
+const getWxLoginCode = () =>
+  new Promise<string>((resolve, reject) => {
+    uni.login({
+      provider: 'weixin',
+      success: ({ code }) => (code ? resolve(code) : reject(new Error('未获取到微信登录凭证'))),
+      fail: reject,
+    })
   })
-  uni.switchTab({ url: '/pages/my/my' })
-}
 
+// 切换协议勾选状态
 const toggleAgreement = () => {
   agreed.value = !agreed.value
 }
 
+// 展示协议内容提示
 const showAgreement = (name: string) => {
   uni.showToast({ title: `${name}内容待配置`, icon: 'none' })
 }
 
+// 校验登录前是否已同意协议
 const handleLoginClick = () => {
   if (!agreed.value) {
     uni.showToast({ title: '请先阅读并同意用户协议和隐私政策', icon: 'none' })
   }
 }
 
+// 处理微信手机号授权结果
 const handlePhoneNumber = async (event: any) => {
   if (!agreed.value) {
     uni.showToast({ title: '请先阅读并同意用户协议和隐私政策', icon: 'none' })
     return
   }
 
+  // 详情
   const detail = event.detail
   if (detail?.errMsg !== 'getPhoneNumber:ok' || !detail.code) {
     uni.showToast({ title: '未获得手机号授权', icon: 'none' })
@@ -50,10 +59,21 @@ const handlePhoneNumber = async (event: any) => {
 
   authorizing.value = true
   try {
-    // 将 detail.code 传给服务端，由服务端调用微信接口换取手机号并完成登录。
-    // 当前项目尚未配置登录接口，接入后请在此处保存用户信息并跳转。
-    console.info('微信手机号授权 code：', detail.code)
+    // 登录凭证
+    const loginCode = await getWxLoginCode()
+    const { data } = await wxLoginApi(loginCode, detail.code)
+
+    memberStore.setToken(data.token)
+    memberStore.setProfile({
+      ...data.user,
+      role: data.user.role,
+      name: data.user.realName,
+    })
+
     uni.showToast({ title: '授权成功', icon: 'success' })
+    setTimeout(() => uni.switchTab({ url: '/pages/my/my' }), 500)
+  } catch (error) {
+    console.error('微信手机号登录失败：', error)
   } finally {
     authorizing.value = false
   }
@@ -82,15 +102,6 @@ const handlePhoneNumber = async (event: any) => {
         <text>微信手机号快捷登录</text>
       </button>
 
-      <view class="test-login-group">
-        <button class="test-login-button customer-button" @click="enterTestRole('customer')">
-          用户端
-        </button>
-        <button class="test-login-button employee-button" @click="enterTestRole('employee')">
-          员工端
-        </button>
-      </view>
-
       <view class="agreement-row">
         <view
           class="agreement-check"
@@ -101,8 +112,8 @@ const handlePhoneNumber = async (event: any) => {
         >
           <text v-if="agreed" class="check-mark">✓</text>
         </view>
-        <view class="agreement-text">
-          <text @click="toggleAgreement">勾选即代表同意</text>
+        <view class="agreement-text" @click="toggleAgreement">
+          <text>勾选即代表同意</text>
           <text class="agreement-link" @click.stop="showAgreement('用户协议')">《用户协议》</text>
           <text>和</text>
           <text class="agreement-link" @click.stop="showAgreement('隐私政策')">《隐私政策》</text>
@@ -202,39 +213,6 @@ page {
   flex-shrink: 0;
 }
 
-.test-login-group {
-  display: flex;
-  margin-top: 24rpx;
-  gap: 20rpx;
-}
-
-.test-login-button {
-  box-sizing: border-box;
-  height: 76rpx;
-  margin: 0;
-  flex: 1;
-  font-size: 27rpx;
-  font-weight: 500;
-  line-height: 74rpx;
-  border-radius: 16rpx;
-}
-
-.test-login-button::after {
-  border: 0;
-}
-
-.customer-button {
-  color: #e52b20;
-  background: #fff;
-  border: 2rpx solid #e52b20;
-}
-
-.employee-button {
-  color: #fff;
-  background: #333;
-  border: 2rpx solid #333;
-}
-
 .agreement-row {
   display: flex;
   margin-top: 26rpx;
@@ -267,6 +245,10 @@ page {
 }
 
 .agreement-text {
+  display: flex;
+  min-height: 64rpx;
+  margin-top: -16rpx;
+  align-items: center;
   color: #999;
   font-size: 23rpx;
   line-height: 32rpx;
@@ -274,6 +256,7 @@ page {
 }
 
 .agreement-link {
+  padding: 16rpx 4rpx;
   color: #e52b20;
 }
 

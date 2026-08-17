@@ -2,22 +2,28 @@
 import { computed, ref } from 'vue'
 import type { AppointmentDate, CalendarConfirmEvent, TimeSlot } from '@/types/appointment'
 
+// 星期文案列表
 const WEEK_LABELS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
 // 生成从今天开始的五个快捷安装日期
 const createLocalDate = (offset = 0) => {
+  // 日期
   const date = new Date()
   date.setHours(0, 0, 0, 0)
   date.setDate(date.getDate() + offset)
   return date
 }
 
+// 格式化日期
 const formatFullDate = (timestamp: number) => {
+  // 日期
   const date = new Date(timestamp)
   return `${date.getMonth() + 1}月${date.getDate()}日`
 }
 
+// 日期列表
 const dates: AppointmentDate[] = Array.from({ length: 5 }, (_, index) => {
+  // 日期
   const date = createLocalDate(index)
   return {
     label: index === 0 ? '今天' : index === 1 ? '明天' : WEEK_LABELS[date.getDay()],
@@ -35,14 +41,23 @@ const timeSlots: TimeSlot[] = [
   { time: '19:00-21:00', label: '晚间' },
 ]
 
+// 日历
 const calendarRef = ref<any>()
+// 最小日期
 const minDate = createLocalDate().getTime()
+// 最大日期
 const maxDate = createLocalDate(60).getTime()
+// 已选日期
 const selectedDateIndex = ref(1)
+// 已选日期
 const selectedDateTimestamp = ref(dates[1].timestamp)
+// 日历值
 const calendarValue = ref(dates[1].timestamp)
+// 已选时间
 const selectedTimeIndex = ref(0)
+// 已选日期
 const selectedDate = computed(() => ({ fullDate: formatFullDate(selectedDateTimestamp.value) }))
+// 已选时间
 const selectedTime = computed(() => timeSlots[selectedTimeIndex.value])
 
 // 点击快捷日期时同步日历当前值
@@ -62,6 +77,7 @@ const openCalendar = () => {
 const confirmCalendarDate = ({ value }: CalendarConfirmEvent) => {
   if (typeof value !== 'number') return
 
+  // 已选择日期
   const chosenDate = new Date(value)
   chosenDate.setHours(0, 0, 0, 0)
   selectedDateTimestamp.value = chosenDate.getTime()
@@ -71,8 +87,11 @@ const confirmCalendarDate = ({ value }: CalendarConfirmEvent) => {
 
 // 确认预约后将时间回传给确认订单页
 const confirmAppointment = () => {
+  // 当前页面栈
   const pages = getCurrentPages()
+  // 当前页面实例
   const currentPage = pages[pages.length - 1] as any
+  // 页面间事件通道
   const eventChannel = currentPage?.getOpenerEventChannel?.()
   eventChannel?.emit('appointmentSelected', {
     date: selectedDate.value.fullDate,

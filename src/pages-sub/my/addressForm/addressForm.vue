@@ -1,15 +1,33 @@
 <script setup lang="ts">
 import { onLoad } from '@dcloudio/uni-app'
 import { computed, onMounted, reactive, ref } from 'vue'
+import {
+  createAddressApi,
+  deleteAddressApi,
+  getAddressDetailApi,
+  updateAddressApi,
+} from '@/api/address'
 import { useAddressStore } from '@/stores/modules/address'
+import { useMemberStore } from '@/stores/modules/member'
 import type { AddressFormMode as FormMode } from '@/types/address-form'
+import type { AddressItem, CreateAddressParams, UpdateAddressParams } from '@/types/address-api'
 
 // 页面模式和自定义导航栏尺寸
 const mode = ref<FormMode>('add')
+// 编辑中编号
 const editingId = ref(0)
+// 状态栏高度
 const statusBarHeight = ref(0)
+// 导航栏高度
 const navigationHeight = ref(44)
+// 地址状态仓库
 const addressStore = useAddressStore()
+// 会员状态仓库
+const memberStore = useMemberStore()
+// 地址保存状态
+const saving = ref(false)
+// 删除中状态
+const deleting = ref(false)
 
 // 地址表单数据
 const form = reactive({
@@ -22,9 +40,13 @@ const form = reactive({
   longitude: undefined as number | undefined,
 })
 
+// 是否为编辑模式
 const isEdit = computed(() => mode.value === 'edit')
+// 页面标题
 const pageTitle = computed(() => (isEdit.value ? '编辑服务地址' : '新增服务地址'))
+// 标题
 const searchTitle = computed(() => (isEdit.value ? '重新搜索服务位置' : '搜索并选择服务位置'))
+// 说明
 const searchDescription = computed(() =>
   isEdit.value ? '通过微信位置搜索重新选择小区、门店或街道' : '选择位置后自动填写',
 )
@@ -35,19 +57,41 @@ onLoad((options) => {
   editingId.value = Number(options?.id || 0)
   if (!isEdit.value) return
 
-  const item = addressStore.addresses.find((address) => address.id === editingId.value)
-  if (!item) {
-    uni.showToast({ title: '地址不存在', icon: 'none' })
-    setTimeout(() => uni.navigateBack(), 500)
+  loadAddressDetail()
+})
+
+// 判断是否为服务地址
+const toServiceAddress = (item: AddressItem) => ({
+  id: item.id,
+  name: item.contactName,
+  phone: item.phone,
+  locationName: item.locationName,
+  address: item.address,
+  doorplate: item.doorplate,
+  latitude: item.latitude,
+  longitude: item.longitude,
+})
+
+// 加载地址详情
+const loadAddressDetail = async () => {
+  if (!editingId.value) {
+    uni.showToast({ title: '地址参数错误', icon: 'none' })
     return
   }
-  Object.assign(form, item)
-})
+  try {
+    const { data } = await getAddressDetailApi(editingId.value)
+    Object.assign(form, toServiceAddress(data))
+  } catch (error) {
+    console.error('获取地址详情失败：', error)
+  }
+}
 
 // 读取设备状态栏和胶囊尺寸
 onMounted(() => {
+  // 系统信息
   const systemInfo = uni.getSystemInfoSync()
   statusBarHeight.value = systemInfo.statusBarHeight || 0
+  // 菜单按钮
   const menuButton = uni.getMenuButtonBoundingClientRect()
   if (menuButton?.height && menuButton?.top) {
     navigationHeight.value = (menuButton.top - statusBarHeight.value) * 2 + menuButton.height
@@ -64,6 +108,7 @@ const chooseLocation = () => {
       form.longitude = result.longitude
     },
     fail: (error) => {
+      console.error('地址错误信息', error)
       if (error.errMsg?.includes('cancel')) return
       uni.showToast({ title: '位置选择失败，请重试', icon: 'none' })
     },
@@ -73,7 +118,9 @@ const chooseLocation = () => {
 // 校验地址表单
 const validateForm = () => {
   if (!form.name.trim()) return '请输入联系人姓名'
+  // 手机号
   const phone = form.phone.trim()
+  // 手机号格式是否有效
   const isPhoneValid = /^1\d{10}$/.test(phone) || (isEdit.value && /^1\d{2}\*{4}\d{4}$/.test(phone))
   if (!isPhoneValid) return '请输入正确的手机号码'
   if (!form.locationName.trim()) return '请选择服务位置'
@@ -82,32 +129,68 @@ const validateForm = () => {
 }
 
 // 保存新增或编辑结果
-const saveAddress = () => {
+const saveAddress = async () => {
+  if (saving.value) return
+  // 当前错误信息
   const error = validateForm()
   if (error) {
     uni.showToast({ title: error, icon: 'none' })
     return
   }
-  const payload = {
-    name: form.name.trim(),
+  // 用户编号
+  const userId = Number(memberStore.profile?.id)
+  if (!Number.isInteger(userId) || userId <= 0) {
+    uni.showToast({ title: '用户信息异常，请重新登录', icon: 'none' })
+    return
+  }
+  // 接口请求参数
+  const payload: CreateAddressParams = {
+    userId,
+    contactName: form.name.trim(),
     phone: form.phone.trim(),
     locationName: form.locationName.trim(),
+    province: '',
+    city: '',
+    district: '',
     address: form.address.trim(),
     doorplate: form.doorplate.trim(),
     latitude: form.latitude,
     longitude: form.longitude,
+    isDefault: !addressStore.addresses.length,
+    isEnabled: true,
   }
-  if (isEdit.value) {
-    addressStore.updateAddress(editingId.value, payload)
-    addressStore.selectAddress(editingId.value)
-  } else {
-    addressStore.addAddress(payload)
+  saving.value = true
+  try {
+    if (isEdit.value) {
+      // 更新接口请求参数
+      const updatePayload: UpdateAddressParams = {
+        contactName: payload.contactName,
+        phone: payload.phone,
+        locationName: payload.locationName,
+        address: payload.address,
+        doorplate: payload.doorplate,
+        latitude: payload.latitude,
+        longitude: payload.longitude,
+      }
+      const { data } = await updateAddressApi(editingId.value, updatePayload)
+      addressStore.updateAddress(editingId.value, toServiceAddress(data))
+      addressStore.selectAddress(editingId.value)
+    } else {
+      const { data } = await createAddressApi(payload)
+      addressStore.addAddress(toServiceAddress(data))
+    }
+    uni.showToast({ title: '保存成功', icon: 'success' })
+    setTimeout(() => uni.navigateBack(), 500)
+  } catch (error) {
+    console.error('保存地址失败：', error)
+  } finally {
+    saving.value = false
   }
-  uni.navigateBack()
 }
 
 // 二次确认后删除当前地址
 const deleteAddress = () => {
+  if (deleting.value) return
   if (addressStore.addresses.length <= 1) {
     uni.showToast({ title: '至少保留一个服务地址', icon: 'none' })
     return
@@ -116,14 +199,24 @@ const deleteAddress = () => {
     title: '删除服务地址',
     content: '确定删除该服务地址吗？',
     confirmColor: '#D92D20',
-    success: (result) => {
+    success: async (result) => {
       if (!result.confirm) return
-      addressStore.removeAddress(editingId.value)
-      uni.navigateBack()
+      deleting.value = true
+      try {
+        await deleteAddressApi(editingId.value)
+        addressStore.removeAddress(editingId.value)
+        uni.showToast({ title: '删除成功', icon: 'success' })
+        setTimeout(() => uni.navigateBack(), 500)
+      } catch (error) {
+        console.error('删除地址失败：', error)
+      } finally {
+        deleting.value = false
+      }
     },
   })
 }
 
+// 返回上一页
 const goBack = () => uni.navigateBack()
 </script>
 
@@ -150,7 +243,7 @@ const goBack = () => uni.navigateBack()
             <input
               v-model="form.name"
               class="form-input"
-              maxlength="20"
+              :maxlength="20"
               placeholder="请输入联系人姓名"
               placeholder-class="input-placeholder"
             />
@@ -160,7 +253,7 @@ const goBack = () => uni.navigateBack()
             <input
               v-model="form.phone"
               class="form-input"
-              maxlength="11"
+              :maxlength="11"
               placeholder="请输入手机号码"
               placeholder-class="input-placeholder"
             />
@@ -228,13 +321,26 @@ const goBack = () => uni.navigateBack()
         </view>
 
         <!-- 编辑模式删除入口 -->
-        <button v-if="isEdit" class="delete-button" @click="deleteAddress">删除服务地址</button>
+        <button
+          v-if="isEdit"
+          class="delete-button"
+          :loading="deleting"
+          :disabled="deleting || saving"
+          @click="deleteAddress"
+        >
+          删除服务地址
+        </button>
       </view>
     </scroll-view>
 
     <!-- 固定保存按钮 -->
     <view class="save-bar">
-      <button class="save-button" @click="saveAddress">
+      <button
+        class="save-button"
+        :loading="saving"
+        :disabled="saving || deleting"
+        @click="saveAddress"
+      >
         {{ isEdit ? '保存修改' : '保存并使用' }}
       </button>
     </view>
@@ -262,17 +368,20 @@ const goBack = () => uni.navigateBack()
   align-items: center;
   justify-content: space-between;
 }
+
 .back-button {
   display: flex;
   width: 76rpx;
   height: 100%;
   align-items: center;
 }
+
 .back-icon {
   color: $jfx-font-dec2;
   font-size: 32rpx;
   transform: rotate(180deg);
 }
+
 .navigation-title {
   position: absolute;
   right: 0;
@@ -283,6 +392,7 @@ const goBack = () => uni.navigateBack()
   text-align: center;
   pointer-events: none;
 }
+
 .navigation-placeholder {
   width: 76rpx;
 }
@@ -293,26 +403,32 @@ const goBack = () => uni.navigateBack()
   min-height: 0;
   flex: 1;
 }
+
 .page-content {
   padding: 28rpx 24rpx 32rpx;
 }
+
 .form-card,
 .description-card {
   background: #fff;
   border-radius: 18rpx;
 }
+
 .contact-card {
   padding: 0 24rpx;
 }
+
 .form-row {
   display: flex;
   min-height: 76rpx;
   align-items: center;
   border-bottom: 2rpx solid $jfx-border;
 }
+
 .form-row:last-child {
   border-bottom: 0;
 }
+
 .form-label {
   width: 180rpx;
   flex-shrink: 0;
@@ -320,6 +436,7 @@ const goBack = () => uni.navigateBack()
   font-size: 26rpx;
   font-weight: 500;
 }
+
 .form-input {
   height: 76rpx;
   min-width: 0;
@@ -329,6 +446,7 @@ const goBack = () => uni.navigateBack()
   line-height: 76rpx;
   text-align: right;
 }
+
 .input-placeholder {
   color: $jfx-font-dec2;
 }
@@ -338,12 +456,14 @@ const goBack = () => uni.navigateBack()
   margin-top: 24rpx;
   padding: 26rpx 24rpx 0;
 }
+
 .section-title {
   color: $jfx-font-title;
   font-size: 28rpx;
   font-weight: 600;
   line-height: 40rpx;
 }
+
 .search-location {
   display: flex;
   min-height: 106rpx;
@@ -353,33 +473,39 @@ const goBack = () => uni.navigateBack()
   background: #fff0ef;
   border-radius: 16rpx;
 }
+
 .search-icon {
   width: 48rpx;
   height: 48rpx;
   flex-shrink: 0;
 }
+
 .search-content {
   min-width: 0;
   margin-left: 22rpx;
   flex: 1;
 }
+
 .search-title {
   color: $jfx-brandColor;
   font-size: 27rpx;
   font-weight: 500;
   line-height: 38rpx;
 }
+
 .search-description {
   margin-top: 4rpx;
   color: #e26a63;
   font-size: 21rpx;
   line-height: 30rpx;
 }
+
 .right-arrow {
   flex-shrink: 0;
   color: $jfx-brandColor;
   font-size: 28rpx;
 }
+
 .selected-location {
   display: flex;
   min-height: 116rpx;
@@ -388,16 +514,19 @@ const goBack = () => uni.navigateBack()
   gap: 22rpx;
   border-bottom: 2rpx solid $jfx-border;
 }
+
 .location-icon {
   width: 48rpx;
   height: 48rpx;
   flex-shrink: 0;
 }
+
 .selected-label {
   color: $jfx-brandColor;
   font-size: 23rpx;
   line-height: 32rpx;
 }
+
 .selected-name {
   margin-top: 4rpx;
   color: $jfx-font-title;
@@ -405,6 +534,7 @@ const goBack = () => uni.navigateBack()
   font-weight: 500;
   line-height: 36rpx;
 }
+
 .address-row {
   margin-top: 8rpx;
 }
@@ -414,18 +544,21 @@ const goBack = () => uni.navigateBack()
   margin-top: 24rpx;
   padding: 28rpx 24rpx;
 }
+
 .description-title {
   color: $jfx-font-title;
   font-size: 28rpx;
   font-weight: 600;
   line-height: 40rpx;
 }
+
 .description-text {
   margin-top: 8rpx;
   color: $jfx-font-dec2;
   font-size: 23rpx;
   line-height: 36rpx;
 }
+
 .delete-button {
   height: 66rpx;
   margin: 42rpx 0 0;
@@ -446,6 +579,7 @@ const goBack = () => uni.navigateBack()
   background: #fff;
   border-top: 2rpx solid $jfx-border2;
 }
+
 .save-button {
   height: 72rpx;
   margin: 0;
@@ -456,6 +590,7 @@ const goBack = () => uni.navigateBack()
   background: $jfx-brandColor;
   border-radius: 16rpx;
 }
+
 button::after {
   border: 0;
 }

@@ -42,7 +42,7 @@
   },
   // 配置 ts 文件的默认格式化工具为 eslint
   "[typescript]": {
-    "editor.defaultFormatter": "dbaeumer.vscode-eslint"
+    "editor.defaultFormatter": "vscode.typescript-language-features"
   },
   // 配置 js/cjs 文件的默认格式化工具为 eslint
   "[javascript]": {

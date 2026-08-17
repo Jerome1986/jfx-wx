@@ -1,10 +1,14 @@
 <script setup lang="ts">
+import { onLoad } from '@dcloudio/uni-app'
+import { ref } from 'vue'
+import { getBannerListApi } from '@/api/banner'
+import { getRenewalPlanListApi } from '@/api/renewal-plan'
 import CustomNavHome from '@/components/CustomNavHome.vue'
 import RenovationCalculator from '@/components/RenovationCalculator.vue'
 import SectionHeader from '@/components/SectionHeader.vue'
 import { useShare } from '@/utils/share'
 import type { SelectedCase } from '@/types/home'
-import { ref } from 'vue'
+import type { RenewalPlan } from '@/types/space-renewal'
 
 useShare({
   title: '家翻新｜让家更美好',
@@ -12,48 +16,85 @@ useShare({
   imageUrl: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/banner/banner1.png',
 })
 
+// 轮播图列表
 const swiperList = ref([
   'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/banner/banner1.png',
 ])
 
+// 加载列表
+const loadBannerList = async () => {
+  try {
+    const { data } = await getBannerListApi()
+    // 轮播图地址列表
+    const images = data.map((item) => item.image).filter(Boolean)
+    if (images.length) swiperList.value = images
+  } catch (error) {
+    console.error('获取首页轮播图失败：', error)
+  }
+}
+
+onLoad(() => {
+  loadBannerList()
+  loadRenewalPlans()
+})
+
+// 是否显示悬浮咨询入口
 const showConsultFloat = ref(false)
+// 咨询入口显示状态滚动位置
 const consultShowScrollTop = 300
 
+// 处理首页滚动
 const handleHomeScroll = (event: { detail: { scrollTop: number } }) => {
   showConsultFloat.value = event.detail.scrollTop >= consultShowScrollTop
 }
 
-const spaceRenewalList = [
-  {
-    title: '厨房改造',
-    description: '动线优化/收纳升级',
-    cover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/kongjianhuanxin/厨房.png',
-  },
-  {
-    title: '卫生间改造',
-    description: '干湿分离/焕新升级',
-    cover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/kongjianhuanxin/卫生间.png',
-  },
-  {
-    title: '阳台改造',
-    description: '洗晒收纳/休闲空间',
-    cover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/kongjianhuanxin/阳台.png',
-  },
-  {
-    title: '墙面刷新',
-    description: '环保耐用/颜色焕新',
-    cover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/kongjianhuanxin/墙面.png',
-  },
-]
+// 空间焕新方案列表
+const spaceRenewalList = ref<RenewalPlan[]>([])
 
+// 加载焕新方案
+const loadRenewalPlans = async () => {
+  try {
+    const { data } = await getRenewalPlanListApi()
+    console.log('焕新', data)
+
+    // 已发布
+    const publishedPlans = data.filter((item) => item.status === 'PUBLISHED')
+    // 推荐
+    const recommendedPlans = publishedPlans
+      .filter((item) => item.isRecommended)
+      .sort((a, b) => a.recommendSort - b.recommendSort)
+    spaceRenewalList.value = (recommendedPlans.length ? recommendedPlans : publishedPlans).slice(
+      0,
+      4,
+    )
+  } catch (error) {
+    console.error('获取首页焕新方案失败：', error)
+  }
+}
+
+// 跳转到空间焕新方案
 const goToSpaceRenewal = () => {
   uni.navigateTo({ url: '/pages/spaceRenewal/spaceRenewal' })
 }
 
+// 跳转到焕新方案详情
+const goToRenewalDetail = (item: RenewalPlan) => {
+  // 页面跳转查询参数
+  const query = [
+    `id=${item.id}`,
+    `title=${encodeURIComponent(item.name)}`,
+    `description=${encodeURIComponent(item.summary || '')}`,
+    `cover=${encodeURIComponent(item.cover || '')}`,
+  ].join('&')
+  uni.navigateTo({ url: `/pages/spaceRenewalDetail/spaceRenewalDetail?${query}` })
+}
+
+// 跳转到案例列表
 const goToCaseList = () => {
   uni.navigateTo({ url: '/pages/caseList/caseList' })
 }
 
+// 已选案例列表
 const selectedCaseList: SelectedCase[] = [
   {
     id: 2,
@@ -87,6 +128,7 @@ const selectedCaseList: SelectedCase[] = [
   },
 ]
 
+// 跳转到案例详情
 const goToCaseDetail = (item: SelectedCase) => {
   uni.navigateTo({ url: `/pages/caseDetail/caseDetail?id=${item.id}` })
 }
@@ -117,13 +159,15 @@ const goToCaseDetail = (item: SelectedCase) => {
       <view class="list">
         <view
           v-for="item in spaceRenewalList"
-          :key="item.title"
+          :key="item.id"
           class="card"
-          @click="goToSpaceRenewal"
+          @click="goToRenewalDetail(item)"
         >
           <view class="card-header">
-            <text class="card-title">{{ item.title }}</text>
-            <text class="card-description">{{ item.description }}</text>
+            <text class="card-title">{{ item.name }}</text>
+            <text class="card-description">{{
+              item.tags.slice(0, 2).join('/') || item.summary
+            }}</text>
           </view>
           <view class="card-body">
             <wd-img width="100%" height="100%" mode="aspectFill" :src="item.cover" />
@@ -331,6 +375,7 @@ const goToCaseDetail = (item: SelectedCase) => {
     // 单个换新卡片
     .card {
       display: flex;
+      min-width: 0;
       flex-direction: column;
       flex: 1;
       height: 308rpx;
@@ -345,6 +390,7 @@ const goToCaseDetail = (item: SelectedCase) => {
       // 卡片文字信息区
       .card-header {
         display: flex;
+        min-width: 0;
         flex-direction: column;
         justify-content: center;
         gap: 4rpx;
@@ -356,15 +402,23 @@ const goToCaseDetail = (item: SelectedCase) => {
 
         // 换新类型标题
         .card-title {
+          width: 100%;
+          overflow: hidden;
           color: #1d1d1f;
           font-size: 24rpx;
           font-weight: bold;
+          white-space: nowrap;
+          text-overflow: ellipsis;
         }
 
         // 换新内容描述
         .card-description {
+          width: 100%;
+          overflow: hidden;
           color: #666666;
           font-size: 16rpx;
+          white-space: nowrap;
+          text-overflow: ellipsis;
         }
       }
 

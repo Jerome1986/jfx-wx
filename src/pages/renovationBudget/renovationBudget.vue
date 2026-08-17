@@ -14,10 +14,15 @@ const formData = ref<BudgetForm>({
 
 // 城市和户型选择器
 const cityVisible = ref(false)
+// 户型可见
 const layoutVisible = ref(false)
+// 城市值
 const cityValue = ref<string[]>(['武汉'])
+// 户型值
 const layoutValue = ref<string[]>([])
+// 城市选项
 const cityColumns = ['武汉', '长沙', '南昌', '合肥', '郑州']
+// 户型选项
 const layoutColumns = ['一室一厅', '两室一厅', '两室两厅', '三室一厅', '三室两厅', '四室及以上']
 
 // 用户可获得的服务内容
@@ -59,6 +64,7 @@ const calculationNotes: CalculationNote[] = [
 onLoad((options) => {
   if (typeof options?.area === 'string') formData.value.area = decodeURIComponent(options.area)
   if (typeof options?.layout === 'string') {
+    // 户型
     const layout = decodeURIComponent(options.layout)
     formData.value.layout = layout
     layoutValue.value = layout ? [layout] : []
@@ -91,9 +97,13 @@ const submitBudget = () => {
 
 // 房屋类型 TAB 的激活与未激活样式
 const houseTypeTabStyle = (value: BudgetForm['houseType']) => {
+  // 当前项是否激活
   const isActive = formData.value.houseType === value
+  // 文案颜色
   const textColor = isActive ? '#D92D20' : '#1D1D1F'
+  // 背景颜色
   const backgroundColor = isActive ? '#FFF0EF' : '#FFFFFF'
+  // 边框颜色
   const borderColor = isActive ? '#FFF0EF' : '#EEEEEE'
 
   return `border-color: ${borderColor}; background-color: ${backgroundColor}; border-radius: 32rpx; --wot-radio-label-color: ${textColor};`

@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
+// 反馈
 const feedbackTypes = ['功能建议', '服务体验', '订单问题', '其他']
+// 已选类型
 const selectedType = ref('功能建议')
+// 反馈内容
 const feedbackContent = ref('')
+// 内容
 const contentLength = computed(() => feedbackContent.value.length)
 
+// 提交反馈
 const submitFeedback = () => {
   if (!feedbackContent.value.trim()) {
     uni.showToast({ title: '请填写反馈内容', icon: 'none' })

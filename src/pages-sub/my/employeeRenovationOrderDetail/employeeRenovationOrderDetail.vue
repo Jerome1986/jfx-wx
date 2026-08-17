@@ -4,8 +4,10 @@ import { onLoad } from '@dcloudio/uni-app'
 
 type OrderStatus = 'pending' | 'servicing' | 'completed'
 
+// 状态
 const status = ref<OrderStatus>('pending')
 
+// 状态文案
 const statusText = computed(
   () =>
     ({
@@ -15,6 +17,7 @@ const statusText = computed(
     }[status.value]),
 )
 
+// 进度文案
 const progressText = computed(
   () =>
     ({
@@ -25,12 +28,15 @@ const progressText = computed(
 )
 
 onLoad((query) => {
+  // 查询参数状态
   const queryStatus = query?.status as OrderStatus | undefined
   if (queryStatus && ['pending', 'servicing', 'completed'].includes(queryStatus))
     status.value = queryStatus
 })
 
+// 拨打客户
 const callCustomer = () => uni.makePhoneCall({ phoneNumber: '13800005628' })
+// 查看装修订单详情
 const viewQuoteDetail = () => {
   uni.navigateTo({
     url: `/pages-sub/my/quoteDetail/quoteDetail?status=${status.value}&mode=readonly`,

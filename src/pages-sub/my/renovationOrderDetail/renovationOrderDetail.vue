@@ -6,6 +6,7 @@ import type {
   RenovationStatusConfig as StatusConfig,
 } from '@/types/renovation-order-detail'
 
+// 配置集合
 const configs: Record<RenovationStatus, StatusConfig> = {
   pending: {
     label: '待确认',
@@ -27,15 +28,20 @@ const configs: Record<RenovationStatus, StatusConfig> = {
   },
 }
 
+// 状态
 const status = ref<RenovationStatus>('completed')
+// 配置
 const config = computed(() => configs[status.value])
+// 是否显示关联案例
 const showRelatedCase = computed(() => status.value === 'pending')
 
 onLoad((query) => {
+  // 查询参数状态
   const queryStatus = query?.status as RenovationStatus | undefined
   if (queryStatus && configs[queryStatus]) status.value = queryStatus
 })
 
+// 联系装修顾问
 const contactConsultant = () => {
   uni.makePhoneCall({
     phoneNumber: '15822221111',
@@ -43,12 +49,16 @@ const contactConsultant = () => {
   })
 }
 
+// 打开案例
 const openCase = () => uni.navigateTo({ url: '/pages/caseDetail/caseDetail?id=1' })
+// 修改地址
 const modifyAddress = () => uni.navigateTo({ url: '/pages-sub/my/address/address' })
+// 查看订单报价
 const viewQuote = () => {
   uni.navigateTo({ url: `/pages-sub/my/quoteDetail/quoteDetail?status=${status.value}` })
 }
 
+// 取消订单
 const cancelOrder = () => {
   uni.showModal({
     title: '取消装修订单',
@@ -61,6 +71,7 @@ const cancelOrder = () => {
   })
 }
 
+// 执行操作
 const runFooterAction = () => {
   if (status.value === 'pending') {
     uni.showModal({

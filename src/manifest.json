@@ -52,6 +52,9 @@
     "setting": {
       "urlCheck": false
     },
+    "requiredPrivateInfos": [
+      "chooseLocation"
+    ],
     "usingComponents": true
   },
   "mp-alipay": {

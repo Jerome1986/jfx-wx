@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import type { QuoteProductItem as ProductItem, QuoteProductPage } from '@/types/quote-product-list'
 
+// 商品列表
 const products: ProductItem[] = [
   {
     id: 1,
@@ -54,25 +55,34 @@ const products: ProductItem[] = [
   },
 ]
 
+// 搜索关键词
 const keyword = ref('')
+// 已提交搜索关键词
 const submittedKeyword = ref('')
+// 页面间事件通道
 let eventChannel: UniApp.EventChannel | undefined
 
 onLoad(() => {
+  // 当前页面栈
   const pages = getCurrentPages()
+  // 当前页面实例
   const currentPage = pages[pages.length - 1] as unknown as QuoteProductPage
   eventChannel = currentPage?.getOpenerEventChannel?.()
 })
 
+// 筛选后商品列表
 const filteredProducts = computed(() => {
+  // 当前处理值
   const value = submittedKeyword.value.trim().toLowerCase()
   if (!value) return products
   return products.filter((item) => `${item.name}${item.description}`.toLowerCase().includes(value))
 })
 
+// 执行关键词搜索
 const search = () => {
   submittedKeyword.value = keyword.value
 }
+// 选择商品
 const selectProduct = (item: ProductItem) => {
   eventChannel?.emit('selectProduct', {
     title: item.name,

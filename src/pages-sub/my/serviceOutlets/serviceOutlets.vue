@@ -2,10 +2,14 @@
 import { computed, ref } from 'vue'
 import type { OutletCategory, ServiceOutlet } from '@/types/service-outlets'
 
+// 状态栏高度
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
+// 当前分类
 const activeCategory = ref<OutletCategory>('全部')
 
+// 分类
 const categories: OutletCategory[] = ['全部', '距离最近', '装修咨询', '售后服务']
+// 网点列表
 const outlets: ServiceOutlet[] = [
   {
     id: 1,
@@ -27,7 +31,9 @@ const outlets: ServiceOutlet[] = [
   },
 ]
 
+// 可见网点列表
 const visibleOutlets = computed(() => {
+  // 当前数据列表
   const list =
     activeCategory.value === '全部' || activeCategory.value === '距离最近'
       ? outlets
@@ -37,8 +43,10 @@ const visibleOutlets = computed(() => {
     : list
 })
 
+// 返回上一页
 const goBack = () => uni.navigateBack()
 
+// 切换当前服务地区
 const switchRegion = () => {
   uni.showActionSheet({
     itemList: ['武汉', '长沙', '南昌'],
@@ -50,7 +58,9 @@ const switchRegion = () => {
   })
 }
 
+// 拨打服务网点
 const callOutlet = () => uni.makePhoneCall({ phoneNumber: '400-888-6688' })
+// 导航到服务网点
 const navigateOutlet = (outlet: ServiceOutlet) => {
   uni.openLocation({
     latitude: 30.515,
@@ -59,8 +69,10 @@ const navigateOutlet = (outlet: ServiceOutlet) => {
     address: outlet.address,
   })
 }
+// 预约当前服务网点
 const reserveOutlet = (outlet: ServiceOutlet) =>
   uni.showToast({ title: `已选择${outlet.name}`, icon: 'success' })
+// 联系在线客服
 const contactService = () => uni.showToast({ title: '正在连接在线客服', icon: 'none' })
 </script>
 

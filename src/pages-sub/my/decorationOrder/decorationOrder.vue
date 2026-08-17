@@ -6,8 +6,10 @@ import type {
   ServiceStatus,
 } from '@/types/decoration-order'
 
+// 当前筛选条件
 const activeFilter = ref<FilterType>('all')
 
+// 装修订单筛选项
 const filters: Array<{ label: string; value: FilterType }> = [
   { label: '全部', value: 'all' },
   { label: '量房服务', value: 'measure' },
@@ -15,6 +17,7 @@ const filters: Array<{ label: string; value: FilterType }> = [
   { label: '已完成', value: 'completed' },
 ]
 
+// 订单列表
 const orders = ref<ServiceOrder[]>([
   {
     id: 1,
@@ -60,6 +63,7 @@ const orders = ref<ServiceOrder[]>([
   },
 ])
 
+// 可见订单列表
 const visibleOrders = computed(() => {
   if (activeFilter.value === 'all') return orders.value
   if (activeFilter.value === 'completed')
@@ -67,25 +71,33 @@ const visibleOrders = computed(() => {
   return orders.value.filter((item) => item.type === activeFilter.value)
 })
 
+// 服务数量
 const serviceCount = computed(() => orders.value.length)
+// 数量
 const contactCount = computed(() => orders.value.filter((item) => item.status === 'contact').length)
+// 数量
 const servingCount = computed(() => orders.value.filter((item) => item.status === 'service').length)
+// 已完成数量
 const completedCount = computed(
   () => orders.value.filter((item) => item.status === 'completed').length,
 )
 
+// 状态文案
 const statusText: Record<ServiceStatus, string> = {
   contact: '待确认',
   service: '待服务',
   completed: '已完成',
 }
 
+// 执行操作
 const runAction = (label: string) => uni.showToast({ title: `${label}功能建设中`, icon: 'none' })
+// 查看订单详情
 const viewOrderDetail = (item: ServiceOrder) => {
   uni.navigateTo({
     url: `/pages-sub/my/decorationOrderDetail/decorationOrderDetail?id=${item.id}&type=${item.type}`,
   })
 }
+// 执行操作
 const runSecondaryAction = (item: ServiceOrder) => {
   if (item.secondaryAction === '取消') {
     uni.showModal({

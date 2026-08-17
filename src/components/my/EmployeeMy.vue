@@ -4,6 +4,7 @@ import { useMemberStore } from '@/stores'
 
 const memberStore = useMemberStore()
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
+const isLoggedIn = computed(() => Boolean(memberStore.profile))
 const fallbackAvatar =
   'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/avatar/kefutouxiang.png'
 const consultantIcon =
@@ -11,12 +12,12 @@ const consultantIcon =
 const caseImage = 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/房屋改造后.png'
 
 const employeeName = computed(
-  () => memberStore.profile?.nickname || memberStore.profile?.name || '张先生',
+  () => memberStore.profile?.nickname || memberStore.profile?.name || '点击登录',
 )
 const employeeAvatar = computed(() => memberStore.profile?.avatar || fallbackAvatar)
 const employeeMobile = computed(() => {
   const mobile = memberStore.profile?.mobile
-  if (!mobile) return '138****5628'
+  if (!mobile) return '登录后查看工作数据'
   if (mobile.length < 7) return mobile
   return `${mobile.slice(0, 3)}****${mobile.slice(-4)}`
 })
@@ -56,15 +57,29 @@ const showComingSoon = (label: string) => {
   uni.showToast({ title: `${label}功能建设中`, icon: 'none' })
 }
 
+const requireLogin = () => {
+  if (isLoggedIn.value) return true
+  uni.navigateTo({ url: '/pages/login/login' })
+  return false
+}
+
 const openPerformanceCenter = () => {
+  if (!requireLogin()) return
   uni.navigateTo({ url: '/pages-sub/my/performanceCenter/performanceCenter' })
 }
 
 const openCaseList = () => {
+  if (!requireLogin()) return
   uni.navigateTo({ url: '/pages/caseList/caseList?source=employee' })
 }
 
+const openProfile = () => {
+  if (!requireLogin()) return
+  uni.navigateTo({ url: '/pages-sub/my/settings/settings' })
+}
+
 const handleWorkbenchClick = (label: string) => {
+  if (!requireLogin()) return
   if (label === '我的客户') {
     uni.navigateTo({
       url: '/pages-sub/my/appointmentService/appointmentService?status=all',
@@ -94,6 +109,7 @@ const handleWorkbenchClick = (label: string) => {
 }
 
 const handleTodoClick = (label: string) => {
+  if (!requireLogin()) return
   const renovationStatus = {
     待确认: 'pending',
     服务中: 'servicing',
@@ -127,15 +143,18 @@ const handleTodoClick = (label: string) => {
       <view class="profile-hero">
         <view class="safe-area" :style="{ height: `${statusBarHeight}px` }" />
         <view class="page-title"><text>我</text><text class="brand-text">的</text></view>
-        <view class="profile-row">
+        <view class="profile-row" @click="openProfile">
           <image class="avatar" :src="employeeAvatar" mode="aspectFill" />
           <view class="profile-copy">
             <view class="profile-name">{{ employeeName }}</view>
             <view class="profile-mobile">{{ employeeMobile }}</view>
-            <view class="consultant-badge">
+            <view v-if="isLoggedIn" class="consultant-badge">
               <image class="consultant-icon" :src="consultantIcon" mode="aspectFit" />
               <text>高级顾问</text>
             </view>
+            <view v-else class="login-tip"
+              >立即登录 <text class="iconfont icon-youjiantou login-arrow"
+            /></view>
           </view>
         </view>
       </view>
@@ -144,7 +163,7 @@ const handleTodoClick = (label: string) => {
         <view class="content-card todo-card">
           <view class="card-heading">
             <text class="card-title">今日待办</text>
-            <view class="all-link" @click="showComingSoon('全部待办')">
+            <view class="all-link" @click="requireLogin() && showComingSoon('全部待办')">
               <text>共有18项待办</text><text class="iconfont icon-youjiantou arrow" />
             </view>
           </view>
@@ -161,7 +180,7 @@ const handleTodoClick = (label: string) => {
           </view>
         </view>
 
-        <view class="content-card notice-card" @click="showComingSoon('公告')">
+        <view class="content-card notice-card" @click="requireLogin() && showComingSoon('公告')">
           <text class="notice-label">公告</text>
           <text class="notice-copy">本周六有《谈单技巧提升》线下培训，欢迎参加~</text>
         </view>
@@ -277,6 +296,20 @@ const handleTodoClick = (label: string) => {
   margin-top: 2rpx;
   font-size: 25rpx;
   line-height: 34rpx;
+}
+
+.login-tip {
+  display: flex;
+  margin-top: 10rpx;
+  align-items: center;
+  color: #ed342e;
+  font-size: 24rpx;
+  line-height: 34rpx;
+}
+
+.login-arrow {
+  margin-left: 4rpx;
+  font-size: 22rpx;
 }
 
 .consultant-badge {

@@ -7,6 +7,7 @@ import type {
   RenovationStatus,
 } from '@/types/renovation-order'
 
+// 装修订单筛选项
 const filters: Array<{ label: string; value: FilterStatus }> = [
   { label: '全部', value: 'all' },
   { label: '待确认', value: 'pending' },
@@ -14,13 +15,16 @@ const filters: Array<{ label: string; value: FilterStatus }> = [
   { label: '已完成', value: 'completed' },
 ]
 
+// 状态文案
 const statusText: Record<RenovationStatus, string> = {
   pending: '待确认',
   servicing: '服务中',
   completed: '已完成',
 }
 
+// 当前筛选条件
 const activeFilter = ref<FilterStatus>('all')
+// 订单列表
 const orders = ref<RenovationOrder[]>([
   {
     id: 1,
@@ -54,6 +58,7 @@ const orders = ref<RenovationOrder[]>([
   },
 ])
 
+// 可见订单列表
 const visibleOrders = computed(() =>
   activeFilter.value === 'all'
     ? orders.value
@@ -61,10 +66,12 @@ const visibleOrders = computed(() =>
 )
 
 onLoad((query) => {
+  // 查询参数状态
   const queryStatus = query?.status as FilterStatus | undefined
   if (filters.some((item) => item.value === queryStatus)) activeFilter.value = queryStatus!
 })
 
+// 取消订单
 const cancelOrder = (order: RenovationOrder) => {
   uni.showModal({
     title: '取消装修订单',
@@ -77,6 +84,7 @@ const cancelOrder = (order: RenovationOrder) => {
   })
 }
 
+// 执行操作
 const runSecondaryAction = (order: RenovationOrder) => {
   if (order.secondaryAction === '取消') {
     cancelOrder(order)
@@ -89,12 +97,14 @@ const runSecondaryAction = (order: RenovationOrder) => {
   uni.showToast({ title: '售后申请功能建设中', icon: 'none' })
 }
 
+// 打开订单详情
 const openOrderDetail = (order: RenovationOrder) => {
   uni.navigateTo({
     url: `/pages-sub/my/renovationOrderDetail/renovationOrderDetail?id=${order.id}&status=${order.status}`,
   })
 }
 
+// 执行主要操作
 const runPrimaryAction = (order: RenovationOrder) => {
   openOrderDetail(order)
 }

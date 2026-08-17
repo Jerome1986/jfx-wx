@@ -4,11 +4,16 @@ import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
 import { useMemberStore } from '@/stores'
 import type { FavoriteCase } from '@/types/favorites'
 
+// 会员状态仓库
 const memberStore = useMemberStore()
+// 是否为员工视图
 const isEmployeeMode = ref(false)
+// 已选分享案例
 const selectedShareCase = ref<FavoriteCase>()
+// 员工编号
 const employeeId = computed(() => memberStore.profile?.employeeId)
 
+// 收藏
 const favoriteCases = ref<FavoriteCase[]>(
   Array.from({ length: 12 }, (_, index) => ({
     id: index + 1,
@@ -26,6 +31,7 @@ const favoriteCases = ref<FavoriteCase[]>(
   })),
 )
 
+// 收藏数量
 const favoriteCount = computed(() => favoriteCases.value.length)
 
 onLoad((options) => {
@@ -35,18 +41,23 @@ onLoad((options) => {
   }
 })
 
+// 查看案例详情
 const viewCaseDetail = (item: FavoriteCase) => {
+  // 数据来源
   const source = isEmployeeMode.value ? '&source=employee' : ''
   uni.navigateTo({ url: `/pages/caseDetail/caseDetail?id=${item.id === 2 ? 2 : 1}${source}` })
 }
+// 获取收藏案例的装修报价
 const requestQuote = (item: FavoriteCase) => {
   uni.showToast({ title: `${item.title}报价咨询`, icon: 'none' })
 }
+// 移除收藏
 const removeFavorite = (item: FavoriteCase) => {
   favoriteCases.value = favoriteCases.value.filter((caseItem) => caseItem.id !== item.id)
   uni.showToast({ title: '已取消收藏', icon: 'none' })
 }
 
+// 准备案例分享
 const prepareCaseShare = (item: FavoriteCase) => {
   if (!employeeId.value) {
     uni.showToast({ title: '员工信息不完整，暂无法分享', icon: 'none' })
@@ -56,7 +67,9 @@ const prepareCaseShare = (item: FavoriteCase) => {
 }
 
 onShareAppMessage(() => {
+  // 当前处理项
   const item = selectedShareCase.value
+  // 所属人编号
   const ownerId = employeeId.value
   if (!item || !ownerId) {
     return {

@@ -74,6 +74,13 @@
       }
     },
     {
+      "path": "pages/renewalReplacement/renewalReplacement",
+      "style": {
+        "navigationBarTitleText": "选择替换项",
+        "navigationBarBackgroundColor": "#F8F7F5"
+      }
+    },
+    {
       "path": "pages/renovationBudget/renovationBudget",
       "style": {
         "navigationBarTitleText": "装修预算",
@@ -99,6 +106,14 @@
     {
       "root": "pages-sub/my",
       "pages": [
+        {
+          "path": "settings/settings",
+          "style": {
+            "navigationBarTitleText": "个人信息",
+            "navigationBarBackgroundColor": "#F8F7F5",
+            "backgroundColor": "#F8F7F5"
+          }
+        },
         {
           "path": "points/points",
           "style": {

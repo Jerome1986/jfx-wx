@@ -1,68 +1,51 @@
 <script setup lang="ts">
+import { onLoad } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
+import { getRenewalPlanListApi } from '@/api/renewal-plan'
 import type { RenewalPlan } from '@/types/space-renewal'
 
 // 搜索框关键词
 const keyword = ref('')
 
 // 焕新方案列表
-const renewalPlans: RenewalPlan[] = [
-  {
-    title: '厨房动线优化',
-    description: '台面收纳一起升级，适合老旧厨房、台面拥挤',
-    tags: ['动线优化', '收纳升级', '台面焕新'],
-    price: '1.8万起',
-    cover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/kongjianhuanxin/厨房.png',
-  },
-  {
-    title: '卫生间干湿分离',
-    description: '分区更清爽，防滑和收纳同步优化',
-    tags: ['干湿分离', '防滑升级', '洁具焕新'],
-    price: '2.6万起',
-    cover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/kongjianhuanxin/卫生间.png',
-  },
-  {
-    title: '阳台洗晒收纳区',
-    description: '洗衣机柜、晾晒、休闲角一体规划，适合阳台杂乱，功能单一',
-    tags: ['洗晒收纳', '休闲空间', '空间扩容'],
-    price: '1.2万起',
-    cover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/kongjianhuanxin/阳台.png',
-  },
-  {
-    title: '全屋墙面环保刷新',
-    description: '耐擦洗材料，重新搭配加的颜色，适合墙面发黄、局部开裂',
-    tags: ['环保耐用', '颜色焕新', '颜值提升'],
-    price: '1.8万起',
-    cover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/kongjianhuanxin/墙面.png',
-  },
-  {
-    title: '卧室收纳升级',
-    description: '利用墙面与床侧空间，改善衣物和日常用品收纳',
-    tags: ['衣柜定制', '空间利用', '舒适焕新'],
-    price: '1.5万起',
-    cover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/kongjianhuanxin/墙面.png',
-  },
-  {
-    title: '客厅功能焕新',
-    description: '优化会客与储物布局，让公共空间更宽敞实用',
-    tags: ['布局优化', '收纳提升', '功能升级'],
-    price: '2.8万起',
-    cover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/kongjianhuanxin/阳台.png',
-  },
-]
+const renewalPlans = ref<RenewalPlan[]>([])
+// 加载状态
+const loading = ref(false)
+
+// 加载焕新方案
+const loadRenewalPlans = async () => {
+  loading.value = true
+  try {
+    const { data } = await getRenewalPlanListApi()
+    renewalPlans.value = data.filter((item) => item.status === 'PUBLISHED')
+  } catch (error) {
+    console.error('获取焕新方案失败：', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+onLoad(loadRenewalPlans)
 
 // 根据关键词筛选标题、描述和标签
 const visiblePlans = computed(() => {
+  // 当前处理值
   const value = keyword.value.trim().toLowerCase()
-  if (!value) return renewalPlans
-  return renewalPlans.filter((item) =>
-    [item.title, item.description, ...item.tags].some((text) => text.toLowerCase().includes(value)),
+  if (!value) return renewalPlans.value
+  return renewalPlans.value.filter((item) =>
+    [item.name, item.summary, ...item.tags].some((text) => text.toLowerCase().includes(value)),
   )
 })
 
 // 查看方案详情
 const viewPlan = (item: RenewalPlan) => {
-  const query = `title=${encodeURIComponent(item.title)}&cover=${encodeURIComponent(item.cover)}`
+  // 页面跳转查询参数
+  const query = [
+    `id=${item.id}`,
+    `title=${encodeURIComponent(item.name)}`,
+    `description=${encodeURIComponent(item.summary || '')}`,
+    `cover=${encodeURIComponent(item.cover || '')}`,
+  ].join('&')
   uni.navigateTo({ url: `/pages/spaceRenewalDetail/spaceRenewalDetail?${query}` })
 }
 </script>
@@ -75,7 +58,7 @@ const viewPlan = (item: RenewalPlan) => {
       <input
         v-model="keyword"
         class="search-input"
-        placeholder="搜索水龙头、花洒、浴室柜"
+        placeholder="搜索焕新方案、简介或标签"
         placeholder-class="search-placeholder"
       />
     </view>
@@ -88,18 +71,13 @@ const viewPlan = (item: RenewalPlan) => {
     <scroll-view class="plan-scroll" scroll-y :show-scrollbar="false">
       <view class="plan-list">
         <!-- 单个焕新方案卡片 -->
-        <view
-          v-for="item in visiblePlans"
-          :key="item.title"
-          class="plan-card"
-          @click="viewPlan(item)"
-        >
+        <view v-for="item in visiblePlans" :key="item.id" class="plan-card" @click="viewPlan(item)">
           <!-- 方案封面 -->
           <image class="plan-cover" :src="item.cover" mode="aspectFill" />
           <!-- 方案主要信息 -->
           <view class="plan-content">
-            <view class="plan-title">{{ item.title }}</view>
-            <view class="plan-description">{{ item.description }}</view>
+            <view class="plan-title">{{ item.name }}</view>
+            <view class="plan-description">{{ item.summary }}</view>
             <view class="plan-tags">
               <text v-for="tag in item.tags" :key="tag" class="plan-tag">{{ tag }}</text>
             </view>
@@ -109,13 +87,14 @@ const viewPlan = (item: RenewalPlan) => {
             <text class="detail-link">施工前确认预算明细</text>
             <view class="price-wrap">
               <text class="price-label">参考报价</text>
-              <text class="plan-price">¥{{ item.price }}</text>
+              <text class="plan-price">¥{{ item.startingPrice }}起</text>
             </view>
             <button class="view-button" @click.stop="viewPlan(item)">查看方案</button>
           </view>
         </view>
         <!-- 搜索无结果状态 -->
-        <view v-if="visiblePlans.length === 0" class="empty-state">没有找到相关焕新方案</view>
+        <view v-if="loading" class="empty-state">正在加载焕新方案...</view>
+        <view v-else-if="visiblePlans.length === 0" class="empty-state">没有找到相关焕新方案</view>
       </view>
     </scroll-view>
   </view>

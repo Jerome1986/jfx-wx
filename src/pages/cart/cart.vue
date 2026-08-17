@@ -2,18 +2,23 @@
 import { computed, onMounted, ref } from 'vue'
 import type { CartItem } from '@/types/cart'
 
+// 状态栏高度
 const statusBarHeight = ref(0)
+// 导航栏高度
 const navigationHeight = ref(44)
 
 onMounted(() => {
+  // 系统信息
   const systemInfo = uni.getSystemInfoSync()
   statusBarHeight.value = systemInfo.statusBarHeight || 0
+  // 菜单按钮
   const menuButton = uni.getMenuButtonBoundingClientRect()
   if (menuButton?.height && menuButton?.top) {
     navigationHeight.value = (menuButton.top - statusBarHeight.value) * 2 + menuButton.height
   }
 })
 
+// 购物车项目列表
 const cartItems = ref<CartItem[]>([
   {
     id: 1,
@@ -47,15 +52,19 @@ const cartItems = ref<CartItem[]>([
   },
 ])
 
+// 合计数量
 const totalCount = computed(() => cartItems.value.reduce((total, item) => total + item.quantity, 0))
+// 已选数量
 const selectedCount = computed(() =>
   cartItems.value.filter((item) => item.selected).reduce((total, item) => total + item.quantity, 0),
 )
+// 已选合计
 const selectedTotal = computed(() =>
   cartItems.value
     .filter((item) => item.selected)
     .reduce((total, item) => total + item.price * item.quantity, 0),
 )
+// 购物车商品是否已全选
 const allSelected = computed({
   get: () => cartItems.value.length > 0 && cartItems.value.every((item) => item.selected),
   set: (value: boolean) =>
@@ -64,14 +73,17 @@ const allSelected = computed({
     }),
 })
 
+// 减少商品数量
 const decrease = (item: CartItem) => {
   if (item.quantity > 1) item.quantity -= 1
 }
 
+// 增加商品数量
 const increase = (item: CartItem) => {
   item.quantity += 1
 }
 
+// 提交购物车结算
 const checkout = () => {
   if (!selectedCount.value) {
     uni.showToast({ title: '请先选择商品', icon: 'none' })

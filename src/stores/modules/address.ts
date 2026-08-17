@@ -41,19 +41,25 @@ export const useAddressStore = defineStore(
       () => addresses.value.find((item) => item.id === selectedId.value) || addresses.value[0],
     )
 
+    const setAddresses = (items: ServiceAddress[]) => {
+      addresses.value = items
+      if (!items.some((item) => item.id === selectedId.value)) {
+        selectedId.value = items[0]?.id || 0
+      }
+    }
+
     // 新增地址并设为当前地址
-    const addAddress = (payload: Omit<ServiceAddress, 'id'>) => {
-      const id = addresses.value.reduce((max, item) => Math.max(max, item.id), 0) + 1
-      addresses.value.push({ id, ...payload })
-      selectedId.value = id
-      return id
+    const addAddress = (payload: ServiceAddress) => {
+      addresses.value.push(payload)
+      selectedId.value = payload.id
+      return payload.id
     }
 
     // 更新指定地址
-    const updateAddress = (id: number, payload: Omit<ServiceAddress, 'id'>) => {
+    const updateAddress = (id: number, payload: ServiceAddress) => {
       const index = addresses.value.findIndex((item) => item.id === id)
       if (index < 0) return false
-      addresses.value[index] = { id, ...payload }
+      addresses.value[index] = { ...payload, id }
       return true
     }
 
@@ -75,6 +81,7 @@ export const useAddressStore = defineStore(
       addresses,
       selectedId,
       selectedAddress,
+      setAddresses,
       addAddress,
       updateAddress,
       removeAddress,

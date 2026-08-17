@@ -2,9 +2,12 @@
 import { computed, ref } from 'vue'
 import type { SearchProductItem as ProductItem } from '@/types/search'
 
+// 搜索关键词
 const keyword = ref('')
+// 已提交搜索关键词
 const submittedKeyword = ref('')
 
+// 商品列表
 const products: ProductItem[] = Array.from({ length: 4 }, (_, index) => ({
   id: index + 1,
   name: '九牧单把单孔高管面盆龙头-X32025-548/1B-Z',
@@ -14,20 +17,25 @@ const products: ProductItem[] = Array.from({ length: 4 }, (_, index) => ({
     'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/product/product-basin-faucet.png',
 }))
 
+// 筛选后商品列表
 const filteredProducts = computed(() => {
+  // 当前处理值
   const value = submittedKeyword.value.trim().toLowerCase()
   if (!value) return products
   return products.filter((item) => `${item.name}${item.description}`.toLowerCase().includes(value))
 })
 
+// 执行关键词搜索
 const search = () => {
   submittedKeyword.value = keyword.value
 }
 
+// 将商品加入购物车
 const addToCart = () => {
   uni.showToast({ title: '已加入购物车', icon: 'success' })
 }
 
+// 打开商品详情
 const openDetail = (item: ProductItem) => {
   uni.navigateTo({ url: `/pages/productDetail/productDetail?id=${item.id}` })
 }

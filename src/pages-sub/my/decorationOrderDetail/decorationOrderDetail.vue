@@ -2,12 +2,14 @@
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 
+// 详情类型
 const detailType = ref<'measure' | 'quote'>('measure')
 
 onLoad((options) => {
   detailType.value = options?.type === 'quote' ? 'quote' : 'measure'
 })
 
+// 取消预约
 const cancelAppointment = () => {
   uni.showModal({
     title: '取消预约',
@@ -17,8 +19,11 @@ const cancelAppointment = () => {
   })
 }
 
+// 重新选择预约时间
 const reschedule = () => uni.showToast({ title: '改期功能建设中', icon: 'none' })
+// 联系装修顾问
 const contactConsultant = () => uni.showToast({ title: '正在联系顾问', icon: 'none' })
+// 获取订单补充信息
 const supplementInfo = () => uni.showToast({ title: '补充信息功能建设中', icon: 'none' })
 </script>
 

@@ -4,22 +4,33 @@ import { storeToRefs } from 'pinia'
 import { useAddressStore } from '@/stores/modules/address'
 import type { OrderItem } from '@/types/confirm-order'
 
+// 地址状态仓库
 const addressStore = useAddressStore()
 const { selectedAddress } = storeToRefs(addressStore)
+// 已选手机号
 const selectedPhone = computed(() => {
+  // 手机号
   const phone = selectedAddress.value?.phone || ''
   return /^1\d{10}$/.test(phone) ? `${phone.slice(0, 3)}****${phone.slice(-4)}` : phone
 })
 
 // 订单优惠、积分与备注状态
 const usePoints = ref(true)
+// 优惠券可见
 const couponVisible = ref(false)
+// 备注可见
 const remarkVisible = ref(false)
+// 已选优惠券编号
 const selectedCouponId = ref(1)
+// 待确认优惠券编号
 const pendingCouponId = ref(1)
+// 订单备注
 const orderRemark = ref('')
+// 备注草稿
 const remarkDraft = ref('')
+// 预约日期
 const appointmentDate = ref('')
+// 预约时间
 const appointmentTime = ref('')
 
 // 可用优惠券数据
@@ -40,13 +51,19 @@ const coupons = [
   },
 ]
 
+// 已选优惠券
 const selectedCoupon = computed(
   () => coupons.find((item) => item.id === selectedCouponId.value) || coupons[0],
 )
+// 优惠券
 const couponDiscount = computed(() => selectedCoupon.value.amount)
+// 积分
 const pointsDiscount = computed(() => (usePoints.value ? 8 : 0))
+// 应付金额
 const payableAmount = computed(() => 1894 - couponDiscount.value - pointsDiscount.value)
+// 金额
 const submitAmount = computed(() => 1894 - couponDiscount.value)
+// 备注标签
 const remarkLabel = computed(() => orderRemark.value || '选填，给商家留言')
 
 // 待确认商品数据
@@ -106,6 +123,7 @@ const openCoupons = () => {
   pendingCouponId.value = selectedCouponId.value
   couponVisible.value = true
 }
+// 确认优惠券
 const confirmCoupon = () => {
   selectedCouponId.value = pendingCouponId.value
   couponVisible.value = false
@@ -115,6 +133,7 @@ const openRemark = () => {
   remarkDraft.value = orderRemark.value
   remarkVisible.value = true
 }
+// 确认备注
 const confirmRemark = () => {
   orderRemark.value = remarkDraft.value.trim()
   remarkVisible.value = false
@@ -123,6 +142,7 @@ const confirmRemark = () => {
 const togglePoints = (event: any) => {
   usePoints.value = event.detail.value
 }
+// 提交订单
 const submitOrder = () => uni.showToast({ title: '订单提交成功', icon: 'success' })
 </script>
 

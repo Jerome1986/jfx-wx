@@ -17,6 +17,7 @@ interface EmployeeOrder {
   amount: number
 }
 
+// 员工装修订单筛选项
 const filters: Array<{ label: string; value: FilterStatus }> = [
   { label: '全部', value: 'all' },
   { label: '待确认', value: 'pending' },
@@ -24,13 +25,16 @@ const filters: Array<{ label: string; value: FilterStatus }> = [
   { label: '已完成', value: 'completed' },
 ]
 
+// 状态文案
 const statusText: Record<OrderStatus, string> = {
   pending: '待确认',
   servicing: '服务中',
   completed: '已完成',
 }
 
+// 当前筛选条件
 const activeFilter = ref<FilterStatus>('all')
+// 订单列表
 const orders: EmployeeOrder[] = [
   {
     id: 1,
@@ -100,6 +104,7 @@ const orders: EmployeeOrder[] = [
   },
 ]
 
+// 可见订单列表
 const visibleOrders = computed(() =>
   activeFilter.value === 'all'
     ? orders
@@ -107,11 +112,14 @@ const visibleOrders = computed(() =>
 )
 
 onLoad((query) => {
+  // 状态
   const status = query?.status as FilterStatus | undefined
   if (filters.some((item) => item.value === status)) activeFilter.value = status!
 })
 
+// 联系客户
 const contactCustomer = () => uni.showToast({ title: '正在为您联系客户', icon: 'none' })
+// 获取主要操作按钮文案
 const primaryActionText = (status: OrderStatus) =>
   ({
     pending: '查看报价',
@@ -119,10 +127,12 @@ const primaryActionText = (status: OrderStatus) =>
     completed: '查看详情',
   }[status])
 
+// 执行主要操作
 const runPrimaryAction = (order: EmployeeOrder) => {
   openOrderDetail(order)
 }
 
+// 打开订单详情
 const openOrderDetail = (order: EmployeeOrder) =>
   uni.navigateTo({
     url: `/pages-sub/my/employeeRenovationOrderDetail/employeeRenovationOrderDetail?id=${order.id}&status=${order.status}`,

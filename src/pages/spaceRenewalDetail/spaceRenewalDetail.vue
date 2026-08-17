@@ -1,100 +1,253 @@
 <script setup lang="ts">
 import { onLoad } from '@dcloudio/uni-app'
-import { computed, reactive, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
+import { getRenewalPlanDetailApi } from '@/api/renewal-plan'
+import { createRenewalAppointmentApi } from '@/api/renewal-replacement'
 import type { FeeTab, ServiceItem } from '@/types/space-renewal-detail'
+import type { RenewalPlan } from '@/types/space-renewal'
+import type { RenewalReplacementCandidate } from '@/types/renewal-replacement'
 
-const activeTab = ref<FeeTab>('人工+辅材')
+// 当前标签页
+const activeTab = ref<FeeTab>('全部')
+// 费用标签页
 const feeTabs: FeeTab[] = ['全部', '主材', '人工+辅材']
-const planDetail = reactive({
-  title: '厨房动线优化',
-  description: '台面收纳一起升级，适合老旧厨房、台面拥挤',
-  cover: '',
-})
+// 方案详情
+const planDetail = ref<RenewalPlan | null>(null)
+// 项目列表
+const items = ref<ServiceItem[]>([])
+// 加载状态
+const loading = ref(true)
+// 不可用状态
+const unavailable = ref(false)
+// 提交状态
+const submitting = ref(false)
+// 服务列表最小高度
+const serviceListMinHeight = ref(0)
+
+// 获取服务列表高度
+const captureServiceListHeight = async () => {
+  await nextTick()
+  uni
+    .createSelectorQuery()
+    .select('.service-list')
+    .boundingClientRect((rect) => {
+      if (rect && !Array.isArray(rect) && typeof rect.height === 'number') {
+        serviceListMinHeight.value = rect.height
+      }
+    })
+    .exec()
+}
+
+// 加载方案详情
+const loadPlanDetail = async (id: number) => {
+  loading.value = true
+  unavailable.value = false
+  try {
+    const { data } = await getRenewalPlanDetailApi(id)
+    console.log('焕新详情', data)
+    if (!data || data.status !== 'PUBLISHED') {
+      unavailable.value = true
+      return
+    }
+    planDetail.value = data
+    uni.setNavigationBarTitle({ title: data.name })
+    items.value = data.items.map((item) => ({
+      id: item.id,
+      sourceItemId: item.id,
+      candidateId: null,
+      productId: item.productId,
+      title: item.name,
+      description: item.description,
+      price: Number(item.unitPrice) || 0,
+      quantity: Number(item.quantity) || 0,
+      category: item.category,
+      unit: item.unit,
+      image: item.image || item.product?.mainImage || '',
+      selected: true,
+    }))
+    captureServiceListHeight()
+  } catch (error) {
+    console.error('获取焕新方案详情失败：', error)
+    unavailable.value = true
+  } finally {
+    loading.value = false
+  }
+}
 
 onLoad((options) => {
-  if (options?.cover) planDetail.cover = decodeURIComponent(options.cover)
+  // 当前数据编号
+  const id = Number(options?.id)
+  if (!Number.isInteger(id) || id <= 0) {
+    loading.value = false
+    unavailable.value = true
+    return
+  }
+  loadPlanDetail(id)
 })
-const items = ref<ServiceItem[]>([
-  {
-    id: 1,
-    title: '家具遮蔽保护',
-    description: '地面、门窗、家具、家电、柜体遮蔽保护',
-    price: 10,
-    quantity: 20,
-    image:
-      'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/kongjianhuanxin/Rectangle 66.png',
-    selected: true,
-  },
-  {
-    id: 2,
-    title: '阳台水电局改',
-    description: '水管、电线、底盒等基础改造',
-    price: 10,
-    quantity: 20,
-    image:
-      'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/kongjianhuanxin/Rectangle 66 (1).png',
-    selected: true,
-  },
-  {
-    id: 3,
-    title: '开荒保洁',
-    description: '地面、门窗、家具、家电、柜体深度清洁',
-    price: 10,
-    quantity: 20,
-    image:
-      'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/kongjianhuanxin/Rectangle 66 (2).png',
-    selected: true,
-  },
-  {
-    id: 4,
-    title: '防水涂刷',
-    description: '墙地面基层处理与防水涂层施工',
-    price: 10,
-    quantity: 20,
-    image:
-      'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/kongjianhuanxin/Rectangle 66 (3).png',
-    selected: true,
-  },
-  {
-    id: 5,
-    title: '瓷砖拆除',
-    description: '墙地面瓷砖拆除、余料放置与垃圾下楼',
-    price: 10,
-    quantity: 20,
-    image:
-      'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/kongjianhuanxin/Rectangle 66 (4).png',
-    selected: true,
-  },
-])
 
+// 获取分类的排序权重
+const categoryRank = (category: string) => {
+  if (category.includes('主材')) return 0
+  if (category.includes('人工') || category.includes('辅材')) return 1
+  return 2
+}
+
+// 项目列表
+const groupedItems = computed(() =>
+  items.value
+    .map((item, index) => ({ item, index }))
+    .sort(
+      (a, b) => categoryRank(a.item.category) - categoryRank(b.item.category) || a.index - b.index,
+    )
+    .map(({ item }) => item),
+)
+
+// 可见项目列表
+const visibleItems = computed(() => {
+  if (activeTab.value === '全部') return groupedItems.value
+  if (activeTab.value === '主材') {
+    return items.value.filter((item) => item.category.includes('主材'))
+  }
+  return items.value.filter(
+    (item) => item.category.includes('人工') || item.category.includes('辅材'),
+  )
+})
+
+// 已选金额
 const selectedAmount = computed(() =>
   items.value
     .filter((item) => item.selected)
     .reduce((total, item) => total + item.price * item.quantity, 0),
 )
 
-const replaceItem = (item: ServiceItem) =>
-  uni.showToast({ title: `替换${item.title}`, icon: 'none' })
-const reserve = () => uni.showToast({ title: '预约申请已提交', icon: 'success' })
+// 可见金额
+const visibleAmount = computed(() =>
+  visibleItems.value
+    .filter((item) => item.selected)
+    .reduce((total, item) => total + item.price * item.quantity, 0),
+)
+
+// 当前标签页标题
+const activeTabTitle = computed(() => (activeTab.value === '全部' ? '全部方案' : activeTab.value))
+
+// 判断是否存在重复候选项
+const hasDuplicateCandidate = (currentItem: ServiceItem, candidate: RenewalReplacementCandidate) =>
+  items.value.some((item) => {
+    if (item === currentItem) return false
+    if (candidate.productId !== null) return item.productId === candidate.productId
+    // 服务候选项编号
+    const serviceCandidateId = item.candidateId ?? item.sourceItemId
+    return item.productId === null && serviceCandidateId === candidate.id
+  })
+
+// 替换当前处理项
+const replaceItem = (item: ServiceItem) => {
+  // 类型
+  const type = item.productId === null ? 'SERVICE' : 'PRODUCT'
+  // 页面跳转查询参数
+  const query = [
+    `type=${type}`,
+    `category=${encodeURIComponent(item.category)}`,
+    `itemId=${item.sourceItemId}`,
+    `unit=${encodeURIComponent(item.unit)}`,
+    `quantity=${item.quantity}`,
+  ].join('&')
+
+  uni.navigateTo({
+    url: `/pages/renewalReplacement/renewalReplacement?${query}`,
+    success: (result) => {
+      result.eventChannel.on('selectReplacement', (candidate: RenewalReplacementCandidate) => {
+        if (hasDuplicateCandidate(item, candidate)) {
+          result.eventChannel.emit('replacementResult', {
+            accepted: false,
+            message: '该项目已在方案中，请选择其他项目',
+          })
+          return
+        }
+        Object.assign(item, {
+          candidateId: candidate.id,
+          productId: candidate.productId,
+          title: candidate.name,
+          description: candidate.description,
+          price: Number(candidate.unitPrice) || 0,
+          quantity: Number(candidate.quantity) || 0,
+          category: candidate.category,
+          unit: candidate.unit,
+          image: candidate.image,
+          selected: true,
+        })
+        result.eventChannel.emit('replacementResult', { accepted: true })
+      })
+    },
+  })
+}
+
+// 提交预约
+const reserve = async () => {
+  if (!planDetail.value || submitting.value) return
+  // 已选项目列表
+  const selectedItems = items.value.filter((item) => item.selected)
+  if (!selectedItems.length) {
+    uni.showToast({ title: '请至少选择一项方案明细', icon: 'none' })
+    return
+  }
+
+  // 预约接口提交数据
+  const appointmentPayload = {
+    planId: planDetail.value.id,
+    items: selectedItems.map((item) => ({
+      sourceItemId: item.sourceItemId,
+      candidateId: item.candidateId,
+      productId: item.productId,
+      category: item.category,
+      name: item.title,
+      description: item.description,
+      unit: item.unit,
+      unitPrice: item.price.toFixed(2),
+      quantity: String(item.quantity),
+      image: item.image,
+    })),
+  }
+  console.log('提交焕新预约数据：', appointmentPayload)
+
+  submitting.value = true
+  try {
+    await createRenewalAppointmentApi(appointmentPayload)
+    uni.showToast({ title: '预约申请已提交', icon: 'success' })
+    setTimeout(() => {
+      uni.navigateTo({ url: '/pages-sub/my/appointmentService/appointmentService' })
+    }, 500)
+  } catch (error) {
+    console.error('提交焕新预约失败：', error)
+  } finally {
+    submitting.value = false
+  }
+}
 </script>
 
 <template>
   <view class="detail-page">
     <scroll-view class="detail-scroll" scroll-y :show-scrollbar="false">
-      <view class="page-content">
+      <view v-if="loading" class="page-status">正在加载方案详情...</view>
+      <view v-else-if="unavailable || !planDetail" class="page-status"
+        >该焕新方案不存在或已下线</view
+      >
+      <view v-else class="page-content">
         <view class="scheme-card">
           <image
             v-if="planDetail.cover"
             class="scheme-cover"
             :src="planDetail.cover"
-            mode="aspectFill"
+            mode="widthFix"
           />
           <view v-else class="scheme-cover image-placeholder" />
           <view class="scheme-info">
-            <view class="scheme-title">{{ planDetail.title }}</view>
+            <view class="scheme-title">{{ planDetail.name }}</view>
             <view class="scheme-summary-row">
-              <text class="scheme-description">{{ planDetail.description }}</text>
-              <button class="reserve-small" @click="reserve">免费预约</button>
+              <text class="scheme-description">{{ planDetail.summary }}</text>
+              <button class="reserve-small" :disabled="submitting" @click="reserve">
+                免费预约
+              </button>
             </view>
           </view>
         </view>
@@ -105,21 +258,21 @@ const reserve = () => uni.showToast({ title: '预约申请已提交', icon: 'suc
             <text class="current-detail">当前显示明细</text>
           </view>
           <view class="fee-tabs">
-            <button
+            <view
               v-for="tab in feeTabs"
               :key="tab"
               class="fee-tab"
               :class="{ active: activeTab === tab }"
-              @click="activeTab = tab"
+              @click.stop="activeTab = tab"
             >
               {{ tab }}
-            </button>
+            </view>
           </view>
           <view class="fee-summary">
-            <view class="fee-summary-title">人工+辅材清单为准</view>
+            <view class="fee-summary-title">{{ activeTabTitle }}清单</view>
             <view class="fee-summary-price"
-              ><text class="money">¥10275</text
-              ><text>拆除、水电、搬运、保洁和项目管理等可调整明细</text></view
+              ><text class="money">¥{{ visibleAmount.toFixed(2) }}</text
+              ><text>可按实际需求调整明细</text></view
             >
           </view>
         </view>
@@ -154,17 +307,26 @@ const reserve = () => uni.showToast({ title: '预约申请已提交', icon: 'suc
           </view>
         </view>
 
-        <view class="detail-heading">人工+辅材明细</view>
-        <view class="service-list">
-          <view v-for="item in items" :key="item.id" class="service-card">
-            <image v-if="item.image" class="service-image" :src="item.image" mode="aspectFill" />
+        <view class="detail-heading">{{ activeTabTitle }}明细</view>
+        <view
+          class="service-list"
+          :style="serviceListMinHeight ? { minHeight: `${serviceListMinHeight}px` } : undefined"
+        >
+          <view v-for="item in visibleItems" :key="item.id" class="service-card">
+            <image
+              v-if="item.image"
+              class="service-image"
+              :class="{ 'material-image': item.category.includes('主材') }"
+              :src="item.image"
+              :mode="item.category.includes('主材') ? 'aspectFit' : 'aspectFill'"
+            />
             <view v-else class="service-image image-placeholder" />
             <view class="service-content">
               <view class="service-title">{{ item.title }}</view>
               <view class="service-description">{{ item.description }}</view>
               <view class="service-price"
-                ><text class="price-number">¥ {{ item.price }}</text
-                ><text>/m² * {{ item.quantity }}</text></view
+                ><text class="price-number">¥ {{ item.price.toFixed(2) }}</text
+                ><text>/{{ item.unit }} × {{ item.quantity }}</text></view
               >
             </view>
             <wd-checkbox
@@ -176,16 +338,19 @@ const reserve = () => uni.showToast({ title: '预约申请已提交', icon: 'suc
             />
             <button class="replace-button" @click="replaceItem(item)">替换</button>
           </view>
+          <view v-if="visibleItems.length === 0" class="empty-items">该分类暂无明细</view>
         </view>
       </view>
     </scroll-view>
 
-    <view class="bottom-bar">
+    <view v-if="planDetail && !loading && !unavailable" class="bottom-bar">
       <view class="total-wrap">
         <view class="total-label">总金额</view>
-        <view class="total-price">¥ {{ (13333.5 + selectedAmount).toFixed(1) }}</view>
+        <view class="total-price">¥ {{ selectedAmount.toFixed(2) }}</view>
       </view>
-      <button class="reserve-button" @click="reserve">免费预约</button>
+      <button class="reserve-button" :disabled="submitting" :loading="submitting" @click="reserve">
+        {{ submitting ? '提交中' : '免费预约' }}
+      </button>
     </view>
   </view>
 </template>
@@ -202,6 +367,18 @@ const reserve = () => uni.showToast({ title: '预约申请已提交', icon: 'suc
   height: 0;
   min-height: 0;
   flex: 1;
+}
+
+.page-status,
+.empty-items {
+  padding: 120rpx 24rpx;
+  color: $jfx-font-dec2;
+  font-size: 24rpx;
+  text-align: center;
+}
+
+.empty-items {
+  padding: 80rpx 24rpx;
 }
 
 .page-content {
@@ -223,6 +400,10 @@ const reserve = () => uni.showToast({ title: '预约申请已提交', icon: 'suc
 .scheme-cover {
   display: block;
   width: 100%;
+  height: auto;
+}
+
+.scheme-cover.image-placeholder {
   height: 230rpx;
 }
 
@@ -297,9 +478,13 @@ const reserve = () => uni.showToast({ title: '预约申请已提交', icon: 'suc
 }
 
 .fee-tab {
+  display: flex;
+  box-sizing: border-box;
   height: 48rpx;
   margin: 0;
   padding: 0 16rpx;
+  justify-content: center;
+  align-items: center;
   color: $jfx-font-title;
   font-size: 22rpx;
   line-height: 44rpx;
@@ -400,6 +585,7 @@ const reserve = () => uni.showToast({ title: '预约申请已提交', icon: 'suc
   display: flex;
   flex-direction: column;
   gap: 16rpx;
+  overflow-anchor: none;
 }
 
 .service-card {
@@ -417,6 +603,10 @@ const reserve = () => uni.showToast({ title: '预约申请已提交', icon: 'suc
   height: 138rpx;
   flex-shrink: 0;
   border-radius: 8rpx;
+}
+
+.service-image.material-image {
+  background-color: #f7f7f7;
 }
 
 .service-content {

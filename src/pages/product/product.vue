@@ -2,6 +2,7 @@
 import { computed, nextTick, ref } from 'vue'
 import type { ProductItem } from '@/types/product'
 
+// 分类分组
 const categoryGroups = [
   {
     title: '卫浴洁具',
@@ -23,6 +24,7 @@ const categoryGroups = [
   { title: '花洒/喷枪', children: ['淋浴花洒', '恒温花洒', '喷枪', '花洒配件'] },
 ]
 
+// 商品列表
 const products: ProductItem[] = [
   {
     id: 1,
@@ -74,21 +76,30 @@ const products: ProductItem[] = [
   },
 ]
 
+// 当前分组
 const activeGroup = ref('卫浴洁具')
+// 展开分组
 const expandedGroup = ref<string | null>('卫浴洁具')
+// 当前分类
 const activeCategory = ref('水龙头')
+// 搜索关键词
 const keyword = ref('')
+// 内容滚动位置
 const contentScrollTop = ref(0)
 
+// 筛选后商品列表
 const filteredProducts = computed(() => {
+  // 当前处理值
   const value = keyword.value.trim().toLowerCase()
   if (!value) return products
   return products.filter((item) => `${item.name}${item.description}`.toLowerCase().includes(value))
 })
 
+// 切换当前商品分组
 const selectGroup = (title: string) => {
   expandedGroup.value = expandedGroup.value === title ? null : title
   activeGroup.value = title
+  // 当前分组
   const group = categoryGroups.find((item) => item.title === title)
   activeCategory.value = expandedGroup.value ? group?.children[0] || title : title
   contentScrollTop.value = 1
@@ -97,6 +108,7 @@ const selectGroup = (title: string) => {
   })
 }
 
+// 选择分类
 const selectCategory = (title: string) => {
   activeCategory.value = title
   contentScrollTop.value = 1
@@ -105,14 +117,17 @@ const selectCategory = (title: string) => {
   })
 }
 
+// 将商品加入购物车
 const addToCart = () => {
   uni.showToast({ title: '已加入购物车', icon: 'success' })
 }
 
+// 打开商品搜索页
 const openSearch = () => {
   uni.navigateTo({ url: '/pages/search/search' })
 }
 
+// 打开商品详情
 const openDetail = (item: ProductItem) => {
   uni.navigateTo({ url: `/pages/productDetail/productDetail?id=${item.id}` })
 }

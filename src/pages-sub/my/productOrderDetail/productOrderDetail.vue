@@ -6,6 +6,7 @@ import type {
   ProductOrderStatusConfig as StatusConfig,
 } from '@/types/product-order-detail'
 
+// 配置集合
 const configs: Record<OrderStatus, StatusConfig> = {
   'pending-payment': {
     title: '待付款',
@@ -38,19 +39,27 @@ const configs: Record<OrderStatus, StatusConfig> = {
   },
 }
 
+// 状态
 const status = ref<OrderStatus>('servicing')
+// 配置
 const config = computed(() => configs[status.value])
+// 步骤列表
 const steps = ['提交订单', '预约安装', '上门服务', '完成']
+// 商品列表
 const products = [1, 2, 3]
 
 onLoad((query) => {
+  // 查询参数状态
   const queryStatus = query?.status as OrderStatus | undefined
   if (queryStatus && configs[queryStatus]) status.value = queryStatus
 })
 
+// 打开地址
 const openAddress = () => uni.navigateTo({ url: '/pages-sub/my/address/address' })
+// 打开预约
 const openAppointment = () => uni.navigateTo({ url: '/pages-sub/my/appointment/appointment' })
 
+// 联系商品安装师傅
 const contactInstaller = () => {
   uni.makePhoneCall({
     phoneNumber: '13800015611',
@@ -58,6 +67,7 @@ const contactInstaller = () => {
   })
 }
 
+// 执行主要操作
 const runPrimaryAction = () => {
   if (status.value === 'pending-payment') {
     uni.showToast({ title: '支付功能建设中', icon: 'none' })
@@ -74,6 +84,7 @@ const runPrimaryAction = () => {
   uni.showToast({ title: '售后申请功能建设中', icon: 'none' })
 }
 
+// 取消订单
 const cancelOrder = () => {
   uni.showModal({
     title: '取消订单',

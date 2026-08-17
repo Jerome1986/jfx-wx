@@ -2,8 +2,10 @@
 import { computed, ref } from 'vue'
 import type { CouponItem } from '@/types/coupons'
 
+// 当前标签页
 const activeTab = ref<'available' | 'expired'>('available')
 
+// 优惠券列表
 const coupons: CouponItem[] = [
   { id: 1, amount: 86, threshold: 1000, expiry: '2026-06-30', status: 'available' },
   { id: 2, amount: 200, threshold: 2000, expiry: '2026-06-30', status: 'available' },
@@ -15,6 +17,7 @@ const visibleCoupons = computed(() =>
   activeTab.value === 'available' ? coupons : coupons.filter((item) => item.status === 'expired'),
 )
 
+// 获取优惠券展示状态
 const useCoupon = (item: CouponItem) => {
   if (item.status === 'expired') return
   uni.switchTab({ url: '/pages/product/product' })

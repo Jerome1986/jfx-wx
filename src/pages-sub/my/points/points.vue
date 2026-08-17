@@ -2,14 +2,17 @@
 import { computed, ref } from 'vue'
 import type { PointsRecord, PointsType } from '@/types/points'
 
+// 当前类型
 const activeType = ref<PointsType>('all')
 
+// 积分记录筛选项
 const filters: Array<{ label: string; value: PointsType }> = [
   { label: '全部', value: 'all' },
   { label: '收入', value: 'income' },
   { label: '使用', value: 'expense' },
 ]
 
+// 记录列表
 const records: PointsRecord[] = [
   {
     id: 1,
@@ -53,10 +56,12 @@ const records: PointsRecord[] = [
   },
 ]
 
+// 可见记录列表
 const visibleRecords = computed(() =>
   activeType.value === 'all' ? records : records.filter((item) => item.type === activeType.value),
 )
 
+// 显示积分
 const showPointsHelp = () => {
   uni.showModal({
     title: '积分使用说明',

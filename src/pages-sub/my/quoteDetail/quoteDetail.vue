@@ -3,14 +3,21 @@ import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import type { QuoteCategory as Category, QuoteItem } from '@/types/quote-detail'
 
+// 当前分类
 const activeCategory = ref<Category>('main')
+// 订单状态
 const orderStatus = ref('pending')
+// 页面模式
 const pageMode = ref<'default' | 'readonly'>('default')
+// 当前项是否已完成
 const isCompleted = computed(() => orderStatus.value === 'completed')
+// 订单是否正在服务中
 const isServicing = computed(() => orderStatus.value === 'servicing')
+// 页面是否为只读状态
 const isReadOnly = computed(
   () => pageMode.value === 'readonly' || isCompleted.value || isServicing.value,
 )
+// 项目列表
 const items = ref<QuoteItem[]>([
   {
     id: 1,
@@ -98,16 +105,19 @@ const items = ref<QuoteItem[]>([
   },
 ])
 
+// 可见项目列表
 const visibleItems = computed(() =>
   activeCategory.value === 'all'
     ? items.value
     : items.value.filter((item) => item.category === activeCategory.value),
 )
+// 小计
 const subtotal = computed(() =>
   items.value
     .filter((item) => item.selected)
     .reduce((total, item) => total + item.price * item.quantity, 0),
 )
+// 显示小计
 const displayedSubtotal = computed(() => (isReadOnly.value ? 10275 : subtotal.value))
 
 onLoad((query) => {
@@ -115,13 +125,16 @@ onLoad((query) => {
   pageMode.value = query?.mode === 'readonly' ? 'readonly' : 'default'
 })
 
+// 设置分类
 const setCategory = (category: Category) => {
   activeCategory.value = category
 }
+// 切换当前处理项
 const toggleItem = (item: QuoteItem) => {
   if (isReadOnly.value) return
   item.selected = !item.selected
 }
+// 替换当前处理项
 const replaceItem = (item: QuoteItem) => {
   if (isReadOnly.value) return
   uni.navigateTo({
@@ -136,6 +149,7 @@ const replaceItem = (item: QuoteItem) => {
     },
   })
 }
+// 保存报价单修改
 const save = () => {
   if (isReadOnly.value) return
   uni.showToast({ title: '报价明细已保存', icon: 'success' })

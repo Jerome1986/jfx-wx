@@ -4,8 +4,10 @@ import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
 import { useMemberStore } from '@/stores'
 import type { CaseDetail } from '@/types/case-detail'
 
+// 会员状态仓库
 const memberStore = useMemberStore()
 
+// 旧房房屋案例
 const oldHouseCase: CaseDetail = {
   title: '68㎡老房翻新焕新颜',
   label: '老房改造',
@@ -30,6 +32,7 @@ const oldHouseCase: CaseDetail = {
   ],
 }
 
+// 厨房案例
 const kitchenCase: CaseDetail = {
   title: '老旧厨房大变身',
   label: '厨房改造',
@@ -54,13 +57,19 @@ const kitchenCase: CaseDetail = {
   ],
 }
 
+// 案例编号
 const caseId = ref(1)
+// 是否为员工视图
 const isEmployeeMode = ref(false)
+// 归属员工编号
 const attributionEmployeeId = ref<string>()
+// 详情
 const detail = computed(() => (caseId.value === 2 ? kitchenCase : oldHouseCase))
+// 员工编号
 const employeeId = computed(() => memberStore.profile?.employeeId)
 
 onLoad((options) => {
+  // 当前数据编号
   const id = Number(options?.id)
   if (Number.isFinite(id)) caseId.value = id
   isEmployeeMode.value = options?.source === 'employee'
@@ -68,10 +77,12 @@ onLoad((options) => {
     typeof options?.employeeId === 'string' ? decodeURIComponent(options.employeeId) : undefined
 })
 
+// 获取当前案例的装修报价
 const requestQuote = () => {
   uni.showToast({ title: `${detail.value.title}报价咨询`, icon: 'none' })
 }
 
+// 准备案例分享
 const prepareCaseShare = () => {
   if (!employeeId.value) {
     uni.showToast({ title: '员工信息不完整，暂无法分享', icon: 'none' })
@@ -79,6 +90,7 @@ const prepareCaseShare = () => {
 }
 
 onShareAppMessage(() => {
+  // 所属人编号
   const ownerId = employeeId.value
   if (!ownerId) {
     return {

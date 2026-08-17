@@ -3,9 +3,13 @@ import { computed, ref } from 'vue'
 
 type Period = '2026年07月' | '06月' | '05月' | '累计'
 
+// 状态栏高度
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
+// 当前周期
 const activePeriod = ref<Period>('2026年07月')
+// 周期选项
 const periods: Period[] = ['2026年07月', '06月', '05月', '累计']
+// 排行列表
 const rankings = [
   { rank: 1, name: '刘经理', amount: '¥15.2万' },
   { rank: 2, name: '王经理', amount: '¥12.2万' },
@@ -13,6 +17,7 @@ const rankings = [
   { rank: 4, name: '黄经理', amount: '¥9.2万' },
   { rank: 5, name: '吴经理', amount: '¥8.9万' },
 ]
+// 业绩项目列表
 const projects = [
   {
     id: 1,
@@ -32,6 +37,7 @@ const projects = [
   },
 ]
 
+// 月份
 const displayMonth = computed(() =>
   activePeriod.value === '累计'
     ? '累计数据'
@@ -39,7 +45,9 @@ const displayMonth = computed(() =>
     ? activePeriod.value
     : `2026年${activePeriod.value}`,
 )
+// 返回上一页
 const goBack = () => uni.navigateBack()
+// 打开项目
 const openProject = (id: number) =>
   uni.navigateTo({
     url: `/pages-sub/my/employeeRenovationOrderDetail/employeeRenovationOrderDetail?status=completed&id=${id}`,

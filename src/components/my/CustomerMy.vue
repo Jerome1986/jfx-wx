@@ -5,28 +5,47 @@ import { useMemberStore } from '@/stores'
 // 用户信息与安全区配置
 const memberStore = useMemberStore()
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
+const isLoggedIn = computed(() => Boolean(memberStore.profile))
 
 // 页面图片资源
-const avatar = 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/avatar/kefutouxiang.png'
+const fallbackAvatar =
+  'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/avatar/kefutouxiang.png'
 const memberIcon = 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/tubiao/钻石 1.png'
 
 // 用户展示信息
 const userName = computed(
-  () => memberStore.profile?.nickname || memberStore.profile?.name || '张先生',
+  () => memberStore.profile?.nickname || memberStore.profile?.name || '点击登录',
 )
+const userAvatar = computed(() => memberStore.profile?.avatar || fallbackAvatar)
 const userMobile = computed(() => {
   const mobile = memberStore.profile?.mobile
-  if (!mobile) return '138****5628'
+  if (!mobile) return '登录后享受更多专属服务'
   return `${mobile.slice(0, 3)}****${mobile.slice(-4)}`
 })
 
 // 账户数据
-const accountStats = [
-  { value: '2', label: '预约', path: '/pages-sub/my/decorationOrder/decorationOrder' },
-  { value: '18', label: '收藏', path: '/pages-sub/my/favorites/favorites' },
-  { value: '811', label: '积分', path: '/pages-sub/my/points/points' },
-  { value: '3', label: '优惠券', path: '/pages-sub/my/coupons/coupons' },
-]
+const accountStats = computed(() => [
+  {
+    value: memberStore.profile?.appointmentCount ?? 0,
+    label: '预约',
+    path: '/pages-sub/my/decorationOrder/decorationOrder',
+  },
+  {
+    value: memberStore.profile?.favoriteCount ?? 0,
+    label: '收藏',
+    path: '/pages-sub/my/favorites/favorites',
+  },
+  {
+    value: memberStore.profile?.points ?? 0,
+    label: '积分',
+    path: '/pages-sub/my/points/points',
+  },
+  {
+    value: memberStore.profile?.couponCount ?? 0,
+    label: '优惠券',
+    path: '/pages-sub/my/coupons/coupons',
+  },
+])
 
 // 商品订单入口
 const productOrders = [
@@ -133,6 +152,10 @@ const guarantees = [
 
 // 统一处理页面入口点击
 const openEntry = (label: string, path?: string) => {
+  if (!isLoggedIn.value) {
+    uni.navigateTo({ url: '/pages/login/login' })
+    return
+  }
   if (path) {
     uni.navigateTo({ url: path })
     return
@@ -150,15 +173,18 @@ const openEntry = (label: string, path?: string) => {
         <!-- 系统安全区域占位 -->
         <view class="safe-area" :style="{ height: `${statusBarHeight}px` }" />
         <view class="page-title"><text>我</text><text class="brand-text">的</text></view>
-        <view class="profile-row">
-          <image class="avatar" :src="avatar" mode="aspectFill" />
+        <view class="profile-row" @click="openEntry('个人信息', '/pages-sub/my/settings/settings')">
+          <image class="avatar" :src="userAvatar" mode="aspectFill" />
           <view class="profile-copy">
             <view class="profile-name">{{ userName }}</view>
             <view class="profile-mobile">{{ userMobile }}</view>
-            <view class="member-badge">
+            <view v-if="isLoggedIn" class="member-badge">
               <image class="member-icon" :src="memberIcon" mode="aspectFit" />
               <text>家翻新会员</text>
             </view>
+            <view v-else class="login-tip"
+              >立即登录 <text class="iconfont icon-youjiantou login-arrow"
+            /></view>
           </view>
         </view>
       </view>
@@ -223,15 +249,20 @@ const openEntry = (label: string, path?: string) => {
         <view class="service-card">
           <view class="section-title">常用功能</view>
           <view class="service-list">
-            <view
-              v-for="item in commonServices"
-              :key="item.label"
-              class="service-item"
-              @click="openEntry(item.label, item.path)"
-            >
-              <image class="service-icon" :src="item.icon" mode="aspectFit" />
-              <text>{{ item.label }}</text>
-            </view>
+            <template v-for="item in commonServices" :key="item.label">
+              <button
+                v-if="item.label === '在线客服'"
+                class="service-item service-button"
+                open-type="contact"
+              >
+                <image class="service-icon" :src="item.icon" mode="aspectFit" />
+                <text>{{ item.label }}</text>
+              </button>
+              <view v-else class="service-item" @click="openEntry(item.label, item.path)">
+                <image class="service-icon" :src="item.icon" mode="aspectFit" />
+                <text>{{ item.label }}</text>
+              </view>
+            </template>
           </view>
         </view>
 
@@ -330,6 +361,20 @@ const openEntry = (label: string, path?: string) => {
   color: #333333;
   font-size: 24rpx;
   line-height: 32rpx;
+}
+
+.login-tip {
+  display: flex;
+  margin-top: 10rpx;
+  align-items: center;
+  color: #ed342e;
+  font-size: 24rpx;
+  line-height: 34rpx;
+}
+
+.login-arrow {
+  margin-left: 4rpx;
+  font-size: 22rpx;
 }
 
 .member-badge {
@@ -489,6 +534,20 @@ const openEntry = (label: string, path?: string) => {
   font-size: 24rpx;
   font-weight: 500;
   line-height: 32rpx;
+}
+
+.service-button {
+  box-sizing: border-box;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  line-height: 32rpx;
+  background: transparent;
+  border-radius: 0;
+}
+
+.service-button::after {
+  border: 0;
 }
 
 .service-icon {

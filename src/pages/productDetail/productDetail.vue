@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
+// 规格列表
 const specifications = ['L3092D拉丝', 'L3092镀洛', 'L3092H枪灰']
+// 已选
 const selectedSpec = ref(specifications[0])
 
+// 商品
 const product = {
   name: '九牧单把单孔高管面盆龙头-X32025-548/1B-Z',
   description: '高管龙头、新水校起泡器，冷热双控防溅出水',
@@ -12,12 +15,18 @@ const product = {
     'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/product/product-basin-faucet.png',
 }
 
+// 已选标签
 const selectedLabel = computed(() => `已选: ${selectedSpec.value}`)
 
+// 显示页面提示消息
 const showMessage = (title: string) => uni.showToast({ title, icon: 'none' })
+// 将商品加入购物车
 const addToCart = () => uni.showToast({ title: '已加入购物车', icon: 'success' })
+// 立即购买当前商品
 const buyNow = () => showMessage(`已选择 ${selectedSpec.value}`)
+// 打开购物车
 const openCart = () => uni.switchTab({ url: '/pages/cart/cart' })
+// 分享当前商品
 const shareProduct = () => showMessage('分享功能已准备')
 </script>
 

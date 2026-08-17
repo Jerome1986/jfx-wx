@@ -18,11 +18,13 @@ const tabs: { label: string; value: Status }[] = [
 
 // 管理当前筛选状态和预约服务数据
 const activeStatus = ref<Status>('contact')
+// 预约状态仓库
 const appointmentStore = useAppointmentServiceStore()
 appointmentStore.normalizeStatuses()
 const { appointments } = storeToRefs(appointmentStore)
 
 onLoad((options) => {
+  // 状态
   const status = options?.status
   if (status === 'all' || status === 'contact' || status === 'service' || status === 'completed') {
     activeStatus.value = status
@@ -41,9 +43,11 @@ const pendingText = computed(() => {
   return `共${visibleAppointments.value.length}条待处理`
 })
 
+// 统计各状态的预约数量
 const statusCount = (status: AppointmentServiceStatus) =>
   appointments.value.filter((item) => item.status === status).length
 
+// 摘要说明
 const summaryDescription = computed(() =>
   activeStatus.value === 'service'
     ? '已约好上门的预约，查看安排或意向时转装修订单'
@@ -57,6 +61,7 @@ const showAction = (message: string) => {
 
 // 根据服务类型进入对应预约详情
 const openDetail = (item: AppointmentServiceItem) => {
+  // 页面
   const page =
     item.type === 'measure'
       ? `/pages-sub/my/freeMeasurementAppointmentDetail/freeMeasurementAppointmentDetail?id=${item.id}`
@@ -64,23 +69,28 @@ const openDetail = (item: AppointmentServiceItem) => {
   uni.navigateTo({ url: page })
 }
 
+// 格式化上门日期
 const formatVisitDate = (date: string) => {
   const [, month, day] = date.split('-')
   return `${month}月${day}日`
 }
 
+// 判断是否显示上门信息
 const usesVisitInformation = (item: AppointmentServiceItem) =>
   item.status === 'service' || (item.type === 'measure' && item.status === 'completed')
 
+// 格式化列表中的预约时间
 const displayListTime = (item: AppointmentServiceItem) =>
   !usesVisitInformation(item)
     ? item.submitTime
     : `${formatVisitDate(item.visitDate)} ${item.visitTime}`
 
+// 显示服务状态
 const showServiceStatus = (status: AppointmentServiceStatus) => {
   activeStatus.value = status
 }
 
+// 获取预约状态标签
 const statusLabel = (status: AppointmentServiceStatus) =>
   ({
     contact: '待联系',
