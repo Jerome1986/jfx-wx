@@ -1,6 +1,18 @@
 import type { Gender, LoginResult, UserItem } from '@/types/UserItem'
 import { request } from '@/utils/http'
 
+/** 用户顶部数据汇总 */
+export interface UserSummary {
+  /** 当前可用积分 */
+  points: number
+  /** 预约数量 */
+  appointmentCount: number
+  /** 收藏数量 */
+  favoriteCount: number
+  /** 可用优惠券数量 */
+  couponCount: number
+}
+
 /**
  * 微信手机号登录接口
  * POST /wx/login
@@ -43,5 +55,15 @@ export const userInfoFindOne = (id: number) => {
   return request<UserItem>({
     method: 'GET',
     url: `/user/${id}`,
+  })
+}
+
+/**
+ * 获取用户当前积分、预约、收藏和可用优惠券数量
+ */
+export const getUserSummary = (userId: number) => {
+  return request<UserSummary>({
+    method: 'GET',
+    url: `/user/summary/${userId}`,
   })
 }

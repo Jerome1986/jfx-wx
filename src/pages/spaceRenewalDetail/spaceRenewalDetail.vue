@@ -2,7 +2,8 @@
 import { onLoad } from '@dcloudio/uni-app'
 import { computed, nextTick, ref } from 'vue'
 import { getRenewalPlanDetailApi } from '@/api/renewal-plan'
-import { createRenewalAppointmentApi } from '@/api/renewal-replacement'
+import { createPlanAppointmentApi } from '@/api/appointment'
+import { useMemberStore } from '@/stores'
 import type { FeeTab, ServiceItem } from '@/types/space-renewal-detail'
 import type { RenewalPlan } from '@/types/space-renewal'
 import type { RenewalReplacementCandidate } from '@/types/renewal-replacement'
@@ -21,6 +22,8 @@ const loading = ref(true)
 const unavailable = ref(false)
 // 提交状态
 const submitting = ref(false)
+// 当前登录会员状态
+const memberStore = useMemberStore()
 // 服务列表最小高度
 const serviceListMinHeight = ref(0)
 
@@ -185,6 +188,15 @@ const replaceItem = (item: ServiceItem) => {
 // 提交预约
 const reserve = async () => {
   if (!planDetail.value || submitting.value) return
+  // 当前登录用户 ID
+  const userId = Number(memberStore.profile?.id)
+  if (!Number.isInteger(userId) || userId <= 0) {
+    uni.showToast({ title: '请先登录后再预约', icon: 'none' })
+    setTimeout(() => {
+      uni.navigateTo({ url: '/pages/login/login' })
+    }, 500)
+    return
+  }
   // 已选项目列表
   const selectedItems = items.value.filter((item) => item.selected)
   if (!selectedItems.length) {
@@ -192,30 +204,38 @@ const reserve = async () => {
     return
   }
 
-  // 预约接口提交数据
+  // 提交用户当前选择的方案快照，供员工后续联系和复核
   const appointmentPayload = {
+    userId,
     planId: planDetail.value.id,
-    items: selectedItems.map((item) => ({
-      sourceItemId: item.sourceItemId,
-      candidateId: item.candidateId,
-      productId: item.productId,
-      category: item.category,
-      name: item.title,
-      description: item.description,
-      unit: item.unit,
-      unitPrice: item.price.toFixed(2),
-      quantity: String(item.quantity),
-      image: item.image,
-    })),
+    snapshot: {
+      title: planDetail.value.name,
+      cover: planDetail.value.cover,
+      referencePrice: selectedItems
+        .reduce((total, item) => total + item.price * item.quantity, 0)
+        .toFixed(2),
+      items: selectedItems.map((item) => ({
+        sourceItemId: item.sourceItemId,
+        candidateId: item.candidateId,
+        productId: item.productId,
+        category: item.category,
+        name: item.title,
+        description: item.description,
+        unit: item.unit,
+        unitPrice: item.price.toFixed(2),
+        quantity: String(item.quantity),
+        image: item.image,
+      })),
+    },
   }
   console.log('提交焕新预约数据：', appointmentPayload)
 
   submitting.value = true
   try {
-    await createRenewalAppointmentApi(appointmentPayload)
+    await createPlanAppointmentApi(appointmentPayload)
     uni.showToast({ title: '预约申请已提交', icon: 'success' })
     setTimeout(() => {
-      uni.navigateTo({ url: '/pages-sub/my/appointmentService/appointmentService' })
+      uni.navigateTo({ url: '/pages-sub/my/decorationOrder/decorationOrder?group=plan' })
     }, 500)
   } catch (error) {
     console.error('提交焕新预约失败：', error)

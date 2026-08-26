@@ -20,7 +20,6 @@ declare module 'vue' {
     WdCalendar: typeof import('@wot-ui/ui/components/wd-calendar/wd-calendar.vue')['WdCalendar']
     WdCell: typeof import('@wot-ui/ui/components/wd-cell/wd-cell.vue')['WdCell']
     WdCheckbox: typeof import('@wot-ui/ui/components/wd-checkbox/wd-checkbox.vue')['WdCheckbox']
-    WdDatetimePicker: typeof import('@wot-ui/ui/components/wd-datetime-picker/wd-datetime-picker.vue')['WdDatetimePicker']
     WdForm: typeof import('@wot-ui/ui/components/wd-form/wd-form.vue')['WdForm']
     WdFormItem: typeof import('@wot-ui/ui/components/wd-form-item/wd-form-item.vue')['WdFormItem']
     WdIcon: typeof import('@wot-ui/ui/components/wd-icon/wd-icon.vue')['WdIcon']

@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { onLoad } from '@dcloudio/uni-app'
 import { ref } from 'vue'
+import { createBudgetAppointmentApi } from '@/api/appointment'
+import { wxLoginApi } from '@/api/user'
+import { useMemberStore } from '@/stores'
 import type { BenefitItem, BudgetForm, CalculationNote } from '@/types/renovation-budget'
 
 // 表单数据
@@ -11,6 +14,12 @@ const formData = ref<BudgetForm>({
   layout: '',
   phone: '',
 })
+// 会员登录状态
+const memberStore = useMemberStore()
+// 是否正在获取本机号码
+const phoneAuthorizing = ref(false)
+// 是否正在提交预算预约
+const submitting = ref(false)
 
 // 城市和户型选择器
 const cityVisible = ref(false)
@@ -81,18 +90,118 @@ const handleLayoutConfirm = ({ value }: { value: string[] }) => {
   formData.value.layout = value[0] || ''
 }
 
-// 接收微信手机号授权结果
-const handlePhoneNumber = (event: any) => {
-  if (event.detail?.errMsg === 'getPhoneNumber:ok') {
-    uni.showToast({ title: '手机号授权成功', icon: 'none' })
+// 获取微信临时登录凭证
+const getWxLoginCode = () =>
+  new Promise<string>((resolve, reject) => {
+    uni.login({
+      provider: 'weixin',
+      success: ({ code }) => (code ? resolve(code) : reject(new Error('未获取到微信登录凭证'))),
+      fail: reject,
+    })
+  })
+
+// 接收微信手机号授权结果并回填联系方式
+const handlePhoneNumber = async (event: any) => {
+  const detail = event.detail
+  if (detail?.errMsg !== 'getPhoneNumber:ok' || !detail.code) {
+    uni.showToast({ title: '未授权手机号', icon: 'none' })
     return
   }
-  uni.showToast({ title: '未授权手机号', icon: 'none' })
+
+  phoneAuthorizing.value = true
+  try {
+    const loginCode = await getWxLoginCode()
+    const { data } = await wxLoginApi(loginCode, detail.code)
+    formData.value.phone = (data as unknown as { mobile: string }).mobile
+    uni.showToast({ title: '手机号已填入', icon: 'success' })
+  } catch (error) {
+    console.error('获取本机号码失败：', error)
+  } finally {
+    phoneAuthorizing.value = false
+  }
 }
 
-// 基础报价提交反馈
-const submitBudget = () => {
-  uni.showToast({ title: '报价信息已提交', icon: 'none' })
+// 已登录时直接使用会员资料中的手机号，无需再次发起微信授权
+const handleUseLocalPhone = () => {
+  if (!memberStore.token) return
+
+  const mobile = memberStore.profile?.mobile
+  if (!mobile) {
+    uni.showToast({ title: '账号未绑定手机号', icon: 'none' })
+    return
+  }
+
+  formData.value.phone = mobile
+  uni.showToast({ title: '手机号已填入', icon: 'success' })
+}
+
+// 生成最长不超过 64 个字符的预约编号
+const createAppointmentNo = () => {
+  const timestamp = new Date().toISOString().replace(/\D/g, '').slice(0, 17)
+  const random = Math.random().toString(36).slice(2, 10).toUpperCase()
+  return `APT${timestamp}${random}`
+}
+
+// 提交装修计算器预约
+const submitBudget = async () => {
+  if (!formData.value.area || !formData.value.layout) {
+    uni.showToast({ title: '请完善面积和户型', icon: 'none' })
+    return
+  }
+  if (!/^1[3-9]\d{9}$/.test(formData.value.phone)) {
+    uni.showToast({ title: '请输入正确的手机号', icon: 'none' })
+    return
+  }
+  if (!/^(?:0\.\d{1,2}|[1-9]\d{0,5}(?:\.\d{1,2})?)$/.test(formData.value.area)) {
+    uni.showToast({ title: '请输入正确的房屋面积', icon: 'none' })
+    return
+  }
+
+  const userId = Number(memberStore.profile?.id)
+  if (!memberStore.token || !Number.isInteger(userId) || userId <= 0) {
+    uni.showToast({ title: '请先登录后提交', icon: 'none' })
+    setTimeout(() => uni.navigateTo({ url: '/pages/login/login' }), 500)
+    return
+  }
+
+  const confirmed = await new Promise<boolean>((resolve) => {
+    uni.showModal({
+      title: '确认提交',
+      content: '确认提交装修预算信息并获取报价吗？',
+      confirmText: '确定',
+      confirmColor: '#D92D20',
+      cancelText: '取消',
+      success: ({ confirm }) => resolve(confirm),
+      fail: () => resolve(false),
+    })
+  })
+  if (!confirmed) return
+
+  submitting.value = true
+  try {
+    await createBudgetAppointmentApi({
+      appointmentNo: createAppointmentNo(),
+      userId,
+      type: 'BUDGET',
+      source: '装修计算器',
+      mobile: formData.value.phone,
+      houseType: formData.value.houseType === 'old' ? '旧房' : '新房',
+      city: formData.value.city,
+      area: formData.value.area,
+      roomLayout: formData.value.layout,
+    })
+    uni.showToast({ title: '报价信息已提交', icon: 'success' })
+    formData.value.area = ''
+    formData.value.phone = ''
+    setTimeout(
+      () => uni.navigateTo({ url: '/pages-sub/my/decorationOrder/decorationOrder?group=budget' }),
+      400,
+    )
+  } catch (error) {
+    console.error('装修预算预约提交失败：', error)
+  } finally {
+    submitting.value = false
+  }
 }
 
 // 房屋类型 TAB 的激活与未激活样式
@@ -194,7 +303,10 @@ const houseTypeTabStyle = (value: BudgetForm['houseType']) => {
               />
               <button
                 class="phone-button"
-                open-type="getPhoneNumber"
+                :open-type="memberStore.token ? undefined : 'getPhoneNumber'"
+                :loading="phoneAuthorizing"
+                :disabled="phoneAuthorizing"
+                @click="handleUseLocalPhone"
                 @getphonenumber="handlePhoneNumber"
               >
                 使用本机号码
@@ -203,7 +315,14 @@ const houseTypeTabStyle = (value: BudgetForm['houseType']) => {
           </wd-form-item>
         </wd-form>
 
-        <button class="submit-button" @click="submitBudget">计算报价</button>
+        <button
+          class="submit-button"
+          :loading="submitting"
+          :disabled="submitting"
+          @click="submitBudget"
+        >
+          计算报价
+        </button>
         <view class="form-notice">提交后管家将结合面积和需求符合，报价仅作预算参考</view>
       </view>
 

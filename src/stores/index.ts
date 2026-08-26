@@ -18,4 +18,4 @@ export default pinia
 
 // 模块统一导出
 export * from './modules/member'
-export * from './modules/appointment-service'
+export * from './modules/renovation-business'

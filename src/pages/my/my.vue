@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
 import { computed } from 'vue'
-import { userInfoFindOne } from '@/api/user'
+import { getUserSummary, userInfoFindOne } from '@/api/user'
 import { useMemberStore } from '@/stores'
 import CustomerMy from '@/components/my/CustomerMy.vue'
 import EmployeeMy from '@/components/my/EmployeeMy.vue'
@@ -28,11 +28,14 @@ onShow(async () => {
 
   refreshing = true
   try {
-    const { data: userInfo } = await userInfoFindOne(userId)
-    console.log('刷新用户资料', userInfo)
+    const [{ data: userInfo }, { data: summary }] = await Promise.all([
+      userInfoFindOne(userId),
+      getUserSummary(userId),
+    ])
     memberStore.setProfile({
       ...currentProfile,
       ...userInfo,
+      ...summary,
       role: userInfo.role,
       name: userInfo.realName,
     })

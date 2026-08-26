@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
-import { useMemberStore } from '@/stores'
+import { useMemberStore, useRenovationBusinessStore } from '@/stores'
+import { getCaseCategoryListApi, getCasePageApi, getCasePageByCategoryApi } from '@/api/case'
 import type { CaseItem } from '@/types/case-list'
+import type { CaseCategoryItem, RenovationCaseItem } from '@/types/case-api'
 
 // 会员状态仓库
 const memberStore = useMemberStore()
+// 装修业务状态
+const renovationBusinessStore = useRenovationBusinessStore()
 // 是否为员工视图
 const isEmployeeMode = ref(false)
 // 已选分享案例
@@ -14,69 +18,115 @@ const selectedShareCase = ref<CaseItem>()
 const employeeId = computed(() => memberStore.profile?.employeeId)
 
 // 案例列表
-const caseList = ref<CaseItem[]>([
-  {
-    id: 1,
-    title: '68㎡老房翻新焕新颜',
-    label: '老房改造',
-    beforeCover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/房屋改造前.png',
-    afterCover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/房屋改造后.png',
-    location: '武汉',
-    roomType: '两居室',
-    area: '68㎡',
-    tags: ['奶油风', '收纳提升', '空间扩容'],
-    price: '28.6万',
-    duration: '151天',
-    receivedCount: 327,
-  },
-  {
-    id: 2,
-    title: '老旧厨房大变身',
-    label: '厨房改造',
-    beforeCover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/厨房改造前.png',
-    afterCover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/厨房改造后.png',
-    location: '武汉',
-    roomType: '两居室',
-    area: '76㎡',
-    tags: ['动线优化', '收纳升级', '颜值提升'],
-    price: '1.8万',
-    duration: '5天',
-    receivedCount: 142,
-  },
-  {
-    id: 3,
-    title: '68㎡老房翻新焕新颜',
-    label: '老房改造',
-    beforeCover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/房屋改造前.png',
-    afterCover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/房屋改造后.png',
-    location: '武汉',
-    roomType: '两居室',
-    area: '68㎡',
-    tags: ['奶油风', '收纳提升', '空间扩容'],
-    price: '28.6万',
-    duration: '151天',
-    receivedCount: 327,
-  },
-])
+const caseList = ref<CaseItem[]>([])
 
-// 案例分类
-const caseCategories = ['全部案例', '老房改造', '厨房改造']
-// 当前分类
-const activeCategory = ref('全部案例')
+// 案例分类，“全部案例”由前端固定添加
+const caseCategories = ref<CaseCategoryItem[]>([{ id: 0, name: '全部案例', code: 'all', sort: -1 }])
+// 当前分类 ID，0 表示全部案例
+const activeCategoryId = ref(0)
+const activeCategory = computed(
+  () => caseCategories.value.find((item) => item.id === activeCategoryId.value)?.name || '全部案例',
+)
+const pageNum = ref(1)
+const pageSize = 10
+const totalPage = ref(0)
+const caseTotal = ref(0)
+const isLoading = ref(false)
+let requestVersion = 0
 
-onLoad((options) => {
-  isEmployeeMode.value = options?.source === 'employee'
+const formatPrice = (price: string | null) => {
+  const amount = Number(price)
+  if (!Number.isFinite(amount)) return ''
+  return `${Number((amount / 10000).toFixed(4))}万`
+}
+
+const mapCaseItem = (item: RenovationCaseItem): CaseItem => ({
+  id: item.id,
+  title: item.title,
+  label: caseCategories.value.find((category) => category.id === item.categoryId)?.name || '',
+  beforeCover: item.beforeImage || '',
+  afterCover: item.afterImage || '',
+  location: item.city || '',
+  roomType: item.roomType || '',
+  area: item.area ? `${item.area}㎡` : '',
+  tags: Array.isArray(item.tags)
+    ? item.tags.filter((tag): tag is string => typeof tag === 'string')
+    : [],
+  price: formatPrice(item.totalPrice),
+  duration: item.durationDays == null ? '' : `${item.durationDays}天`,
+  receivedCount: item.quoteCount,
 })
 
-// 可见案例列表
-const visibleCaseList = computed(() => {
-  if (activeCategory.value === '全部案例') return caseList.value
-  return caseList.value.filter((item) => item.label === activeCategory.value)
+const loadCaseList = async (reset = false) => {
+  if (!reset && (isLoading.value || pageNum.value > totalPage.value)) return
+  if (reset) {
+    pageNum.value = 1
+    totalPage.value = 0
+    caseTotal.value = 0
+    caseList.value = []
+  }
+
+  const version = reset ? ++requestVersion : requestVersion
+  const categoryId = activeCategoryId.value
+  isLoading.value = true
+  try {
+    const response =
+      categoryId === 0
+        ? await getCasePageApi({ pageNum: pageNum.value, pageSize })
+        : await getCasePageByCategoryApi(categoryId, pageNum.value, pageSize)
+    if (version !== requestVersion || categoryId !== activeCategoryId.value) return
+
+    const items = response.data.list.map(mapCaseItem)
+    caseList.value = reset ? items : [...caseList.value, ...items]
+    caseTotal.value = response.data.total
+    totalPage.value = response.data.totalPage
+    pageNum.value = response.data.pageNum + 1
+  } catch (error) {
+    console.error('获取案例列表失败', error)
+  } finally {
+    if (version === requestVersion) isLoading.value = false
+  }
+}
+
+const selectCategory = (category: CaseCategoryItem) => {
+  if (category.id === activeCategoryId.value) return
+  activeCategoryId.value = category.id
+  loadCaseList(true)
+}
+
+const loadMoreCases = () => loadCaseList()
+
+onLoad(async (options) => {
+  isEmployeeMode.value = options?.source === 'employee'
+  try {
+    const { data } = await getCaseCategoryListApi()
+    caseCategories.value = [
+      { id: 0, name: '全部案例', code: 'all', sort: -1 },
+      ...data.filter((category) => category.name !== '全部案例'),
+    ]
+  } catch (error) {
+    console.error('获取案例分类失败', error)
+  }
+  await loadCaseList(true)
 })
 
 // 获取当前案例的装修报价
 const requestQuote = (item: CaseItem) => {
-  uni.showToast({ title: `${item.title}报价咨询`, icon: 'none' })
+  renovationBusinessStore.createAppointment({
+    type: 'CASE',
+    source: '精选案例',
+    caseId: item.id,
+    city: item.location,
+    area: item.area.replace('㎡', ''),
+    roomLayout: item.roomType,
+    demand: '获取同款案例报价',
+    snapshot: { title: item.title, cover: item.afterCover, referencePrice: item.price },
+  })
+  uni.showToast({ title: '案例报价预约已提交', icon: 'success' })
+  setTimeout(
+    () => uni.navigateTo({ url: '/pages-sub/my/decorationOrder/decorationOrder?group=consult' }),
+    400,
+  )
 }
 
 // 查看案例详情
@@ -123,25 +173,31 @@ onShareAppMessage(() => {
         <view class="category-list">
           <view
             v-for="category in caseCategories"
-            :key="category"
+            :key="category.id"
             class="category-item"
-            :class="{ active: activeCategory === category }"
-            @click="activeCategory = category"
+            :class="{ active: activeCategoryId === category.id }"
+            @click="selectCategory(category)"
           >
-            {{ category }}
+            {{ category.name }}
           </view>
         </view>
       </scroll-view>
     </view>
 
-    <scroll-view class="case-scroll" scroll-y :show-scrollbar="false">
+    <scroll-view
+      class="case-scroll"
+      scroll-y
+      :show-scrollbar="false"
+      :lower-threshold="100"
+      @scrolltolower="loadMoreCases"
+    >
       <view class="case-list">
         <view class="list-heading">
           <text>{{ activeCategory }}</text>
-          <text class="case-count">共{{ visibleCaseList.length }}个案例</text>
+          <text class="case-count">共{{ caseTotal }}个案例</text>
         </view>
         <view
-          v-for="item in visibleCaseList"
+          v-for="item in caseList"
           :key="item.id"
           class="case-card"
           @click="viewCaseDetail(item)"
@@ -207,7 +263,15 @@ onShareAppMessage(() => {
           </view>
         </view>
 
-        <view class="list-tip">继续下滑查看更多案例</view>
+        <view class="list-tip">
+          {{
+            isLoading
+              ? '加载中...'
+              : pageNum <= totalPage
+              ? '继续下滑查看更多案例'
+              : '没有更多案例了'
+          }}
+        </view>
       </view>
     </scroll-view>
   </view>

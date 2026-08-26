@@ -1,184 +1,94 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import type {
-  RenovationFilterStatus as FilterStatus,
-  RenovationOrder,
-  RenovationStatus,
-} from '@/types/renovation-order'
+import { projectStatusText, useRenovationBusinessStore } from '@/stores/modules/renovation-business'
+import type { RenovationProjectStatus } from '@/types/renovation-business'
 
-// 装修订单筛选项
-const filters: Array<{ label: string; value: FilterStatus }> = [
+type Filter = 'all' | RenovationProjectStatus
+// 装修项目筛选项
+const filters: Array<{ label: string; value: Filter }> = [
   { label: '全部', value: 'all' },
-  { label: '待确认', value: 'pending' },
-  { label: '服务中', value: 'servicing' },
-  { label: '已完成', value: 'completed' },
+  { label: '待确认', value: 'PENDING_CONFIRM' },
+  { label: '服务中', value: 'IN_SERVICE' },
+  { label: '已完成', value: 'COMPLETED' },
 ]
-
-// 状态文案
-const statusText: Record<RenovationStatus, string> = {
-  pending: '待确认',
-  servicing: '服务中',
-  completed: '已完成',
-}
-
-// 当前筛选条件
-const activeFilter = ref<FilterStatus>('all')
-// 订单列表
-const orders = ref<RenovationOrder[]>([
-  {
-    id: 1,
-    status: 'pending',
-    description: '请确认报价与服务地址，确认后顾问将安排上门',
-    detailLabel: '下一步',
-    detailValue: '确认后安排顾问上门',
-    amountLabel: '预估费用',
-    secondaryAction: '取消',
-    primaryAction: '确认',
-  },
-  {
-    id: 2,
-    status: 'servicing',
-    description: '顾问正在推进方案与施工，有问题可随时联系',
-    detailLabel: '当前进度',
-    detailValue: '方案沟通与施工推进中',
-    amountLabel: '订单金额',
-    secondaryAction: '联系',
-    primaryAction: '详情',
-  },
-  {
-    id: 3,
-    status: 'completed',
-    description: '服务已完成验收，后续如有问题可申请售后',
-    detailLabel: '完成时间',
-    detailValue: '06月15日 已完成验收',
-    amountLabel: '订单金额',
-    secondaryAction: '售后',
-    primaryAction: '详情',
-  },
-])
-
-// 可见订单列表
-const visibleOrders = computed(() =>
-  activeFilter.value === 'all'
-    ? orders.value
-    : orders.value.filter((item) => item.status === activeFilter.value),
+// 当前项目筛选状态
+const active = ref<Filter>('all')
+// 装修业务状态
+const store = useRenovationBusinessStore()
+// 当前筛选后的装修项目列表
+const list = computed(() =>
+  store.projects
+    .filter((item) => active.value === 'all' || item.status === active.value)
+    .slice()
+    .sort((a, b) => b.id - a.id),
 )
+// 打开装修项目详情
+const open = (id: number) =>
+  uni.navigateTo({ url: `/pages-sub/my/renovationOrderDetail/renovationOrderDetail?id=${id}` })
 
 onLoad((query) => {
-  // 查询参数状态
-  const queryStatus = query?.status as FilterStatus | undefined
-  if (filters.some((item) => item.value === queryStatus)) activeFilter.value = queryStatus!
+  // 页面参数指定的初始筛选状态
+  const value = query?.status as Filter
+  if (filters.some((item) => item.value === value)) active.value = value
 })
-
-// 取消订单
-const cancelOrder = (order: RenovationOrder) => {
-  uni.showModal({
-    title: '取消装修订单',
-    content: '确定取消该装修订单吗？',
-    confirmText: '确定取消',
-    confirmColor: '#D92D20',
-    success: ({ confirm }) => {
-      if (confirm) orders.value = orders.value.filter((item) => item.id !== order.id)
-    },
-  })
-}
-
-// 执行操作
-const runSecondaryAction = (order: RenovationOrder) => {
-  if (order.secondaryAction === '取消') {
-    cancelOrder(order)
-    return
-  }
-  if (order.secondaryAction === '联系') {
-    uni.showToast({ title: '正在为您联系装修顾问', icon: 'none' })
-    return
-  }
-  uni.showToast({ title: '售后申请功能建设中', icon: 'none' })
-}
-
-// 打开订单详情
-const openOrderDetail = (order: RenovationOrder) => {
-  uni.navigateTo({
-    url: `/pages-sub/my/renovationOrderDetail/renovationOrderDetail?id=${order.id}&status=${order.status}`,
-  })
-}
-
-// 执行主要操作
-const runPrimaryAction = (order: RenovationOrder) => {
-  openOrderDetail(order)
-}
 </script>
-
 <template>
-  <view class="renovation-page">
-    <view class="filter-card">
+  <view class="page">
+    <view class="tabs">
       <view
         v-for="item in filters"
         :key="item.value"
-        class="filter-item"
-        :class="{ active: activeFilter === item.value }"
-        @click="activeFilter = item.value"
+        class="tab-item"
+        :class="{ active: active === item.value }"
+        @click="active = item.value"
       >
         {{ item.label }}
       </view>
     </view>
 
-    <scroll-view class="order-scroll" scroll-y :show-scrollbar="false">
-      <view class="page-content">
-        <view class="order-count">共 8 个订单</view>
+    <scroll-view class="scroll" scroll-y :show-scrollbar="false">
+      <view class="content">
+        <view class="count">共 {{ list.length }} 个装修项目</view>
 
-        <view v-if="visibleOrders.length" class="order-list">
-          <view
-            v-for="order in visibleOrders"
-            :key="order.id"
-            :class="['order-card', `card-${order.status}`]"
-            @click="openOrderDetail(order)"
-          >
-            <view class="card-header">
-              <view class="order-title">95m²老房厨房改造</view>
-              <view :class="['status-badge', `status-${order.status}`]">
-                {{ statusText[order.status] }}
+        <view class="project-list">
+          <view v-for="item in list" :key="item.id" class="card" @click="open(item.id)">
+            <view class="head">
+              <view class="project-copy">
+                <text class="title">{{ item.name }}</text>
+                <text class="project-no">{{ item.projectNo }}</text>
               </view>
+              <text :class="['status', `status-${item.status}`]">
+                {{ projectStatusText[item.status] }}
+              </text>
             </view>
-            <view class="order-description">{{ order.description }}</view>
 
-            <view class="order-detail">
-              <view class="detail-line">
-                <text class="detail-label">服务地址</text>
-                <text class="detail-value">武汉市洪山区珞瑜路</text>
+            <view class="project-info">
+              <view class="line address-line">
+                <text class="label">服务地址</text>
+                <text class="value">{{ item.serviceAddress }}</text>
               </view>
-              <view class="detail-line">
-                <text class="detail-label">{{ order.detailLabel }}</text>
-                <text class="detail-value">{{ order.detailValue }}</text>
+              <view class="line">
+                <text class="label">预估金额</text>
+                <text class="amount">¥{{ item.quotedAmount.toFixed(2) }}</text>
               </view>
             </view>
 
             <view class="card-footer">
-              <view class="amount-group">
-                <text class="amount-label">{{ order.amountLabel }}</text>
-                <text class="amount-value">¥11.6万</text>
-              </view>
-              <view class="card-actions">
-                <button class="secondary-button" @click.stop="runSecondaryAction(order)">
-                  {{ order.secondaryAction }}
-                </button>
-                <button class="primary-button" @click.stop="runPrimaryAction(order)">
-                  {{ order.primaryAction }}
-                </button>
-              </view>
+              <text class="footer-copy">点击查看项目详情与服务进度</text>
+              <text class="arrow">›</text>
             </view>
           </view>
         </view>
 
-        <view v-else class="empty-state">暂无相关装修订单</view>
+        <view v-if="!list.length" class="empty">暂无相关装修项目</view>
       </view>
     </scroll-view>
   </view>
 </template>
 
 <style lang="scss">
-.renovation-page {
+.page {
   display: flex;
   height: 100vh;
   flex-direction: column;
@@ -187,9 +97,9 @@ const runPrimaryAction = (order: RenovationOrder) => {
   background: $jfx-pageBackGroundColor;
 }
 
-.filter-card {
+.tabs {
   display: flex;
-  height: 90rpx;
+  height: 98rpx;
   margin: 24rpx 24rpx 0;
   padding: 0 24rpx;
   flex-shrink: 0;
@@ -197,12 +107,12 @@ const runPrimaryAction = (order: RenovationOrder) => {
   justify-content: space-between;
   background: #ffffff;
   border-radius: 18rpx;
-  box-shadow: 0 7rpx 24rpx rgba(55, 42, 32, 0.04);
+  box-shadow: 0 6rpx 22rpx rgba(89, 65, 46, 0.035);
 }
 
-.filter-item {
+.tab-item {
   display: flex;
-  height: 44rpx;
+  height: 46rpx;
   padding: 0 30rpx;
   align-items: center;
   justify-content: center;
@@ -210,198 +120,171 @@ const runPrimaryAction = (order: RenovationOrder) => {
   font-size: 24rpx;
   font-weight: 500;
   white-space: nowrap;
-  border-radius: 23rpx;
+  border-radius: 25rpx;
 }
 
-.filter-item.active {
+.tab-item.active {
   color: #e52e24;
   background: #fff0ef;
 }
 
-.order-scroll {
+.scroll {
   height: 0;
   min-height: 0;
   flex: 1;
 }
 
-.page-content {
-  padding: 24rpx 24rpx calc(48rpx + env(safe-area-inset-bottom));
+.content {
+  padding: 24rpx 24rpx calc(52rpx + env(safe-area-inset-bottom));
 }
 
-.order-count {
+.count {
   color: #aaaaaa;
-  font-size: 24rpx;
-  font-weight: 400;
+  font-size: 23rpx;
   line-height: 34rpx;
 }
 
-.order-list {
+.project-list {
   margin-top: 24rpx;
 }
 
-.order-card {
-  position: relative;
-  min-height: 272rpx;
+.card {
   padding: 20rpx 24rpx 0;
-  overflow: hidden;
   background: #ffffff;
-  border-left: 2rpx solid #5ca965;
-  border-radius: 18rpx;
-  box-shadow: 0 7rpx 25rpx rgba(55, 42, 32, 0.04);
+  border: 1rpx solid rgba(114, 89, 69, 0.045);
+  border-radius: 20rpx;
+  box-shadow: 0 5rpx 18rpx rgba(72, 52, 38, 0.03);
 }
 
-.order-card + .order-card {
+.card + .card {
   margin-top: 24rpx;
 }
 
-.order-card.card-pending {
-  border-left-color: #e42b22;
-}
-
-.order-card.card-completed {
-  border-left-color: #777777;
-}
-
-.card-header {
+.head {
   display: flex;
+  min-height: 78rpx;
   align-items: flex-start;
   justify-content: space-between;
 }
 
-.order-title {
-  color: #222222;
-  font-size: 28rpx;
-  font-weight: 500;
-  line-height: 40rpx;
+.project-copy {
+  min-width: 0;
+  padding-right: 20rpx;
 }
 
-.status-badge {
-  display: flex;
-  height: 42rpx;
-  padding: 0 20rpx;
-  align-items: center;
-  justify-content: center;
-  font-size: 22rpx;
-  line-height: 42rpx;
-  border-radius: 23rpx;
+.title,
+.project-no {
+  display: block;
 }
 
-.status-pending {
-  color: #e52e24;
-  background: #fff0ef;
-}
-
-.status-servicing {
-  color: #55a35d;
-  background: #eef8ef;
-}
-
-.status-completed {
-  color: #777777;
-  background: #f3f2f0;
-}
-
-.order-description {
-  margin-top: 5rpx;
+.title {
   overflow: hidden;
-  color: #aaaaaa;
-  font-size: 23rpx;
-  font-weight: 400;
-  line-height: 34rpx;
+  color: #222222;
+  font-size: 27rpx;
+  font-weight: 600;
+  line-height: 38rpx;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.order-detail {
-  margin-top: 16rpx;
-  padding: 12rpx 0;
-  border-top: 2rpx solid #eeeeee;
-  border-bottom: 2rpx solid #eeeeee;
+.project-no {
+  margin-top: 2rpx;
+  color: #aaaaaa;
+  font-size: 22rpx;
+  line-height: 32rpx;
 }
 
-.detail-line {
-  display: flex;
-  color: #777777;
-  font-size: 23rpx;
-  font-weight: 400;
-  line-height: 40rpx;
-}
-
-.detail-label {
-  width: 112rpx;
+.status {
+  display: inline-flex;
+  height: 42rpx;
+  padding: 0 20rpx;
   flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  font-size: 22rpx;
+  font-weight: 500;
+  line-height: 40rpx;
+  border-radius: 23rpx;
+  box-sizing: border-box;
 }
 
-.detail-value {
-  color: #666666;
+.status-PENDING_CONFIRM {
+  color: #d85b32;
+  background: #fffaf6;
+  border: 1rpx solid #f3c8b5;
+}
+
+.status-IN_SERVICE {
+  color: #4c9560;
+  background: #eef8f0;
+}
+
+.status-COMPLETED {
+  color: #777777;
+  background: #f3f2f0;
+}
+
+.project-info {
+  padding: 22rpx 0 20rpx;
+  border-top: 2rpx solid #f0efed;
+  border-bottom: 2rpx solid #f0efed;
+}
+
+.line {
+  display: flex;
+  min-height: 38rpx;
+  align-items: flex-start;
+  justify-content: space-between;
+  font-size: 24rpx;
+  line-height: 36rpx;
+}
+
+.line + .line {
+  margin-top: 14rpx;
+}
+
+.label {
+  flex-shrink: 0;
+  color: #888888;
+}
+
+.value {
+  max-width: 72%;
+  margin-left: 24rpx;
+  color: #333333;
+  text-align: right;
+}
+
+.amount {
+  color: #d92d20;
+  font-size: 27rpx;
+  font-weight: 600;
 }
 
 .card-footer {
   display: flex;
   min-height: 68rpx;
-  padding: 12rpx 0;
   align-items: center;
   justify-content: space-between;
 }
 
-.amount-group {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-}
-
-.amount-label {
-  color: #aaaaaa;
-  font-size: 23rpx;
-  font-weight: 400;
-}
-
-.amount-value {
-  margin-left: 18rpx;
-  color: #e42b22;
-  font-size: 29rpx;
-  font-weight: 400;
-}
-
-.card-actions {
-  display: flex;
-  margin-left: 12rpx;
-  flex-shrink: 0;
-  gap: 16rpx;
-}
-
-.secondary-button,
-.primary-button {
-  height: 44rpx;
-  margin: 0;
-  padding: 0 24rpx;
+.footer-copy {
+  color: #bbbbbb;
   font-size: 22rpx;
-  font-weight: 500;
-  line-height: 42rpx;
-  border-radius: 12rpx;
+  line-height: 32rpx;
 }
 
-.secondary-button {
-  color: #666666;
-  background: #ffffff;
-  border: 2rpx solid #eeeeee;
+.arrow {
+  color: #b6b1ad;
+  font-size: 34rpx;
+  font-weight: 300;
+  line-height: 34rpx;
 }
 
-.primary-button {
-  color: #ffffff;
-  background: #e42b22;
-}
-
-.secondary-button::after,
-.primary-button::after {
-  border: 0;
-}
-
-.empty-state {
+.empty {
   padding: 180rpx 0;
   color: #aaaaaa;
   font-size: 24rpx;
-  font-weight: 400;
   text-align: center;
 }
 </style>

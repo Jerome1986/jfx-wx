@@ -1,61 +1,15 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
-import { useMemberStore } from '@/stores'
+import { getCaseDetailApi } from '@/api/case'
+import { toggleFavoriteApi } from '@/api/favorite'
+import { useMemberStore, useRenovationBusinessStore } from '@/stores'
 import type { CaseDetail } from '@/types/case-detail'
 
 // 会员状态仓库
 const memberStore = useMemberStore()
-
-// 旧房房屋案例
-const oldHouseCase: CaseDetail = {
-  title: '68㎡老房翻新焕新颜',
-  label: '老房改造',
-  beforeCover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/房屋改造前.png',
-  afterCover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/房屋改造后.png',
-  location: '武汉',
-  roomType: '两居室',
-  area: '68㎡',
-  style: '奶油风',
-  price: '28.6万',
-  description:
-    '屋主希望保留老房原有的生活记忆，同时解决采光不足、储物空间有限和动线拥挤的问题。设计以温暖的奶油色为基调，重新规划公共空间，让小户型也能拥有通透舒适的居住体验。',
-  highlights: [
-    { title: '空间扩容', description: '打通客餐厅视线，减少空间阻隔，提升整体通透感。' },
-    { title: '收纳提升', description: '利用墙面和转角定制一体化柜体，释放日常活动空间。' },
-    { title: '采光改善', description: '采用浅色材质与开放布局，让自然光进入室内深处。' },
-  ],
-  costs: [
-    { name: '基础施工', value: '9.8万' },
-    { name: '主材费用', value: '11.6万' },
-    { name: '定制与软装', value: '7.2万' },
-  ],
-}
-
-// 厨房案例
-const kitchenCase: CaseDetail = {
-  title: '老旧厨房大变身',
-  label: '厨房改造',
-  beforeCover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/厨房改造前.png',
-  afterCover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/厨房改造后.png',
-  location: '武汉',
-  roomType: '两居室',
-  area: '76㎡',
-  style: '简约风',
-  price: '1.8万',
-  description:
-    '原厨房操作台面不足、物品摆放杂乱。此次改造在不改变主体结构的前提下，重新梳理洗、切、炒动线，并通过吊柜和抽屉系统提升储物效率。',
-  highlights: [
-    { title: '动线优化', description: '按照洗、切、炒顺序重排功能区，减少往返操作。' },
-    { title: '收纳升级', description: '补充吊柜、抽屉和转角收纳，常用物品触手可及。' },
-    { title: '快速焕新', description: '保留可用结构，以局部更新缩短工期并控制预算。' },
-  ],
-  costs: [
-    { name: '拆除与安装', value: '0.4万' },
-    { name: '橱柜与台面', value: '0.9万' },
-    { name: '五金与辅材', value: '0.5万' },
-  ],
-}
+// 装修业务状态
+const renovationBusinessStore = useRenovationBusinessStore()
 
 // 案例编号
 const caseId = ref(1)
@@ -64,9 +18,104 @@ const isEmployeeMode = ref(false)
 // 归属员工编号
 const attributionEmployeeId = ref<string>()
 // 详情
-const detail = computed(() => (caseId.value === 2 ? kitchenCase : oldHouseCase))
+const detail = ref<CaseDetail | null>(null)
 // 员工编号
 const employeeId = computed(() => memberStore.profile?.employeeId)
+const favoriteIcon =
+  'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/shoucang-shixin.png'
+const unfavoriteIcon =
+  'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/shoucang-kongxin.png'
+
+const formatPrice = (price: string | number | null) => {
+  const amount = Number(price)
+  if (!Number.isFinite(amount)) return ''
+  return `${Number((amount / 10000).toFixed(4))}万`
+}
+
+const normalizeHighlights = (value: unknown) => {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter(
+      (item): item is { title: string; description: string } =>
+        typeof item === 'object' &&
+        item !== null &&
+        typeof (item as Record<string, unknown>).title === 'string' &&
+        typeof (item as Record<string, unknown>).description === 'string',
+    )
+    .map((item) => ({ title: item.title, description: item.description }))
+}
+
+const normalizeCosts = (value: unknown) => {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter(
+      (item): item is { name: string; amount: number } =>
+        typeof item === 'object' &&
+        item !== null &&
+        typeof (item as Record<string, unknown>).name === 'string' &&
+        typeof (item as Record<string, unknown>).amount === 'number',
+    )
+    .map((item) => ({ name: item.name, value: formatPrice(item.amount) }))
+}
+
+const loadCaseDetail = async () => {
+  const userId = Number(memberStore.profile?.id)
+  if (!Number.isInteger(userId) || userId <= 0) {
+    detail.value = null
+    uni.showToast({ title: '请先登录后查看案例详情', icon: 'none' })
+    setTimeout(() => uni.navigateTo({ url: '/pages/login/login' }), 500)
+    return
+  }
+
+  try {
+    const { data } = await getCaseDetailApi(caseId.value, userId)
+    console.log('案例详情接口返回数据：', data)
+    if (!data) {
+      detail.value = null
+      return
+    }
+    detail.value = {
+      isFavorite: data.isFavorite === true,
+      title: data.title,
+      label: data.style || '',
+      beforeCover: data.beforeImage || '',
+      afterCover: data.afterImage || '',
+      location: data.city || '',
+      roomType: data.roomType || '',
+      area: data.area ? `${data.area}㎡` : '',
+      style: data.style || '',
+      price: formatPrice(data.totalPrice),
+      description: data.description || '',
+      highlights: normalizeHighlights(data.highlights),
+      costs: normalizeCosts(data.costs),
+    }
+  } catch (error) {
+    console.error('获取案例详情失败：', error)
+    detail.value = null
+  }
+}
+
+// 切换当前案例收藏状态
+const toggleCaseFavorite = async () => {
+  if (!detail.value) return
+  const userId = Number(memberStore.profile?.id)
+  if (!Number.isInteger(userId) || userId <= 0) {
+    uni.showToast({ title: '请先登录后再收藏', icon: 'none' })
+    setTimeout(() => uni.navigateTo({ url: '/pages/login/login' }), 500)
+    return
+  }
+
+  const nextFavorite = !detail.value.isFavorite
+  try {
+    const { data } = await toggleFavoriteApi({ userId, caseId: caseId.value })
+    if (!detail.value) return
+    detail.value.isFavorite = typeof data.isFavorite === 'boolean' ? data.isFavorite : nextFavorite
+    uni.showToast({ title: detail.value.isFavorite ? '收藏成功' : '已取消收藏', icon: 'none' })
+  } catch (error) {
+    console.error(nextFavorite ? '收藏案例失败：' : '取消收藏失败：', error)
+    uni.showToast({ title: nextFavorite ? '收藏失败' : '取消收藏失败', icon: 'none' })
+  }
+}
 
 onLoad((options) => {
   // 当前数据编号
@@ -75,11 +124,32 @@ onLoad((options) => {
   isEmployeeMode.value = options?.source === 'employee'
   attributionEmployeeId.value =
     typeof options?.employeeId === 'string' ? decodeURIComponent(options.employeeId) : undefined
+  loadCaseDetail()
 })
 
 // 获取当前案例的装修报价
 const requestQuote = () => {
-  uni.showToast({ title: `${detail.value.title}报价咨询`, icon: 'none' })
+  if (!detail.value) return
+  renovationBusinessStore.createAppointment({
+    type: 'CASE',
+    source: '案例详情',
+    caseId: caseId.value,
+    city: detail.value.location,
+    area: detail.value.area.replace('㎡', ''),
+    roomLayout: detail.value.roomType,
+    demand: '获取同款案例报价',
+    employeeId: Number(attributionEmployeeId.value) || undefined,
+    snapshot: {
+      title: detail.value.title,
+      cover: detail.value.afterCover,
+      referencePrice: detail.value.price,
+    },
+  })
+  uni.showToast({ title: '案例报价预约已提交', icon: 'success' })
+  setTimeout(
+    () => uni.navigateTo({ url: '/pages-sub/my/decorationOrder/decorationOrder?group=consult' }),
+    400,
+  )
 }
 
 // 准备案例分享
@@ -90,6 +160,12 @@ const prepareCaseShare = () => {
 }
 
 onShareAppMessage(() => {
+  if (!detail.value) {
+    return {
+      title: '家翻新精选案例',
+      path: '/pages/caseList/caseList',
+    }
+  }
   // 所属人编号
   const ownerId = employeeId.value
   if (!ownerId) {
@@ -109,7 +185,7 @@ onShareAppMessage(() => {
 </script>
 
 <template>
-  <view class="detail-page">
+  <view v-if="detail" class="detail-page">
     <scroll-view class="detail-scroll" scroll-y :show-scrollbar="false">
       <view class="compare-card">
         <view class="compare-images">
@@ -141,6 +217,12 @@ onShareAppMessage(() => {
               <text class="result-label">总花费</text>
               <text class="result-price">¥{{ detail.price }}</text>
             </view>
+            <image
+              class="favorite-icon"
+              :src="detail.isFavorite ? favoriteIcon : unfavoriteIcon"
+              mode="aspectFit"
+              @click.stop="toggleCaseFavorite"
+            />
           </view>
         </view>
       </view>
@@ -199,6 +281,7 @@ onShareAppMessage(() => {
       <button v-else class="quote-button" @click="requestQuote">获取同款报价</button>
     </view>
   </view>
+  <view v-else class="detail-empty">案例不存在或已下线</view>
 </template>
 
 <style lang="scss">
@@ -207,6 +290,15 @@ onShareAppMessage(() => {
   height: 100vh;
   flex-direction: column;
   background-color: $jfx-pageBackGroundColor;
+}
+
+.detail-empty {
+  display: flex;
+  height: 100vh;
+  align-items: center;
+  justify-content: center;
+  color: #999999;
+  font-size: 28rpx;
 }
 
 .detail-scroll {
@@ -309,6 +401,12 @@ onShareAppMessage(() => {
 .result-price {
   color: $jfx-brandColor;
   font-size: 34rpx;
+}
+
+.favorite-icon {
+  width: 48rpx;
+  height: 48rpx;
+  flex-shrink: 0;
 }
 
 .detail-card {

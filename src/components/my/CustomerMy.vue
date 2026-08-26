@@ -78,22 +78,17 @@ const decorationOrders = [
   {
     label: '待确认',
     icon: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/tubiao/待确认 1.png',
-    path: '/pages-sub/my/renovationOrder/renovationOrder?status=pending',
-  },
-  {
-    label: '待上门',
-    icon: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/tubiao/待上门 1.png',
-    path: '/pages-sub/my/renovationOrder/renovationOrder?status=servicing',
+    path: '/pages-sub/my/renovationOrder/renovationOrder?status=PENDING_CONFIRM',
   },
   {
     label: '服务中',
     icon: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/tubiao/服务中 1.png',
-    path: '/pages-sub/my/renovationOrder/renovationOrder?status=servicing',
+    path: '/pages-sub/my/renovationOrder/renovationOrder?status=IN_SERVICE',
   },
   {
     label: '已完成',
     icon: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/tubiao/完成.png',
-    path: '/pages-sub/my/renovationOrder/renovationOrder?status=completed',
+    path: '/pages-sub/my/renovationOrder/renovationOrder?status=COMPLETED',
   },
 ]
 

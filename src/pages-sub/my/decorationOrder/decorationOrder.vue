@@ -1,474 +1,416 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type {
-  ServiceFilterType as FilterType,
-  ServiceOrder,
-  ServiceStatus,
-} from '@/types/decoration-order'
+import { onLoad, onShow } from '@dcloudio/uni-app'
+import { getAppointmentListApi } from '@/api/appointment'
+import { appointmentStatusText, appointmentTypeText } from '@/stores/modules/renovation-business'
+import type { Appointment, AppointmentType } from '@/types/renovation-business'
+import { getAppointmentSummary } from '@/utils/appointment'
+import { formatDateTime, maskMobile } from '@/utils/format'
 
-// 当前筛选条件
-const activeFilter = ref<FilterType>('all')
-
-// 装修订单筛选项
-const filters: Array<{ label: string; value: FilterType }> = [
-  { label: '全部', value: 'all' },
-  { label: '量房服务', value: 'measure' },
-  { label: '报价服务', value: 'quote' },
-  { label: '已完成', value: 'completed' },
+// 每页加载数量
+const PAGE_SIZE = 10
+type Group = 'all' | 'budget' | 'measure' | 'plan' | 'consult'
+type AppointmentQueryType = AppointmentType | 'ALL'
+// 预约类型分组配置
+const groups: Array<{ label: string; value: Group; types: AppointmentQueryType[] }> = [
+  { label: '全部', value: 'all', types: ['ALL'] },
+  { label: '预算报价', value: 'budget', types: ['BUDGET', 'QUOTE'] },
+  { label: '量房服务', value: 'measure', types: ['MEASURE'] },
+  { label: '焕新服务', value: 'plan', types: ['PLAN'] },
+  { label: '咨询服务', value: 'consult', types: ['CASE', 'OUTLET'] },
 ]
+// 当前选中的预约分组
+const activeGroup = ref<Group>('all')
+// 已加载的预约列表
+const appointments = ref<Appointment[]>([])
+// 当前页码
+const pageNum = ref(1)
+// 总页数
+const totalPage = ref(0)
+// 当前分组的预约总数
+const total = ref(0)
+// 列表加载状态
+const loading = ref(false)
+// 列表加载失败状态
+const loadFailed = ref(false)
+// 是否还有下一页
+const hasMore = computed(() => pageNum.value < totalPage.value)
+// 当前分组对应的接口预约类型
+const activeTypes = computed<AppointmentQueryType[]>(
+  () => groups.find(({ value }) => value === activeGroup.value)?.types ?? ['ALL'],
+)
+// 获取预约状态对应的样式类名
+const statusClass = (status: Appointment['status']) => status.toLowerCase().replace('_', '-')
+// 获取预约摘要
+const summary = (item: Appointment) => getAppointmentSummary(item, appointmentTypeText[item.type])
+// 打开预约详情页
+const openDetail = (item: Appointment) =>
+  uni.navigateTo({
+    url: `/pages-sub/my/decorationOrderDetail/decorationOrderDetail?id=${item.id}`,
+  })
 
-// 订单列表
-const orders = ref<ServiceOrder[]>([
-  {
-    id: 1,
-    title: '房屋报价服务',
-    source: '装修预算计算器',
-    type: 'quote',
-    status: 'contact',
-    lines: ['提交于06月18日 14：32', '已留电话：13824245628'],
-    footer: '需求：厨房改造/95㎡',
-    secondaryAction: '取消',
-    primaryAction: '补充信息',
-  },
-  {
-    id: 2,
-    title: '房屋报价服务',
-    source: '免费量房',
-    type: 'quote',
-    status: 'service',
-    lines: ['上门时间：06月24日 10:00', '服务地址：洪山区珞喻路88号'],
-    footer: '内容：上门量房、记录房屋情况',
-    secondaryAction: '改期',
-    primaryAction: '联系顾问',
-  },
-  {
-    id: 3,
-    title: '房屋报价服务',
-    source: '装修预算计算器',
-    type: 'quote',
-    status: 'completed',
-    lines: ['沟通完成：06月24日 12:00', '结果：已沟通预算和改造范围'],
-    footer: '本次报价服务已结束',
-    primaryAction: '查看记录',
-  },
-  {
-    id: 4,
-    title: '免费量房服务',
-    source: '免费量房',
-    type: 'measure',
-    status: 'completed',
-    lines: ['量房完成：06月24日 12:00', '结果：已记录尺寸和需求'],
-    footer: '本次量房服务已结束',
-    primaryAction: '查看记录',
-  },
-])
+// 分页加载当前分组的预约数据
+const loadAppointments = async (reset = false) => {
+  if (loading.value || (!reset && !hasMore.value)) return
 
-// 可见订单列表
-const visibleOrders = computed(() => {
-  if (activeFilter.value === 'all') return orders.value
-  if (activeFilter.value === 'completed')
-    return orders.value.filter((item) => item.status === 'completed')
-  return orders.value.filter((item) => item.type === activeFilter.value)
+  const nextPage = reset ? 1 : pageNum.value + 1
+  loading.value = true
+  loadFailed.value = false
+
+  try {
+    const pages = await Promise.all(
+      activeTypes.value.map(async (type) => {
+        const { data } = await getAppointmentListApi({
+          pageNum: nextPage,
+          pageSize: PAGE_SIZE,
+          type,
+        })
+        return data
+      }),
+    )
+
+    const pageItems = pages.flatMap(({ list }) => list)
+    appointments.value = reset ? pageItems : [...appointments.value, ...pageItems]
+    pageNum.value = nextPage
+    totalPage.value = Math.max(0, ...pages.map((page) => page.totalPage))
+    total.value = pages.reduce((sum, page) => sum + page.total, 0)
+  } catch (error) {
+    console.error('获取焕新预约列表失败：', error)
+    loadFailed.value = true
+  } finally {
+    loading.value = false
+  }
+}
+
+// 切换预约分组并重新加载列表
+const selectGroup = (group: Group) => {
+  if (activeGroup.value === group || loading.value) return
+  activeGroup.value = group
+  // 保留现有内容，待新数据返回后整体替换，避免滚动容器高度骤变
+  loadAppointments(true)
+}
+
+// 避免首次进入页面时 onLoad 与 onShow 重复请求
+const loaded = ref(false)
+onLoad((query) => {
+  // 页面参数指定的初始分组
+  const group = query?.group as Group | undefined
+  if (groups.some((item) => item.value === group)) activeGroup.value = group!
+  loadAppointments(true).finally(() => {
+    loaded.value = true
+  })
 })
 
-// 服务数量
-const serviceCount = computed(() => orders.value.length)
-// 数量
-const contactCount = computed(() => orders.value.filter((item) => item.status === 'contact').length)
-// 数量
-const servingCount = computed(() => orders.value.filter((item) => item.status === 'service').length)
-// 已完成数量
-const completedCount = computed(
-  () => orders.value.filter((item) => item.status === 'completed').length,
-)
-
-// 状态文案
-const statusText: Record<ServiceStatus, string> = {
-  contact: '待确认',
-  service: '待服务',
-  completed: '已完成',
-}
-
-// 执行操作
-const runAction = (label: string) => uni.showToast({ title: `${label}功能建设中`, icon: 'none' })
-// 查看订单详情
-const viewOrderDetail = (item: ServiceOrder) => {
-  uni.navigateTo({
-    url: `/pages-sub/my/decorationOrderDetail/decorationOrderDetail?id=${item.id}&type=${item.type}`,
-  })
-}
-// 执行操作
-const runSecondaryAction = (item: ServiceOrder) => {
-  if (item.secondaryAction === '取消') {
-    uni.showModal({
-      title: '取消服务',
-      content: '确定取消本次房屋报价服务吗？',
-      confirmText: '确定取消',
-      confirmColor: '#D92D20',
-      success: ({ confirm }) => {
-        if (!confirm) return
-        orders.value = orders.value.filter((order) => order.id !== item.id)
-      },
-    })
-    return
-  }
-  runAction(item.secondaryAction || '')
-}
+// 从详情页取消预约后，返回列表时同步最新状态
+onShow(() => {
+  if (loaded.value) loadAppointments(true)
+})
 </script>
 
 <template>
-  <view class="order-page">
-    <scroll-view class="order-scroll" scroll-y :show-scrollbar="false">
-      <view class="page-content">
-        <view class="summary-card">
-          <view class="summary-title">只记录量房服务、房屋报价服务</view>
-          <view class="summary-description"
-            >单次服务记录，不展示装修订单状态，转化由顾问线下跟进</view
-          >
-          <view class="summary-stats">
-            <view class="summary-stat">
-              <text class="stat-number contact-number">{{ contactCount }}</text>
-              <text class="stat-label">待确认</text>
-            </view>
-            <view class="summary-stat">
-              <text class="stat-number">{{ servingCount }}</text>
-              <text class="stat-label">待服务</text>
-            </view>
-            <view class="summary-stat">
-              <text class="stat-number">{{ completedCount }}</text>
-              <text class="stat-label">已完成</text>
-            </view>
-          </view>
-        </view>
-
-        <view class="filter-list">
+  <view class="page">
+    <view class="content">
+      <view class="summary-card">
+        <view class="summary-title">预约管理</view>
+        <view class="summary-tip">统一查看预算、量房、焕新方案和咨询服务的预约进度</view>
+        <view class="summary-count">当前分类共 {{ total }} 条预约</view>
+      </view>
+      <scroll-view class="tabs" scroll-x :show-scrollbar="false">
+        <view class="tab-row">
           <view
-            v-for="item in filters"
+            v-for="item in groups"
             :key="item.value"
-            :class="['filter-item', { active: activeFilter === item.value }]"
-            @click="activeFilter = item.value"
+            class="tab"
+            :class="{ active: activeGroup === item.value }"
+            @click.stop="selectGroup(item.value)"
           >
             {{ item.label }}
           </view>
         </view>
-
-        <view class="service-count">共 {{ serviceCount }} 条服务</view>
-
-        <view class="service-list">
-          <view
-            v-for="item in visibleOrders"
-            :key="item.id"
-            :class="['service-card', `status-${item.status}`]"
-            @click="viewOrderDetail(item)"
-          >
-            <view class="card-header">
-              <view>
-                <view class="service-title">{{ item.title }}</view>
-                <view class="service-source">来源：{{ item.source }}</view>
+      </scroll-view>
+      <view class="count">共 {{ total }} 条预约</view>
+      <scroll-view
+        class="list-scroll"
+        scroll-y
+        :show-scrollbar="false"
+        lower-threshold="120"
+        @scrolltolower="loadAppointments()"
+      >
+        <view class="list-shell">
+          <view v-if="appointments.length" class="list">
+            <view
+              v-for="item in appointments"
+              :key="item.id"
+              class="card"
+              :class="`card-${statusClass(item.status)}`"
+              @click="openDetail(item)"
+            >
+              <view class="heading">
+                <view>
+                  <view class="title">{{ appointmentTypeText[item.type] }}</view>
+                  <view class="source">来源：{{ item.source }}</view> </view
+                ><text class="status" :class="statusClass(item.status)">{{
+                  appointmentStatusText[item.status]
+                }}</text>
               </view>
-              <view :class="['status-badge', item.status]">{{ statusText[item.status] }}</view>
+              <view class="divider" />
+              <view class="line"
+                ><text>预约内容：</text><text>{{ summary(item) }}</text></view
+              >
+              <view class="line"
+                ><text>预约编号：</text><text>{{ item.appointmentNo }}</text></view
+              >
+              <view class="line"
+                ><text>提交时间：</text
+                ><text>{{ formatDateTime(item.createdAt, '待确认') }}</text></view
+              >
+              <view class="line"
+                ><text>联系方式：</text><text>{{ maskMobile(item.mobile, '暂未填写') }}</text></view
+              >
+              <view v-if="item.status === 'PENDING_VISIT'" class="visit"
+                ><text>上门安排：</text
+                ><text>{{
+                  [item.visitDate, item.timeSlot].filter(Boolean).join(' ') || '待确认'
+                }}</text></view
+              >
             </view>
-
-            <view class="service-lines">
-              <view v-for="line in item.lines" :key="line" class="service-line">
-                <text class="line-dot">•</text>
-                <text>{{ line }}</text>
-              </view>
-            </view>
-
-            <view class="card-footer">
-              <view class="footer-copy">
-                <text class="line-dot">•</text>
-                <text>{{ item.footer }}</text>
-              </view>
-              <view class="card-actions">
-                <button
-                  v-if="item.secondaryAction"
-                  class="secondary-button"
-                  @click.stop="runSecondaryAction(item)"
-                >
-                  {{ item.secondaryAction }}
-                </button>
-                <button class="primary-button" @click.stop="runAction(item.primaryAction)">
-                  {{ item.primaryAction }}
-                </button>
-              </view>
-            </view>
+            <view v-if="loading" class="list-state">正在加载...</view>
+            <view v-else-if="loadFailed" class="list-state retry" @click="loadAppointments()"
+              >加载失败，点击重试</view
+            >
+            <view v-else-if="!hasMore" class="list-state">没有更多了</view>
           </view>
+          <view v-else-if="loading" class="empty">正在加载预约...</view>
+          <view v-else-if="loadFailed" class="empty retry" @click="loadAppointments(true)"
+            >加载失败，点击重试</view
+          >
+          <view v-else class="empty">暂无相关预约</view>
         </view>
-
-        <view v-if="!visibleOrders.length" class="empty-state">暂无相关服务记录</view>
-      </view>
-    </scroll-view>
+      </scroll-view>
+    </view>
   </view>
 </template>
 
 <style lang="scss">
-.order-page {
-  display: flex;
+.page {
   height: 100vh;
-  flex-direction: column;
   overflow: hidden;
-  color: $jfx-font-title;
-  background: $jfx-pageBackGroundColor;
+  background: #f8f7f5;
 }
 
-.order-scroll {
+.content {
+  display: flex;
+  box-sizing: border-box;
+  height: 100%;
+  padding: 24rpx 24rpx 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.list-scroll {
   height: 0;
   min-height: 0;
   flex: 1;
 }
 
-.page-content {
-  padding: 24rpx 24rpx calc(48rpx + env(safe-area-inset-bottom));
+.list-shell {
+  padding-bottom: calc(60rpx + env(safe-area-inset-bottom));
+}
+
+.summary-card,
+.card {
+  background: #fff;
+  border-radius: 18rpx;
+  box-shadow: 0 8rpx 28rpx rgba(57, 45, 34, 0.045);
 }
 
 .summary-card {
-  padding: 26rpx 24rpx 20rpx;
-  background: #fff;
-  border-radius: 18rpx;
-  box-shadow: 0 8rpx 28rpx rgba(55, 42, 32, 0.05);
+  padding: 28rpx;
 }
 
 .summary-title {
-  color: #222;
-  font-size: 27rpx;
-  line-height: 40rpx;
+  font-size: 34rpx;
+  font-weight: 700;
 }
 
-.summary-description {
-  margin-top: 5rpx;
+.summary-tip {
+  margin-top: 10rpx;
   color: #777;
-  font-size: 22rpx;
-  font-weight: 400;
-  line-height: 34rpx;
+  font-size: 24rpx;
+}
+
+.summary-count {
+  margin-top: 20rpx;
+  color: #a9704d;
+  font-weight: 600;
+}
+
+.tabs {
+  flex: none;
+  height: 66rpx;
+  margin-top: 24rpx;
   white-space: nowrap;
 }
 
-.summary-stats {
-  display: flex;
-  height: 80rpx;
-  margin-top: 17rpx;
-  align-items: center;
+.tab-row {
+  display: inline-flex;
+  gap: 12rpx;
 }
 
-.summary-stat {
-  position: relative;
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  align-items: center;
-}
-
-.summary-stat:not(:last-child)::after {
-  position: absolute;
-  top: 12rpx;
-  right: 0;
-  width: 2rpx;
-  height: 42rpx;
-  background: #eee;
-  content: '';
-}
-
-.stat-number {
-  color: #222;
-  font-size: 28rpx;
-  font-weight: 500;
-  line-height: 38rpx;
-}
-
-.contact-number {
-  color: $jfx-brandColor;
-}
-
-.stat-label {
-  color: #777;
-  font-size: 23rpx;
-  line-height: 32rpx;
-}
-
-.filter-list {
-  display: flex;
-  margin-top: 26rpx;
-  gap: 24rpx;
-}
-
-.filter-item {
-  display: flex;
-  height: 50rpx;
-  padding: 0 22rpx;
-  align-items: center;
-  justify-content: center;
-  color: #222;
-  font-size: 24rpx;
+.tab {
+  padding: 16rpx 26rpx;
+  color: #666;
   background: #fff;
-  border: 2rpx solid transparent;
-  border-radius: 8rpx;
+  border-radius: 30rpx;
+  font-size: 24rpx;
 }
 
-.filter-item.active {
-  color: $jfx-brandColor;
-  background: #fff7f6;
-  border-color: $jfx-brandColor;
+.tab.active {
+  color: #fff;
+  background: #d92d20;
 }
 
-.service-count {
-  margin: 24rpx 0 26rpx;
-  color: #aaa;
-  font-size: 23rpx;
-  font-weight: 400;
-  line-height: 34rpx;
+.count {
+  margin: 24rpx 4rpx 16rpx;
+  color: #999;
+  font-size: 24rpx;
 }
 
-.service-card {
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 22rpx;
+}
+
+.card {
   position: relative;
   overflow: hidden;
-  min-height: 268rpx;
-  padding: 16rpx 24rpx 0;
-  background: #fff;
-  border-left: 3rpx solid #777;
-  border-radius: 18rpx;
-  box-shadow: 0 8rpx 28rpx rgba(55, 42, 32, 0.045);
+  padding: 26rpx 24rpx 24rpx;
+  border-left: 4rpx solid #d92d20;
 }
 
-.service-card.status-contact {
-  border-left-color: $jfx-brandColor;
+.card-pending-visit {
+  border-left-color: #bd7411;
 }
 
-.service-card.status-service {
-  border-left-color: #d58a27;
+.card-completed,
+.card-canceled {
+  border-left-color: #70706f;
 }
 
-.service-card + .service-card {
-  margin-top: 24rpx;
-}
-
-.card-header {
+.heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
 }
 
-.service-title {
+.title {
   color: #222;
-  font-size: 27rpx;
-  line-height: 38rpx;
+  font-size: 31rpx;
+  font-weight: 650;
+  line-height: 44rpx;
 }
 
-.service-source {
-  margin-top: 2rpx;
-  color: #aaa;
+.source {
+  margin-top: 5rpx;
+  color: #999;
   font-size: 23rpx;
-  font-weight: 400;
   line-height: 34rpx;
 }
 
-.status-badge {
-  display: flex;
-  height: 42rpx;
-  padding: 0 20rpx;
-  align-items: center;
-  justify-content: center;
-  font-size: 22rpx;
-  line-height: 42rpx;
-  border-radius: 22rpx;
-}
-
-.status-badge.contact {
-  color: $jfx-brandColor;
+.status {
+  flex-shrink: 0;
+  margin-left: 20rpx;
+  padding: 9rpx 20rpx;
+  color: #df2c21;
   background: #fff0ef;
-}
-
-.status-badge.service {
-  color: #c77a17;
-  background: #fff5e8;
-}
-
-.status-badge.completed {
-  color: #777;
-  background: #f3f2f0;
-}
-
-.service-lines {
-  margin-top: 14rpx;
-  padding: 9rpx 0 10rpx;
-  border-top: 2rpx solid #f0f0f0;
-  border-bottom: 2rpx solid #f0f0f0;
-}
-
-.service-line {
-  display: flex;
-  color: #555;
+  border-radius: 30rpx;
   font-size: 23rpx;
-  font-weight: 400;
-  line-height: 40rpx;
+  font-weight: 600;
+  line-height: 32rpx;
 }
 
-.line-dot {
-  margin-right: 7rpx;
-  flex-shrink: 0;
-  color: #d9a47f;
-  font-size: 28rpx;
-  line-height: inherit;
+.status.pending-visit {
+  color: #b96e0a;
+  background: #fff3df;
 }
 
-.card-footer {
-  display: flex;
-  min-height: 62rpx;
-  padding: 16rpx 0;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.footer-copy {
-  display: flex;
-  min-width: 0;
-  align-items: center;
+.status.completed,
+.status.canceled {
   color: #666;
-  font-size: 22rpx;
-  font-weight: 400;
-  white-space: nowrap;
+  background: #f1f0ef;
 }
 
-.card-actions {
+.divider {
+  height: 1rpx;
+  margin: 20rpx 0 16rpx;
+  background: #ededed;
+}
+
+.line,
+.visit {
+  position: relative;
   display: flex;
-  margin-left: 14rpx;
-  flex-shrink: 0;
-  gap: 16rpx;
-}
-
-.secondary-button,
-.primary-button {
-  height: 42rpx;
-  margin: 0;
-  padding: 0 24rpx;
-  font-size: 22rpx;
-  line-height: 42rpx;
-  border-radius: 12rpx;
-}
-
-.secondary-button {
-  color: #777;
-  background: #fff;
-  border: 2rpx solid #eee;
-}
-
-.primary-button {
-  min-width: 144rpx;
-  color: #fff;
-  background: $jfx-brandColor;
-}
-
-.secondary-button::after,
-.primary-button::after {
-  border: 0;
-}
-
-.empty-state {
-  padding: 160rpx 0;
-  color: #aaa;
+  align-items: flex-start;
+  padding-left: 28rpx;
+  color: #6f6f6f;
   font-size: 24rpx;
-  font-weight: 400;
+  line-height: 38rpx;
+}
+
+.line + .line,
+.visit {
+  margin-top: 8rpx;
+}
+
+.line::before,
+.visit::before {
+  position: absolute;
+  top: 14rpx;
+  left: 0;
+  width: 10rpx;
+  height: 10rpx;
+  background: #d9a77c;
+  border-radius: 50%;
+  content: '';
+}
+
+.line text:first-child,
+.visit text:first-child {
+  flex-shrink: 0;
+}
+
+.line text:last-child,
+.visit text:last-child {
+  min-width: 0;
+  color: #333;
+  word-break: break-all;
+}
+
+.visit {
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid #ededed;
+}
+
+.visit::before {
+  top: 30rpx;
+}
+
+.empty {
+  padding: 120rpx 0;
+  color: #aaa;
   text-align: center;
+}
+
+.list-state {
+  padding: 28rpx 0 8rpx;
+  color: #aaa;
+  font-size: 23rpx;
+  text-align: center;
+}
+
+.retry {
+  color: #d92d20;
 }
 </style>

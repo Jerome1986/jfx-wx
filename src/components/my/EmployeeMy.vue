@@ -111,8 +111,8 @@ const handleWorkbenchClick = (label: string) => {
 const handleTodoClick = (label: string) => {
   if (!requireLogin()) return
   const renovationStatus = {
-    待确认: 'pending',
-    服务中: 'servicing',
+    待确认: 'PENDING_CONFIRM',
+    服务中: 'IN_SERVICE',
   }[label]
 
   if (renovationStatus) {
@@ -123,8 +123,8 @@ const handleTodoClick = (label: string) => {
   }
 
   const appointmentStatus = {
-    待联系: 'contact',
-    待上门: 'service',
+    待联系: 'PENDING_CONTACT',
+    待上门: 'PENDING_VISIT',
   }[label]
 
   if (appointmentStatus) {

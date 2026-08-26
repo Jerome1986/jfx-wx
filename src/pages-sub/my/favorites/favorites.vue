@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
-import { useMemberStore } from '@/stores'
+import { useMemberStore, useRenovationBusinessStore } from '@/stores'
 import type { FavoriteCase } from '@/types/favorites'
 
 // 会员状态仓库
 const memberStore = useMemberStore()
+// 装修业务状态
+const renovationBusinessStore = useRenovationBusinessStore()
 // 是否为员工视图
 const isEmployeeMode = ref(false)
 // 已选分享案例
@@ -49,7 +51,21 @@ const viewCaseDetail = (item: FavoriteCase) => {
 }
 // 获取收藏案例的装修报价
 const requestQuote = (item: FavoriteCase) => {
-  uni.showToast({ title: `${item.title}报价咨询`, icon: 'none' })
+  renovationBusinessStore.createAppointment({
+    type: 'CASE',
+    source: '我的收藏',
+    caseId: item.id,
+    city: item.location,
+    area: item.area.replace('㎡', ''),
+    roomLayout: item.roomType,
+    demand: '获取收藏案例同款报价',
+    snapshot: { title: item.title, cover: item.afterCover, referencePrice: item.price },
+  })
+  uni.showToast({ title: '案例报价预约已提交', icon: 'success' })
+  setTimeout(
+    () => uni.navigateTo({ url: '/pages-sub/my/decorationOrder/decorationOrder?group=consult' }),
+    400,
+  )
 }
 // 移除收藏
 const removeFavorite = (item: FavoriteCase) => {

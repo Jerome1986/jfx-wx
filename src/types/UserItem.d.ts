@@ -1,7 +1,9 @@
 /** 用户角色 */
 export type UserRole = 'CUSTOMER' | 'EMPLOYEE'
+/** 用户性别 */
 export type Gender = 'MALE' | 'FEMALE'
 
+/** 用户完整信息 */
 export type UserItem = {
   /** 主键 ID */
   id: number
@@ -47,8 +49,10 @@ export type UserItem = {
   updatedAt: string
 }
 
-// 登录返回
+/** 登录接口返回数据 */
 export interface LoginResult {
+  /** 登录访问令牌 */
   token: string
+  /** 当前登录用户 */
   user: UserItem
 }

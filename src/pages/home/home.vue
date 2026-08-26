@@ -2,7 +2,10 @@
 import { onLoad } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 import { getBannerListApi } from '@/api/banner'
+import { getCasePageApi } from '@/api/case'
+import { toggleFavoriteApi } from '@/api/favorite'
 import { getRenewalPlanListApi } from '@/api/renewal-plan'
+import { useMemberStore } from '@/stores'
 import CustomNavHome from '@/components/CustomNavHome.vue'
 import RenovationCalculator from '@/components/RenovationCalculator.vue'
 import SectionHeader from '@/components/SectionHeader.vue'
@@ -15,6 +18,8 @@ useShare({
   path: '/pages/home/home',
   imageUrl: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/banner/banner1.png',
 })
+
+const memberStore = useMemberStore()
 
 // 轮播图列表
 const swiperList = ref([
@@ -36,6 +41,7 @@ const loadBannerList = async () => {
 onLoad(() => {
   loadBannerList()
   loadRenewalPlans()
+  loadSelectedCases()
 })
 
 // 是否显示悬浮咨询入口
@@ -94,39 +100,78 @@ const goToCaseList = () => {
   uni.navigateTo({ url: '/pages/caseList/caseList' })
 }
 
-// 已选案例列表
-const selectedCaseList: SelectedCase[] = [
-  {
-    id: 2,
-    title: '老旧厨房大变身',
-    label: '厨房改造',
-    isFavorite: false,
-    beforeCover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/厨房改造前.png',
-    afterCover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/厨房改造后.png',
-    location: '武汉',
-    roomType: '卫生间',
-    area: '6㎡',
-    tags: ['动线优化', '收纳升级', '颜值提升'],
-    price: '1.8万',
-    duration: '5天',
-    receivedCount: 142,
-  },
-  {
-    id: 1,
-    title: '68㎡老房翻新焕新颜',
-    label: '老房改造',
-    isFavorite: false,
-    beforeCover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/房屋改造前.png',
-    afterCover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/房屋改造后.png',
-    location: '武汉',
-    roomType: '两居室',
-    area: '68㎡',
-    tags: ['奶油风', '收纳提升', '空间扩容'],
-    price: '28.6万',
-    duration: '151天',
-    receivedCount: 327,
-  },
-]
+// 精选案例列表
+const selectedCaseList = ref<SelectedCase[]>([])
+const favoriteIcon =
+  'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/shoucang-shixin.png'
+const unfavoriteIcon =
+  'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/shoucang-kongxin.png'
+
+const formatPrice = (price: string | null) => {
+  const amount = Number(price)
+  if (!Number.isFinite(amount)) return ''
+  const priceInTenThousands = amount / 10000
+  return `${Number(priceInTenThousands.toFixed(4))}万`
+}
+
+// 加载精选案例
+const loadSelectedCases = async () => {
+  try {
+    const userId = Number(memberStore.profile?.id)
+    const { data } = await getCasePageApi({
+      pageNum: 1,
+      pageSize: 100,
+      ...(Number.isInteger(userId) && userId > 0 ? { userId } : {}),
+    })
+    console.log('首页案例接口返回数据：', data)
+
+    selectedCaseList.value = data.list
+      .filter((item) => item.isRecommended === true)
+      .slice(0, 2)
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        label: item.style || '',
+        isFavorite: item.isFavorite === true,
+        beforeCover: item.beforeImage || '',
+        afterCover: item.afterImage || '',
+        location: item.city || '',
+        roomType: item.roomType || '',
+        area: item.area ? `${item.area}㎡` : '',
+        tags: Array.isArray(item.tags)
+          ? item.tags.filter((tag): tag is string => typeof tag === 'string')
+          : [],
+        price: formatPrice(item.totalPrice),
+        duration: item.durationDays == null ? '' : `${item.durationDays}天`,
+        receivedCount: item.quoteCount,
+      }))
+  } catch (error) {
+    console.error('获取首页精选案例失败：', error)
+    selectedCaseList.value = []
+  }
+}
+
+// 切换案例收藏状态
+const toggleCaseFavorite = async (item: SelectedCase) => {
+  const nextFavorite = !item.isFavorite
+  const userId = Number(memberStore.profile?.id)
+
+  if (!Number.isInteger(userId) || userId <= 0) {
+    uni.showToast({ title: '请先登录后再收藏', icon: 'none' })
+    setTimeout(() => uni.navigateTo({ url: '/pages/login/login' }), 500)
+    return
+  }
+
+  try {
+    const { data } = await toggleFavoriteApi({ userId, caseId: item.id })
+    console.log('收藏', data)
+    item.isFavorite = typeof data.isFavorite === 'boolean' ? data.isFavorite : nextFavorite
+    uni.showToast({ title: item.isFavorite ? '收藏成功' : '已取消收藏', icon: 'none' })
+  } catch (error) {
+    console.error(nextFavorite ? '收藏案例失败：' : '取消收藏失败：', error)
+    uni.showToast({ title: nextFavorite ? '收藏失败' : '取消收藏失败', icon: 'none' })
+  }
+}
 
 // 跳转到案例详情
 const goToCaseDetail = (item: SelectedCase) => {
@@ -198,11 +243,12 @@ const goToCaseDetail = (item: SelectedCase) => {
             <view class="case-cover">
               <image class="cover-before" :src="item.beforeCover" mode="aspectFill" />
               <image class="cover-after" :src="item.afterCover" mode="aspectFill" />
-              <text class="case-cover-label">{{ item.label }}</text>
+              <text v-if="item.label" class="case-cover-label">{{ item.label }}</text>
               <image
                 class="case-favorite-icon"
-                src="https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/shoucang-kongxin.png"
+                :src="item.isFavorite ? favoriteIcon : unfavoriteIcon"
                 mode="aspectFit"
+                @click.stop="toggleCaseFavorite(item)"
               />
               <image
                 class="case-compare-icon"

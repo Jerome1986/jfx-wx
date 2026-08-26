@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useRenovationBusinessStore } from '@/stores/modules/renovation-business'
 import type { OutletCategory, ServiceOutlet } from '@/types/service-outlets'
+// 装修业务状态
+const renovationBusinessStore = useRenovationBusinessStore()
 
 // 状态栏高度
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
@@ -70,8 +73,20 @@ const navigateOutlet = (outlet: ServiceOutlet) => {
   })
 }
 // 预约当前服务网点
-const reserveOutlet = (outlet: ServiceOutlet) =>
-  uni.showToast({ title: `已选择${outlet.name}`, icon: 'success' })
+const reserveOutlet = (outlet: ServiceOutlet) => {
+  renovationBusinessStore.createAppointment({
+    type: 'OUTLET',
+    source: '服务网点',
+    city: '武汉',
+    demand: '预约到店咨询',
+    snapshot: { title: outlet.name, address: outlet.address, contact: '400-888-6688' },
+  })
+  uni.showToast({ title: '网点咨询预约已提交', icon: 'success' })
+  setTimeout(
+    () => uni.navigateTo({ url: '/pages-sub/my/decorationOrder/decorationOrder?group=consult' }),
+    400,
+  )
+}
 // 联系在线客服
 const contactService = () => uni.showToast({ title: '正在连接在线客服', icon: 'none' })
 </script>
