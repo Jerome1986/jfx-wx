@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
+import { onLoad, onPullDownRefresh, onShareAppMessage } from '@dcloudio/uni-app'
 import { useMemberStore, useRenovationBusinessStore } from '@/stores'
+import { getUserFavoritesApi, toggleFavoriteApi } from '@/api/favorite'
+import type { FavoriteCaseItem } from '@/api/favorite'
 import type { FavoriteCase } from '@/types/favorites'
 
 // 会员状态仓库
@@ -15,39 +17,87 @@ const selectedShareCase = ref<FavoriteCase>()
 // 员工编号
 const employeeId = computed(() => memberStore.profile?.employeeId)
 
-// 收藏
-const favoriteCases = ref<FavoriteCase[]>(
-  Array.from({ length: 12 }, (_, index) => ({
-    id: index + 1,
-    title: '68㎡老房翻新焕新颜',
-    label: '老房改造',
-    beforeCover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/房屋改造前.png',
-    afterCover: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/房屋改造后.png',
-    location: '武汉',
-    roomType: '两居室',
-    area: '68㎡',
-    tags: ['奶油风', '收纳提升', '空间扩容'],
-    price: '28.6万',
-    duration: '151天',
-    receivedCount: 327,
-  })),
-)
+// 收藏案例
+const favoriteCases = ref<FavoriteCase[]>([])
+const isLoading = ref(false)
 
 // 收藏数量
 const favoriteCount = computed(() => favoriteCases.value.length)
+
+const getString = (item: FavoriteCaseItem, key: string) => {
+  const value = item[key]
+  return typeof value === 'string' ? value : ''
+}
+
+const getNumber = (item: FavoriteCaseItem, key: string) => {
+  const value = Number(item[key])
+  return Number.isFinite(value) ? value : 0
+}
+
+const formatPrice = (value: unknown) => {
+  const amount = Number(value)
+  if (!Number.isFinite(amount)) return ''
+  return `${Number((amount / 10000).toFixed(4))}万`
+}
+
+const mapFavoriteCase = (item: FavoriteCaseItem): FavoriteCase => {
+  const cover = item.cover || ''
+  const tags = item.tags
+  return {
+    id: item.id,
+    title: item.title,
+    label: getString(item, 'style'),
+    beforeCover: getString(item, 'beforeImage') || cover,
+    afterCover: getString(item, 'afterImage') || cover,
+    location: getString(item, 'city'),
+    roomType: getString(item, 'roomType'),
+    area: item.area ? `${item.area}㎡` : '',
+    tags: Array.isArray(tags) ? tags.filter((tag): tag is string => typeof tag === 'string') : [],
+    price: formatPrice(item.totalPrice),
+    duration: item.durationDays == null ? '' : `${getNumber(item, 'durationDays')}天`,
+    receivedCount: getNumber(item, 'quoteCount'),
+  }
+}
+
+const loadFavorites = async () => {
+  if (isLoading.value) return
+  const userId = Number(memberStore.profile?.id)
+  if (!Number.isInteger(userId) || userId <= 0) {
+    favoriteCases.value = []
+    uni.showToast({ title: '请先登录', icon: 'none' })
+    uni.stopPullDownRefresh()
+    return
+  }
+
+  isLoading.value = true
+  try {
+    const { data } = await getUserFavoritesApi(userId)
+    favoriteCases.value = data
+      .filter((item) => item.case && item.case.status !== 'DELETED')
+      .map((item) => mapFavoriteCase(item.case))
+  } catch (error) {
+    console.error('获取收藏列表失败：', error)
+  } finally {
+    isLoading.value = false
+    uni.stopPullDownRefresh()
+  }
+}
 
 onLoad((options) => {
   isEmployeeMode.value = options?.source === 'employee'
   if (isEmployeeMode.value) {
     uni.setNavigationBarTitle({ title: '我的案例' })
   }
+  loadFavorites()
 })
+
+onPullDownRefresh(loadFavorites)
 
 // 查看案例详情
 const viewCaseDetail = (item: FavoriteCase) => {
   // 数据来源
   const source = isEmployeeMode.value ? '&source=employee' : ''
-  uni.navigateTo({ url: `/pages/caseDetail/caseDetail?id=${item.id === 2 ? 2 : 1}${source}` })
+  uni.navigateTo({ url: `/pages/caseDetail/caseDetail?id=${item.id}${source}` })
 }
 // 获取收藏案例的装修报价
 const requestQuote = (item: FavoriteCase) => {
@@ -68,9 +118,18 @@ const requestQuote = (item: FavoriteCase) => {
   )
 }
 // 移除收藏
-const removeFavorite = (item: FavoriteCase) => {
-  favoriteCases.value = favoriteCases.value.filter((caseItem) => caseItem.id !== item.id)
-  uni.showToast({ title: '已取消收藏', icon: 'none' })
+const removeFavorite = async (item: FavoriteCase) => {
+  const userId = Number(memberStore.profile?.id)
+  if (!Number.isInteger(userId) || userId <= 0) return
+  try {
+    const { data } = await toggleFavoriteApi({ userId, caseId: item.id })
+    if (data.isFavorite !== true) {
+      favoriteCases.value = favoriteCases.value.filter((caseItem) => caseItem.id !== item.id)
+      uni.showToast({ title: '已取消收藏', icon: 'none' })
+    }
+  } catch (error) {
+    console.error('取消收藏失败：', error)
+  }
 }
 
 // 准备案例分享
@@ -95,9 +154,7 @@ onShareAppMessage(() => {
   }
   return {
     title: item.title,
-    path: `/pages/caseDetail/caseDetail?id=${item.id === 2 ? 2 : 1}&employeeId=${encodeURIComponent(
-      ownerId,
-    )}`,
+    path: `/pages/caseDetail/caseDetail?id=${item.id}&employeeId=${encodeURIComponent(ownerId)}`,
     imageUrl: item.afterCover,
   }
 })
@@ -186,6 +243,10 @@ onShareAppMessage(() => {
             </view>
           </view>
           <view class="list-tip">继续下滑查看更多收藏案例</view>
+        </view>
+
+        <view v-else-if="isLoading" class="empty-state">
+          <view class="empty-title">收藏加载中...</view>
         </view>
 
         <view v-else class="empty-state">

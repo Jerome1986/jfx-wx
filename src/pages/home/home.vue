@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 import { getBannerListApi } from '@/api/banner'
 import { getCasePageApi } from '@/api/case'
@@ -41,7 +41,6 @@ const loadBannerList = async () => {
 onLoad(() => {
   loadBannerList()
   loadRenewalPlans()
-  loadSelectedCases()
 })
 
 // 是否显示悬浮咨询入口
@@ -150,6 +149,11 @@ const loadSelectedCases = async () => {
     selectedCaseList.value = []
   }
 }
+
+// 每次进入首页都重新获取精选案例，及时同步详情页、收藏页中的收藏状态
+onShow(() => {
+  loadSelectedCases()
+})
 
 // 切换案例收藏状态
 const toggleCaseFavorite = async (item: SelectedCase) => {

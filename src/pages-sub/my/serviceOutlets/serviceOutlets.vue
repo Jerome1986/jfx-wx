@@ -1,17 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
 import { useRenovationBusinessStore } from '@/stores/modules/renovation-business'
-import type { OutletCategory, ServiceOutlet } from '@/types/service-outlets'
+import type { ServiceOutlet } from '@/types/service-outlets'
 // 装修业务状态
 const renovationBusinessStore = useRenovationBusinessStore()
 
 // 状态栏高度
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
-// 当前分类
-const activeCategory = ref<OutletCategory>('全部')
-
-// 分类
-const categories: OutletCategory[] = ['全部', '距离最近', '装修咨询', '售后服务']
 // 网点列表
 const outlets: ServiceOutlet[] = [
   {
@@ -33,18 +27,6 @@ const outlets: ServiceOutlet[] = [
     image: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/beijingtu/wangdian.png',
   },
 ]
-
-// 可见网点列表
-const visibleOutlets = computed(() => {
-  // 当前数据列表
-  const list =
-    activeCategory.value === '全部' || activeCategory.value === '距离最近'
-      ? outlets
-      : outlets.filter((item) => item.categories.includes(activeCategory.value))
-  return activeCategory.value === '距离最近'
-    ? [...list].sort((a, b) => a.distance - b.distance)
-    : list
-})
 
 // 返回上一页
 const goBack = () => uni.navigateBack()
@@ -101,49 +83,28 @@ const contactService = () => uni.showToast({ title: '正在连接在线客服', 
       <view class="navigation-placeholder" />
     </view>
 
-    <scroll-view class="outlet-scroll" scroll-y :show-scrollbar="false">
-      <view class="page-content">
-        <view class="city-card">
-          <view class="city-row">
-            <view class="city-copy">
-              <view class="city-label">当前城市</view>
-              <view class="city-line">
-                <text class="city-name">武汉</text>
-                <text class="city-tip">已为你定位附近服务网点</text>
-              </view>
-            </view>
-            <view class="region-button" @click="switchRegion">
-              <text class="iconfont icon-dizhiguanli region-icon" />
-              <text>切换区域</text>
+    <view class="page-content">
+      <view class="city-card">
+        <view class="city-row">
+          <view class="city-copy">
+            <view class="city-label">当前城市</view>
+            <view class="city-line">
+              <text class="city-name">武汉</text>
+              <text class="city-tip">已为你定位附近服务网点</text>
             </view>
           </view>
-          <view class="city-divider" />
-          <view class="search-tip">查找可咨询、可导航、可预约到店的家翻新服务网点</view>
-        </view>
-
-        <view class="description-card">
-          <view class="description-title">网点说明</view>
-          <view class="description-text">
-            服务网点用于线下咨询、材料确认、售后协助和到店沟通；具体上门时间仍以装修订单、预约服务或客服确认为准。
+          <view class="region-button" @click="switchRegion">
+            <text class="iconfont icon-dizhiguanli region-icon" />
+            <text>切换区域</text>
           </view>
         </view>
+        <view class="city-divider" />
+        <view class="search-tip">查找可咨询、可导航、可预约到店的家翻新服务网点</view>
+      </view>
 
-        <scroll-view class="category-list" scroll-x :show-scrollbar="false">
-          <view class="category-inner">
-            <view
-              v-for="item in categories"
-              :key="item"
-              class="category-item"
-              :class="{ active: activeCategory === item }"
-              @click="activeCategory = item"
-            >
-              {{ item }}
-            </view>
-          </view>
-        </scroll-view>
-
-        <view class="list-title">推荐服务网点</view>
-        <view v-for="outlet in visibleOutlets" :key="outlet.id" class="outlet-card">
+      <view class="list-title">推荐服务网点</view>
+      <scroll-view class="outlet-list-scroll" scroll-y :show-scrollbar="false">
+        <view v-for="outlet in outlets" :key="outlet.id" class="outlet-card">
           <view class="outlet-head">
             <image class="outlet-image" :src="outlet.image" mode="aspectFill" />
             <view class="outlet-summary">
@@ -171,8 +132,8 @@ const contactService = () => uni.showToast({ title: '正在连接在线客服', 
           </view>
         </view>
         <view class="scroll-bottom-space" />
-      </view>
-    </scroll-view>
+      </scroll-view>
+    </view>
 
     <view class="customer-bar">
       <view class="customer-copy">
@@ -228,16 +189,15 @@ const contactService = () => uni.showToast({ title: '正在连接在线客服', 
 .navigation-placeholder {
   width: 76rpx;
 }
-.outlet-scroll {
-  height: 0;
-  min-height: 0;
-  flex: 1;
-}
 .page-content {
+  display: flex;
+  min-height: 0;
   padding: 22rpx 24rpx 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
 }
 .city-card,
-.description-card,
 .outlet-card {
   background: #fff;
   border-radius: 18rpx;
@@ -299,52 +259,16 @@ const contactService = () => uni.showToast({ title: '正在连接在线客服', 
   font-size: 23rpx;
   line-height: 34rpx;
 }
-.description-card {
-  margin-top: 24rpx;
-  padding: 28rpx 24rpx 24rpx;
-}
-.description-title {
-  font-size: 28rpx;
-  font-weight: 600;
-  line-height: 40rpx;
-}
-.description-text {
-  margin-top: 20rpx;
-  color: #666;
-  font-size: 23rpx;
-  line-height: 36rpx;
-}
-.category-list {
-  width: 100%;
-  margin-top: 24rpx;
-  white-space: nowrap;
-}
-.category-inner {
-  display: flex;
-  gap: 22rpx;
-}
-.category-item {
-  display: flex;
-  width: 130rpx;
-  height: 52rpx;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  font-size: 24rpx;
-  background: #fff;
-  border: 2rpx solid transparent;
-  border-radius: 8rpx;
-}
-.category-item.active {
-  color: #ed342e;
-  background: #fff3f2;
-  border-color: #ed342e;
-}
 .list-title {
-  margin: 28rpx 0 22rpx;
+  margin: 24rpx 0 22rpx;
   font-size: 29rpx;
   font-weight: 600;
   line-height: 40rpx;
+}
+.outlet-list-scroll {
+  height: 0;
+  min-height: 0;
+  flex: 1;
 }
 .outlet-card {
   margin-bottom: 24rpx;

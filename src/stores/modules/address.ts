@@ -4,39 +4,12 @@ import type { ServiceAddress } from '@/types/address'
 
 export type { ServiceAddress } from '@/types/address'
 
-const defaultAddresses: ServiceAddress[] = [
-  {
-    id: 1,
-    name: '张先生',
-    phone: '138****5628',
-    locationName: '湖北省武汉市洪山区珞瑜路',
-    address: '湖北省武汉市洪山区珞瑜路88号',
-    doorplate: '2栋1单元303',
-  },
-  {
-    id: 2,
-    name: '张先生',
-    phone: '138****5628',
-    locationName: '湖北省武汉市洪山区珞瑜路',
-    address: '湖北省武汉市洪山区珞瑜路88号',
-    doorplate: '2栋1单元303',
-  },
-  {
-    id: 3,
-    name: '张先生',
-    phone: '138****5628',
-    locationName: '湖北省武汉市洪山区珞瑜路',
-    address: '湖北省武汉市洪山区珞瑜路88号',
-    doorplate: '2栋1单元303',
-  },
-]
-
 export const useAddressStore = defineStore(
   'address',
   () => {
     // 地址数据和当前选择
-    const addresses = ref<ServiceAddress[]>(defaultAddresses)
-    const selectedId = ref(1)
+    const addresses = ref<ServiceAddress[]>([])
+    const selectedId = ref(0)
     const selectedAddress = computed(
       () => addresses.value.find((item) => item.id === selectedId.value) || addresses.value[0],
     )
