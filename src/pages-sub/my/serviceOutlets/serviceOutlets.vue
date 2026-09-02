@@ -1,76 +1,113 @@
 <script setup lang="ts">
-import { useRenovationBusinessStore } from '@/stores/modules/renovation-business'
-import type { ServiceOutlet } from '@/types/service-outlets'
-// 装修业务状态
-const renovationBusinessStore = useRenovationBusinessStore()
+import { ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
+import { getServiceCityApi, getServiceOutletsByCityApi } from '@/api/service-outlet'
+import type { ServiceCity, ServiceOutlet } from '@/types/service-outlets'
 
+const DEFAULT_COVER =
+  'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/beijingtu/wangdian.png'
 // 状态栏高度
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
-// 网点列表
-const outlets: ServiceOutlet[] = [
-  {
-    id: 1,
-    name: '家翻新洪山服务中心',
-    distance: 1.8,
-    time: '09:00-18:00',
-    address: '湖北省武汉市洪山区珞喻路88号',
-    categories: ['全部', '装修咨询'],
-    image: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/beijingtu/wangdian.png',
-  },
-  {
-    id: 2,
-    name: '家翻新汉口售后服务站',
-    distance: 1.8,
-    time: '09:00-18:00',
-    address: '湖北省武汉市洪山区珞喻路88号',
-    categories: ['全部', '售后服务'],
-    image: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/beijingtu/wangdian.png',
-  },
-]
+const currentCity = ref('')
+const currentCityId = ref<number | null>(null)
+const cities = ref<ServiceCity[]>([])
+const outlets = ref<ServiceOutlet[]>([])
+const loading = ref(false)
+const loadFailed = ref(false)
+let requestVersion = 0
+const outletAddress = (outlet: ServiceOutlet) =>
+  [outlet.province, outlet.city, outlet.district, outlet.address].filter(Boolean).join('')
+
+// 加载已启用服务网点的城市
+const loadCities = async () => {
+  try {
+    const { data } = await getServiceCityApi()
+    cities.value = data
+    currentCity.value = data[0]?.name || ''
+    currentCityId.value = data[0]?.id ?? null
+    if (currentCityId.value !== null) await loadOutlets()
+  } catch (error) {
+    console.error('获取服务城市失败：', error)
+    uni.showToast({ title: '获取服务城市失败', icon: 'none' })
+  }
+}
+
+// 加载当前城市的启用网点
+const loadOutlets = async () => {
+  const cityId = currentCityId.value
+  if (cityId === null) return
+  const version = ++requestVersion
+  outlets.value = []
+  loading.value = true
+  loadFailed.value = false
+  try {
+    const { data } = await getServiceOutletsByCityApi(cityId)
+    if (version !== requestVersion) return
+    outlets.value = data
+  } catch (error) {
+    if (version !== requestVersion) return
+    console.error('获取服务网点失败：', error)
+    loadFailed.value = true
+  } finally {
+    if (version === requestVersion) loading.value = false
+  }
+}
 
 // 返回上一页
 const goBack = () => uni.navigateBack()
 
 // 切换当前服务地区
 const switchRegion = () => {
+  const cityNames = cities.value.map((city) => city.name)
+  if (!cityNames.length) {
+    uni.showToast({ title: '暂无可选城市', icon: 'none' })
+    return
+  }
   uni.showActionSheet({
-    itemList: ['武汉', '长沙', '南昌'],
+    itemList: cityNames,
     success: ({ tapIndex }) => {
-      if (tapIndex !== 0) {
-        uni.showToast({ title: '该城市网点正在建设中', icon: 'none' })
-      }
+      const city = cities.value[tapIndex]
+      if (!city || city.id === currentCityId.value) return
+      currentCity.value = city.name
+      currentCityId.value = city.id
+      loadOutlets()
     },
   })
 }
 
 // 拨打服务网点
-const callOutlet = () => uni.makePhoneCall({ phoneNumber: '400-888-6688' })
+const callOutlet = (outlet: ServiceOutlet) => {
+  if (!outlet.phone) {
+    uni.showToast({ title: '该网点暂无联系电话', icon: 'none' })
+    return
+  }
+  uni.makePhoneCall({ phoneNumber: outlet.phone })
+}
+
 // 导航到服务网点
 const navigateOutlet = (outlet: ServiceOutlet) => {
+  if (outlet.latitude === null || outlet.longitude === null) {
+    uni.showToast({ title: '该网点暂无位置信息', icon: 'none' })
+    return
+  }
+  const latitude = Number(outlet.latitude)
+  const longitude = Number(outlet.longitude)
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    uni.showToast({ title: '该网点暂无位置信息', icon: 'none' })
+    return
+  }
   uni.openLocation({
-    latitude: 30.515,
-    longitude: 114.412,
+    latitude,
+    longitude,
     name: outlet.name,
-    address: outlet.address,
+    address: outletAddress(outlet),
+    scale: 16,
   })
-}
-// 预约当前服务网点
-const reserveOutlet = (outlet: ServiceOutlet) => {
-  renovationBusinessStore.createAppointment({
-    type: 'OUTLET',
-    source: '服务网点',
-    city: '武汉',
-    demand: '预约到店咨询',
-    snapshot: { title: outlet.name, address: outlet.address, contact: '400-888-6688' },
-  })
-  uni.showToast({ title: '网点咨询预约已提交', icon: 'success' })
-  setTimeout(
-    () => uni.navigateTo({ url: '/pages-sub/my/decorationOrder/decorationOrder?group=consult' }),
-    400,
-  )
 }
 // 联系在线客服
 const contactService = () => uni.showToast({ title: '正在连接在线客服', icon: 'none' })
+
+onLoad(() => loadCities())
 </script>
 
 <template>
@@ -89,7 +126,7 @@ const contactService = () => uni.showToast({ title: '正在连接在线客服', 
           <view class="city-copy">
             <view class="city-label">当前城市</view>
             <view class="city-line">
-              <text class="city-name">武汉</text>
+              <text class="city-name">{{ currentCity }}</text>
               <text class="city-tip">已为你定位附近服务网点</text>
             </view>
           </view>
@@ -106,10 +143,10 @@ const contactService = () => uni.showToast({ title: '正在连接在线客服', 
       <scroll-view class="outlet-list-scroll" scroll-y :show-scrollbar="false">
         <view v-for="outlet in outlets" :key="outlet.id" class="outlet-card">
           <view class="outlet-head">
-            <image class="outlet-image" :src="outlet.image" mode="aspectFill" />
+            <image class="outlet-image" :src="outlet.cover || DEFAULT_COVER" mode="aspectFill" />
             <view class="outlet-summary">
               <view class="outlet-name">{{ outlet.name }}</view>
-              <view class="outlet-distance">距你{{ outlet.distance }}KM</view>
+              <view class="outlet-distance">{{ outlet.district || outlet.city }}</view>
             </view>
           </view>
           <view class="outlet-divider" />
@@ -119,18 +156,22 @@ const contactService = () => uni.showToast({ title: '正在连接在线客服', 
               src="https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/tubiao/待确认 2.png"
               mode="aspectFit"
             />
-            <text>服务时间：{{ outlet.time }}</text>
+            <text>服务时间：{{ outlet.businessHours }}</text>
           </view>
           <view class="info-row address-row">
             <text class="iconfont icon-dizhiguanli address-icon" />
-            <text>{{ outlet.address }}</text>
+            <text>{{ outletAddress(outlet) }}</text>
           </view>
           <view class="action-row">
-            <button class="outline-button" @click="callOutlet">电话咨询</button>
             <button class="outline-button" @click="navigateOutlet(outlet)">导航前往</button>
-            <button class="primary-button" @click="reserveOutlet(outlet)">预约咨询</button>
+            <button class="primary-button" @click="callOutlet(outlet)">电话咨询</button>
           </view>
         </view>
+        <view v-if="loading" class="list-state">正在加载...</view>
+        <view v-else-if="loadFailed" class="list-state retry" @click="loadOutlets()">
+          加载失败，点击重试
+        </view>
+        <view v-else-if="!outlets.length" class="empty-state">当前城市暂无服务网点</view>
         <view class="scroll-bottom-space" />
       </scroll-view>
     </view>
@@ -154,6 +195,7 @@ const contactService = () => uni.showToast({ title: '正在连接在线客服', 
   color: #1d1d1f;
   background: #f8f7f5;
 }
+
 .custom-navigation {
   position: relative;
   display: flex;
@@ -166,17 +208,20 @@ const contactService = () => uni.showToast({ title: '正在连接在线客服', 
   justify-content: space-between;
   background: #f8f7f5;
 }
+
 .back-button {
   display: flex;
   width: 76rpx;
   height: 100%;
   align-items: center;
 }
+
 .back-icon {
   color: #aaaaaa;
   font-size: 32rpx;
   transform: rotate(180deg);
 }
+
 .navigation-title {
   position: absolute;
   right: 0;
@@ -186,9 +231,11 @@ const contactService = () => uni.showToast({ title: '正在连接在线客服', 
   text-align: center;
   pointer-events: none;
 }
+
 .navigation-placeholder {
   width: 76rpx;
 }
+
 .page-content {
   display: flex;
   min-height: 0;
@@ -197,41 +244,49 @@ const contactService = () => uni.showToast({ title: '正在连接在线客服', 
   flex-direction: column;
   overflow: hidden;
 }
+
 .city-card,
 .outlet-card {
   background: #fff;
   border-radius: 18rpx;
   box-shadow: 0 8rpx 28rpx rgba(55, 42, 32, 0.045);
 }
+
 .city-card {
   padding: 22rpx 24rpx 20rpx;
 }
+
 .city-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
+
 .city-label {
   color: #777;
   font-size: 24rpx;
   line-height: 34rpx;
 }
+
 .city-line {
   display: flex;
   margin-top: 4rpx;
   align-items: baseline;
 }
+
 .city-name {
   font-size: 31rpx;
   font-weight: 600;
   line-height: 43rpx;
 }
+
 .city-tip {
   margin-left: 22rpx;
   color: #666;
   font-size: 23rpx;
   line-height: 34rpx;
 }
+
 .region-button {
   display: flex;
   height: 56rpx;
@@ -242,42 +297,51 @@ const contactService = () => uni.showToast({ title: '正在连接在线客服', 
   background: #fff0ef;
   border-radius: 10rpx;
 }
+
 .region-icon {
   margin-right: 10rpx;
   font-size: 32rpx;
 }
+
 .city-divider,
 .outlet-divider {
   height: 2rpx;
   background: #eeeeee;
 }
+
 .city-divider {
   margin: 20rpx 0;
 }
+
 .search-tip {
   color: #999;
   font-size: 23rpx;
   line-height: 34rpx;
 }
+
 .list-title {
   margin: 24rpx 0 22rpx;
   font-size: 29rpx;
   font-weight: 600;
   line-height: 40rpx;
 }
+
 .outlet-list-scroll {
   height: 0;
   min-height: 0;
   flex: 1;
 }
+
 .outlet-card {
   margin-bottom: 24rpx;
   padding: 16rpx 24rpx 18rpx;
 }
+
 .outlet-head {
   display: flex;
   align-items: flex-start;
 }
+
 .outlet-image {
   width: 190rpx;
   height: 122rpx;
@@ -285,11 +349,13 @@ const contactService = () => uni.showToast({ title: '正在连接在线客服', 
   background: #eee;
   border-radius: 16rpx;
 }
+
 .outlet-summary {
   min-width: 0;
   margin-left: 18rpx;
   padding-top: 5rpx;
 }
+
 .outlet-name {
   overflow: hidden;
   font-size: 27rpx;
@@ -298,15 +364,18 @@ const contactService = () => uni.showToast({ title: '正在连接在线客服', 
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
 .outlet-distance {
   margin-top: 10rpx;
   color: #666;
   font-size: 24rpx;
   line-height: 34rpx;
 }
+
 .outlet-divider {
   margin: 16rpx 0;
 }
+
 .info-row {
   display: flex;
   min-height: 38rpx;
@@ -316,14 +385,17 @@ const contactService = () => uni.showToast({ title: '正在连接在线客服', 
   font-size: 23rpx;
   line-height: 34rpx;
 }
+
 .service-time-icon {
   width: 34rpx;
   height: 34rpx;
   flex-shrink: 0;
 }
+
 .address-row {
   margin-top: 8rpx;
 }
+
 .address-icon {
   display: inline-flex;
   width: 34rpx;
@@ -335,12 +407,14 @@ const contactService = () => uni.showToast({ title: '正在连接在线客服', 
   font-size: 30rpx;
   line-height: 34rpx;
 }
+
 .action-row {
   display: flex;
   margin-top: 16rpx;
   justify-content: flex-end;
   gap: 20rpx;
 }
+
 .outline-button,
 .primary-button {
   height: 44rpx;
@@ -351,19 +425,39 @@ const contactService = () => uni.showToast({ title: '正在连接在线客服', 
   line-height: 42rpx;
   border-radius: 15rpx;
 }
+
 .outline-button {
   color: #666;
   background: #fff;
   border: 2rpx solid #eeeeee;
 }
+
 .primary-button {
   color: #fff;
   background: #e92f27;
   border: 2rpx solid #e92f27;
 }
+
 .scroll-bottom-space {
   height: 24rpx;
 }
+
+.list-state,
+.empty-state {
+  padding: 28rpx 0;
+  color: #aaa;
+  font-size: 23rpx;
+  text-align: center;
+}
+
+.empty-state {
+  padding-top: 120rpx;
+}
+
+.retry {
+  color: #e92f27;
+}
+
 .customer-bar {
   display: flex;
   box-sizing: border-box;
@@ -375,11 +469,13 @@ const contactService = () => uni.showToast({ title: '正在连接在线客服', 
   background: #fff;
   border-top: 2rpx solid #e8e5e1;
 }
+
 .customer-title {
   font-size: 24rpx;
   font-weight: 600;
   line-height: 34rpx;
 }
+
 .customer-tip {
   margin-top: 4rpx;
   color: #777;
@@ -387,6 +483,7 @@ const contactService = () => uni.showToast({ title: '正在连接在线客服', 
   line-height: 30rpx;
   white-space: nowrap;
 }
+
 .customer-button {
   width: 202rpx;
   height: 54rpx;
@@ -398,6 +495,7 @@ const contactService = () => uni.showToast({ title: '正在连接在线客服', 
   background: #e92f27;
   border-radius: 16rpx;
 }
+
 button::after {
   border: 0;
 }

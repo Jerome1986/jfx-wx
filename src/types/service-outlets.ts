@@ -1,20 +1,29 @@
-/** 服务网点筛选分类 */
-export type OutletCategory = '全部' | '距离最近' | '装修咨询' | '售后服务'
-
-/** 服务网点信息 */
+/** 服务网点接口数据 */
 export interface ServiceOutlet {
-  /** 网点 ID */
   id: number
-  /** 网点名称 */
   name: string
-  /** 与当前位置的距离 */
-  distance: number
-  /** 营业时间文案 */
-  time: string
-  /** 网点地址 */
+  businessHours: string
+  phone: string | null
+  province: string | null
+  city: string
+  district: string | null
   address: string
-  /** 网点支持的服务分类 */
-  categories: OutletCategory[]
-  /** 网点图片地址 */
-  image: string
+  latitude: string | null
+  longitude: string | null
+  cover: string | null
+  sort: number
+  status: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+/** 已启用服务网点的城市 */
+export interface ServiceCity {
+  id: number
+  name: string
+  code: string
+  sort: number
+  status: boolean
+  createdAt: string
+  updatedAt: string
 }
