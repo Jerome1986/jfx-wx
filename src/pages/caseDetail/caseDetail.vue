@@ -21,17 +21,21 @@ const attributionEmployeeId = ref<string>()
 const detail = ref<CaseDetail | null>(null)
 // 员工编号
 const employeeId = computed(() => memberStore.profile?.employeeId)
+// 已收藏图标
 const favoriteIcon =
   'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/shoucang-shixin.png'
+// 未收藏图标
 const unfavoriteIcon =
   'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/shoucang-kongxin.png'
 
+// 格式化案例价格
 const formatPrice = (price: string | number | null) => {
   const amount = Number(price)
   if (!Number.isFinite(amount)) return ''
   return `${Number((amount / 10000).toFixed(4))}万`
 }
 
+// 规范化案例亮点数据
 const normalizeHighlights = (value: unknown) => {
   if (!Array.isArray(value)) return []
   return value
@@ -45,6 +49,7 @@ const normalizeHighlights = (value: unknown) => {
     .map((item) => ({ title: item.title, description: item.description }))
 }
 
+// 规范化费用明细数据
 const normalizeCosts = (value: unknown) => {
   if (!Array.isArray(value)) return []
   return value
@@ -58,6 +63,7 @@ const normalizeCosts = (value: unknown) => {
     .map((item) => ({ name: item.name, value: formatPrice(item.amount) }))
 }
 
+// 加载案例详情
 const loadCaseDetail = async () => {
   const userId = Number(memberStore.profile?.id)
   if (!Number.isInteger(userId) || userId <= 0) {

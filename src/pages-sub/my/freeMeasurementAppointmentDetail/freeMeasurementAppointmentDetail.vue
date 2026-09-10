@@ -4,7 +4,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import AppointmentServiceDetail from '@/components/AppointmentServiceDetail.vue'
 
 // 预约编号
-const appointmentId = ref(2)
+const appointmentId = ref(0)
 
 onLoad((options) => {
   // 当前数据编号

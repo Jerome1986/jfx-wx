@@ -16,8 +16,8 @@ import { isArray } from '@wot-ui/ui/common/util'
  */
 
 // 基地址
-const baseUrl = 'http://localhost:3000/api'
-// const baseUrl = 'https://8555b83.r3.cpolar.cn/api'
+// const baseUrl = 'http://localhost:3000/api'
+const baseUrl = 'https://6dc13593.r28.cpolar.top/api'
 
 /**
  * 从 pinia-plugin-persistedstate 读取 member store token
@@ -53,7 +53,8 @@ const httpInterceptor = {
     // 4. 添加 token 请求头标识
     const token = getMemberTokenFromStorage()
     if (token) {
-      options.header.Authorization = token
+      // 兼容本地存储的纯 token 和已带 Bearer 前缀的 token。
+      options.header.Authorization = /^Bearer\s+/i.test(token) ? token : `Bearer ${token}`
     }
   },
 }

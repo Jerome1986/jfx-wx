@@ -6,6 +6,7 @@ import type { OrderItem } from '@/types/confirm-order'
 
 // 地址状态仓库
 const addressStore = useAddressStore()
+// 当前选中的服务地址
 const { selectedAddress } = storeToRefs(addressStore)
 // 已选手机号
 const selectedPhone = computed(() => {

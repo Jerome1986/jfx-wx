@@ -4,17 +4,26 @@ import { onLoad } from '@dcloudio/uni-app'
 import { getServiceCityApi, getServiceOutletsByCityApi } from '@/api/service-outlet'
 import type { ServiceCity, ServiceOutlet } from '@/types/service-outlets'
 
+// 网点默认封面图
 const DEFAULT_COVER =
   'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/beijingtu/wangdian.png'
 // 状态栏高度
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
+// 当前城市名称
 const currentCity = ref('')
+// 当前城市编号
 const currentCityId = ref<number | null>(null)
+// 可选城市列表
 const cities = ref<ServiceCity[]>([])
+// 当前城市的服务网点
 const outlets = ref<ServiceOutlet[]>([])
+// 网点加载状态
 const loading = ref(false)
+// 网点加载失败状态
 const loadFailed = ref(false)
+// 最新网点请求版本号
 let requestVersion = 0
+// 拼接网点完整地址
 const outletAddress = (outlet: ServiceOutlet) =>
   [outlet.province, outlet.city, outlet.district, outlet.address].filter(Boolean).join('')
 

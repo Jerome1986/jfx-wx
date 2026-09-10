@@ -107,6 +107,8 @@ const loadAppointmentDetail = async () => {
   loadFailed.value = false
   try {
     const { data } = await getAppointmentDetailApi(appointmentId.value)
+    console.log('预约详情', data)
+
     appointment.value = data
   } catch (error) {
     console.error('获取预约详情失败：', error)

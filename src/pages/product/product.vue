@@ -358,14 +358,11 @@ const openDetail = (item: ProductItem) => {
   flex-direction: column;
 }
 .product-name {
-  overflow: hidden;
+  @include ellipsis(2);
   color: #686868;
   font-size: 28rpx;
   font-weight: 600;
   line-height: 40rpx;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
 }
 .product-description {
   overflow: hidden;

@@ -52,6 +52,19 @@ export interface AppointmentListParams {
   type: AppointmentType | 'ALL'
 }
 
+/** 员工名下预约查询参数，userId 为当前登录用户 ID */
+export interface AssignedAppointmentListParams extends AppointmentListParams {
+  userId: number
+}
+
+/** 分页获取分配给当前员工的预约 */
+export const getAssignedAppointmentListApi = (params: AssignedAppointmentListParams) =>
+  request<AppointmentListResult>({
+    method: 'GET',
+    url: '/appointment/assigned',
+    data: params,
+  })
+
 /** 预约列表分页结果 */
 export interface AppointmentListResult {
   list: Appointment[]
@@ -106,4 +119,12 @@ export const cancelAppointmentApi = (id: number) =>
   request<CancelAppointmentResult>({
     method: 'PATCH' as UniApp.RequestOptions['method'],
     url: `/appointment/${id}/cancel`,
+  })
+
+/** 提交跟进记录 */
+export const appointmentFollowUp = (id: number, content: string, employeeId: number) =>
+  request({
+    method: 'POST',
+    url: `/appointment/${id}/follow-up`,
+    data: { content, employeeId },
   })

@@ -13,6 +13,7 @@ const navigationHeight = ref(44)
 
 // 持久化服务地址与当前选择
 const addressStore = useAddressStore()
+// 地址列表与当前选中地址
 const { addresses, selectedId, selectedAddress } = storeToRefs(addressStore)
 
 // 服务地址

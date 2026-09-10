@@ -24,22 +24,31 @@ const caseList = ref<CaseItem[]>([])
 const caseCategories = ref<CaseCategoryItem[]>([{ id: 0, name: '全部案例', code: 'all', sort: -1 }])
 // 当前分类 ID，0 表示全部案例
 const activeCategoryId = ref(0)
+// 当前分类名称
 const activeCategory = computed(
   () => caseCategories.value.find((item) => item.id === activeCategoryId.value)?.name || '全部案例',
 )
+// 当前页码
 const pageNum = ref(1)
+// 每页案例数量
 const pageSize = 10
+// 案例总页数
 const totalPage = ref(0)
+// 案例总数量
 const caseTotal = ref(0)
+// 案例加载状态
 const isLoading = ref(false)
+// 最新案例请求版本号
 let requestVersion = 0
 
+// 格式化案例价格
 const formatPrice = (price: string | null) => {
   const amount = Number(price)
   if (!Number.isFinite(amount)) return ''
   return `${Number((amount / 10000).toFixed(4))}万`
 }
 
+// 转换接口案例为页面数据
 const mapCaseItem = (item: RenovationCaseItem): CaseItem => ({
   id: item.id,
   title: item.title,
@@ -57,6 +66,7 @@ const mapCaseItem = (item: RenovationCaseItem): CaseItem => ({
   receivedCount: item.quoteCount,
 })
 
+// 加载案例列表
 const loadCaseList = async (reset = false) => {
   if (!reset && (isLoading.value || pageNum.value > totalPage.value)) return
   if (reset) {
@@ -88,12 +98,14 @@ const loadCaseList = async (reset = false) => {
   }
 }
 
+// 切换案例分类
 const selectCategory = (category: CaseCategoryItem) => {
   if (category.id === activeCategoryId.value) return
   activeCategoryId.value = category.id
   loadCaseList(true)
 }
 
+// 加载下一页案例
 const loadMoreCases = () => loadCaseList()
 
 onLoad(async (options) => {

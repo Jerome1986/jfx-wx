@@ -32,7 +32,7 @@ export interface AppointmentSnapshotItem {
 /** 提交预约时保留的业务快照 */
 export interface AppointmentSnapshot {
   /** 快照标题 */
-  title: string
+  title?: string
   /** 封面图片地址 */
   cover?: string
   /** 预约时的参考金额 */
@@ -85,6 +85,8 @@ export interface Appointment {
   timeSlot?: string
   /** 上门服务地址 */
   visitAddress?: string
+  /** 用户预约时填写的服务地址 */
+  serviceAddress?: string | null
   /** 当前处理状态 */
   status: AppointmentStatus
   /** 提交预约时的业务快照 */
@@ -97,6 +99,23 @@ export interface Appointment {
   createdAt: string
   /** 更新时间 */
   updatedAt: string
+  /** 关联案例详情 */
+  case?: Record<string, unknown> | null
+  /** 关联员工及其用户资料 */
+  employee?: {
+    id: number
+    user?: {
+      realName?: string | null
+      [key: string]: unknown
+    } | null
+    [key: string]: unknown
+  } | null
+  /** 关联方案详情 */
+  plan?: Record<string, unknown> | null
+  /** 员工跟进记录 */
+  followUps?: FollowUp[]
+  /** 已转化的装修项目 */
+  project?: RenovationProject | null
 }
 
 /** 预约或项目的跟进记录 */

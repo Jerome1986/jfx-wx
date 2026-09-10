@@ -19,27 +19,32 @@ const employeeId = computed(() => memberStore.profile?.employeeId)
 
 // 收藏案例
 const favoriteCases = ref<FavoriteCase[]>([])
+// 收藏列表加载状态
 const isLoading = ref(false)
 
 // 收藏数量
 const favoriteCount = computed(() => favoriteCases.value.length)
 
+// 安全读取字符串字段
 const getString = (item: FavoriteCaseItem, key: string) => {
   const value = item[key]
   return typeof value === 'string' ? value : ''
 }
 
+// 安全读取数字字段
 const getNumber = (item: FavoriteCaseItem, key: string) => {
   const value = Number(item[key])
   return Number.isFinite(value) ? value : 0
 }
 
+// 格式化收藏案例价格
 const formatPrice = (value: unknown) => {
   const amount = Number(value)
   if (!Number.isFinite(amount)) return ''
   return `${Number((amount / 10000).toFixed(4))}万`
 }
 
+// 转换接口收藏为页面数据
 const mapFavoriteCase = (item: FavoriteCaseItem): FavoriteCase => {
   const cover = item.cover || ''
   const tags = item.tags
@@ -59,6 +64,7 @@ const mapFavoriteCase = (item: FavoriteCaseItem): FavoriteCase => {
   }
 }
 
+// 加载收藏案例列表
 const loadFavorites = async () => {
   if (isLoading.value) return
   const userId = Number(memberStore.profile?.id)

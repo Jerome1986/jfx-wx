@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
-import {
-  appointmentStatusText,
-  appointmentTypeText,
-  useRenovationBusinessStore,
-} from '@/stores/modules/renovation-business'
-import type { Appointment, AppointmentStatus } from '@/types/renovation-business'
+import { onLoad, onShow } from '@dcloudio/uni-app'
+import { getAssignedAppointmentListApi } from '@/api/appointment'
+import { useMemberStore } from '@/stores'
+import { appointmentStatusText, appointmentTypeText } from '@/stores/modules/renovation-business'
+import type { Appointment, AppointmentStatus, AppointmentType } from '@/types/renovation-business'
 import { getAppointmentSummary } from '@/utils/appointment'
 type Filter = 'all' | AppointmentStatus
 // 预约状态筛选项
@@ -19,15 +17,88 @@ const filters: Array<{ label: string; value: Filter }> = [
 ]
 // 当前预约状态筛选项
 const active = ref<Filter>('all')
-// 装修业务状态
-const store = useRenovationBusinessStore()
+// 会员状态仓库
+const memberStore = useMemberStore()
+// 分配给当前员工的预约列表
+const appointments = ref<Appointment[]>([])
+// 当前预约类型筛选项
+const activeType = ref<AppointmentType | 'ALL'>('ALL')
+// 预约类型筛选选项
+const types: Array<{ label: string; value: AppointmentType | 'ALL' }> = [
+  { label: '全部类型', value: 'ALL' },
+  ...Object.entries(appointmentTypeText).map(([value, label]) => ({
+    label,
+    value: value as AppointmentType,
+  })),
+]
+// 当前预约页码
+const pageNum = ref(0)
+// 预约总数量
+const total = ref(0)
+// 预约总页数
+const totalPage = ref(0)
+// 预约加载状态
+const loading = ref(false)
+// 预约加载失败状态
+const loadFailed = ref(false)
+// 是否还有下一页预约
+const hasMore = computed(() => pageNum.value < totalPage.value)
 // 当前筛选后的预约列表
 const list = computed(() =>
-  store.listAppointments(undefined, active.value === 'all' ? undefined : active.value),
+  appointments.value.filter((item) => active.value === 'all' || item.status === active.value),
 )
-// 统计指定状态的预约数量
+// 接口未提供状态统计，统计范围仅限已加载预约
 const count = (status: AppointmentStatus) =>
-  store.appointments.filter((item) => item.status === status).length
+  appointments.value.filter((item) => item.status === status).length
+
+// 加载员工预约列表
+const loadAppointments = async (reset = false) => {
+  if (loading.value || (!reset && !hasMore.value)) return
+  const userId = Number(memberStore.profile?.id)
+  if (!Number.isInteger(userId) || userId <= 0) {
+    appointments.value = []
+    total.value = 0
+    pageNum.value = 0
+    totalPage.value = 0
+    uni.navigateTo({ url: '/pages/login/login' })
+    return
+  }
+  const nextPage = reset ? 1 : pageNum.value + 1
+  loading.value = true
+  loadFailed.value = false
+  if (reset) {
+    appointments.value = []
+    pageNum.value = 0
+    total.value = 0
+    totalPage.value = 0
+  }
+  try {
+    const { data } = await getAssignedAppointmentListApi({
+      userId,
+      pageNum: nextPage,
+      pageSize: 10,
+      type: activeType.value,
+    })
+    appointments.value = [
+      ...new Map([...appointments.value, ...data.list].map((item) => [item.id, item])).values(),
+    ]
+    pageNum.value = nextPage
+    total.value = data.total
+    totalPage.value = data.totalPage
+  } catch (error) {
+    console.error('获取员工预约列表失败：', error)
+    loadFailed.value = true
+  } finally {
+    loading.value = false
+  }
+}
+
+// 切换预约类型筛选
+const selectType = (type: AppointmentType | 'ALL') => {
+  if (loading.value || activeType.value === type) return
+  activeType.value = type
+  loadAppointments(true)
+}
 // 获取预约摘要
 const summary = (item: Appointment) => getAppointmentSummary(item, appointmentTypeText[item.type])
 // 打开预约详情页
@@ -39,15 +110,19 @@ onLoad((query) => {
   // 页面参数指定的初始筛选状态
   const status = query?.status as Filter | undefined
   if (filters.some((item) => item.value === status)) active.value = status!
+  const type = query?.type
+  if (types.some((item) => item.value === type)) activeType.value = type as AppointmentType | 'ALL'
 })
+onShow(() => loadAppointments(true))
 </script>
 <template>
   <view class="page"
-    ><scroll-view class="scroll" scroll-y
+    ><scroll-view class="scroll" scroll-y @scrolltolower="loadAppointments()" :lower-threshold="120"
       ><view class="content">
         <view class="overview"
           ><view class="title">预约线索跟进</view
           ><view class="tip">统一处理预算、量房、方案、案例和网点咨询</view
+          ><view class="tip">以下状态统计与筛选仅针对当前类型已加载的预约</view
           ><view class="stats"
             ><view
               ><text class="stats-value">{{ count('PENDING_CONTACT') }}</text
@@ -61,6 +136,19 @@ onLoad((query) => {
             ></view
           ></view
         >
+        <scroll-view class="tabs" scroll-x>
+          <view class="tab-row">
+            <view
+              v-for="item in types"
+              :key="item.value"
+              class="tab"
+              :class="{ active: activeType === item.value }"
+              @click="selectType(item.value)"
+            >
+              {{ item.label }}
+            </view>
+          </view>
+        </scroll-view>
         <scroll-view class="tabs" scroll-x
           ><view class="tab-row"
             ><view
@@ -73,8 +161,11 @@ onLoad((query) => {
             ></view
           ></scroll-view
         >
-        <view class="count">共 {{ list.length }} 条线索</view
-        ><view class="list"
+        <view class="count"
+          >当前类型共 {{ total }} 条，已加载 {{ appointments.length }} 条，筛选显示
+          {{ list.length }} 条</view
+        >
+        <view class="list"
           ><view v-for="item in list" :key="item.id" class="card" @click="openDetail(item.id)">
             <view class="heading"
               ><view
@@ -91,6 +182,17 @@ onLoad((query) => {
             >
           </view></view
         >
+        <view v-if="loading" class="load-state">加载中...</view>
+        <view v-else-if="loadFailed" class="load-state" @click="loadAppointments(pageNum === 0)"
+          >加载失败，点击重试</view
+        >
+        <template v-else>
+          <view v-if="!list.length" class="load-state">{{
+            hasMore ? '已加载预约中暂无匹配记录，可继续加载' : '暂无符合条件的预约'
+          }}</view>
+          <view v-if="hasMore" class="load-state" @click="loadAppointments()">点击加载更多</view>
+          <view v-else-if="list.length" class="load-state">已加载全部预约</view>
+        </template>
       </view></scroll-view
     ></view
   >
@@ -98,9 +200,14 @@ onLoad((query) => {
 <style lang="scss">
 .page,
 .scroll {
-  height: 100%;
-  min-height: 100vh;
+  height: 100vh;
   background: #f8f7f5;
+}
+.load-state {
+  padding: 30rpx 0;
+  color: #888;
+  font-size: 24rpx;
+  text-align: center;
 }
 .content {
   padding: 24rpx;
@@ -143,18 +250,25 @@ onLoad((query) => {
   font-size: 22rpx;
 }
 .tabs {
-  margin-top: 22rpx;
+  height: 50rpx;
+  margin-top: 16rpx;
+  flex: none;
   white-space: nowrap;
 }
 .tab-row {
   display: inline-flex;
-  gap: 12rpx;
+  height: 50rpx;
+  align-items: center;
+  gap: 8rpx;
 }
 .tab {
-  padding: 14rpx 24rpx;
+  box-sizing: border-box;
+  height: 46rpx;
+  padding: 0 18rpx;
+  line-height: 46rpx;
   background: #fff;
-  border-radius: 30rpx;
-  font-size: 24rpx;
+  border-radius: 23rpx;
+  font-size: 22rpx;
 }
 .tab.active {
   color: #fff;

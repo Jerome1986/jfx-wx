@@ -13,6 +13,7 @@ onHide(() => {
 </script>
 
 <style lang="scss">
+@use '@/styles/wot-theme.scss';
 @import '@/styles/iconfonts/iconfont.css';
 
 page {

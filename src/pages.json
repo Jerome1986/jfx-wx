@@ -107,6 +107,13 @@
       "root": "pages-sub/my",
       "pages": [
         {
+          "path": "devDebug/devDebug",
+          "style": {
+            "navigationBarTitleText": "开发调试",
+            "navigationBarBackgroundColor": "#F8F7F5"
+          }
+        },
+        {
           "path": "settings/settings",
           "style": {
             "navigationBarTitleText": "个人信息",

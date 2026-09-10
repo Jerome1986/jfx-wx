@@ -19,6 +19,7 @@ useShare({
   imageUrl: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/banner/banner1.png',
 })
 
+// 会员状态仓库
 const memberStore = useMemberStore()
 
 // 轮播图列表
@@ -101,11 +102,14 @@ const goToCaseList = () => {
 
 // 精选案例列表
 const selectedCaseList = ref<SelectedCase[]>([])
+// 已收藏图标
 const favoriteIcon =
   'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/shoucang-shixin.png'
+// 未收藏图标
 const unfavoriteIcon =
   'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/shoucang-kongxin.png'
 
+// 格式化价格文本
 const formatPrice = (price: string | null) => {
   const amount = Number(price)
   if (!Number.isFinite(amount)) return ''

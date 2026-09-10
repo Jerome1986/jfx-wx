@@ -1,0 +1,44 @@
+// Wot UI 品牌主色色阶，确保 root-portal 弹层也能继承主题色。
+page {
+  --wot-primary-1: #fff3f1;
+  --wot-primary-2: #ffe4df;
+  --wot-primary-3: #ffc9c1;
+  --wot-primary-4: #f99b90;
+  --wot-primary-5: #ed5d50;
+  --wot-primary-6: #d92d20;
+  --wot-primary-7: #c6281d;
+  --wot-primary-8: #a82018;
+  --wot-primary-9: #861a14;
+  --wot-primary-10: #68130f;
+  --wot-calendar-view-color-active: #d92d20;
+  --wot-button-primary-bg: #d92d20;
+  --wot-button-primary-bg-active: #c6281d;
+}
+
+// 微信小程序组件样式隔离会阻断部分 CSS 变量，直接覆盖日历内部状态色。
+.wd-month__day.is-current,
+.wd-year__day.is-current {
+  color: #d92d20 !important;
+}
+
+.wd-month__day.is-selected .wd-month__day-container,
+.wd-month__day.is-multiple-selected .wd-month__day-container,
+.wd-month__day.is-start .wd-month__day-container,
+.wd-month__day.is-end .wd-month__day-container,
+.wd-month__day.is-same .wd-month__day-container,
+.wd-year__day.is-selected .wd-year__day-container,
+.wd-year__day.is-multiple-selected .wd-year__day-container,
+.wd-year__day.is-start .wd-year__day-container,
+.wd-year__day.is-end .wd-year__day-container,
+.wd-year__day.is-same .wd-year__day-container {
+  color: #fff !important;
+  background: #d92d20 !important;
+}
+
+.wd-calendar__popup .wd-button.is-primary {
+  background: #d92d20 !important;
+}
+
+.wd-calendar__popup .wd-button.is-primary.wd-button--active {
+  background: #c6281d !important;
+}
