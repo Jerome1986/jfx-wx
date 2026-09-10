@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { projectStatusText, useRenovationBusinessStore } from '@/stores/modules/renovation-business'
+import { formatDateTime } from '@/utils/format'
 
 // 当前装修项目 ID
 const id = ref(0)
@@ -76,7 +77,7 @@ onLoad((query) => {
             </view>
             <view class="record-copy">
               <text class="record-content">{{ record.content }}</text>
-              <text class="record-time">{{ record.createdAt }}</text>
+              <text class="record-time">{{ formatDateTime(record.createdAt) }}</text>
             </view>
           </view>
         </view>

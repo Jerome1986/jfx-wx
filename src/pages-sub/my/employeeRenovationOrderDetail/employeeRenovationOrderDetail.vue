@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { projectStatusText, useRenovationBusinessStore } from '@/stores/modules/renovation-business'
+import { formatDateTime } from '@/utils/format'
 
 // 当前装修项目 ID
 const id = ref(0)
@@ -59,7 +60,7 @@ onLoad((query) => {
         >
           保存跟进</button
         ><view v-for="r in records" :key="r.id" class="record"
-          >{{ r.content }}<text>{{ r.createdAt }}</text></view
+          >{{ r.content }}<text>{{ formatDateTime(r.createdAt) }}</text></view
         ></view
       ><button
         v-if="project.status === 'PENDING_CONFIRM' || project.status === 'IN_SERVICE'"

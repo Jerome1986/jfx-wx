@@ -106,6 +106,8 @@ export interface Appointment {
     id: number
     user?: {
       realName?: string | null
+      /** 顾问联系电话 */
+      mobile?: string | null
       [key: string]: unknown
     } | null
     [key: string]: unknown

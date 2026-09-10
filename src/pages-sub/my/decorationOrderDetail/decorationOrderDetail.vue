@@ -98,7 +98,21 @@ const cancelAppointment = () => {
   })
 }
 // 联系当前预约顾问
-const contactConsultant = () => uni.showToast({ title: '正在联系顾问', icon: 'none' })
+const contactConsultant = () => {
+  const phoneNumber = appointment.value?.employee?.user?.mobile?.trim()
+  if (!phoneNumber) {
+    uni.showToast({ title: '正在安排顾问', icon: 'none' })
+    return
+  }
+  uni.makePhoneCall({
+    phoneNumber,
+    fail: (error) => {
+      // 用户取消拨号属于正常操作，无需提示。
+      if (error.errMsg?.toLowerCase().includes('cancel')) return
+      uni.showToast({ title: '拨打电话失败，请稍后重试', icon: 'none' })
+    },
+  })
+}
 
 // 加载当前预约详情
 const loadAppointmentDetail = async () => {

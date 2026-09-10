@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { projectStatusText, useRenovationBusinessStore } from '@/stores/modules/renovation-business'
 import type { RenovationProjectStatus } from '@/types/renovation-business'
+import { formatDateTime } from '@/utils/format'
 
 type Filter = 'all' | RenovationProjectStatus
 // 员工项目筛选项
@@ -71,7 +72,7 @@ onLoad((query) => {
           ><view class="line"
             ><text>地址</text><text>{{ item.serviceAddress }}</text></view
           ><view class="line"
-            ><text>最近更新</text><text>{{ item.updatedAt }}</text></view
+            ><text>最近更新</text><text>{{ formatDateTime(item.updatedAt) }}</text></view
           ></view
         ></view
       ></scroll-view

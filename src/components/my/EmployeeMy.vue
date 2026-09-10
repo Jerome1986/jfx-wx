@@ -476,6 +476,7 @@ const handleTodoClick = (label: string) => {
   overflow: hidden;
   background: #f1dfca;
   border-radius: 18rpx;
+  box-shadow: 0 5rpx 24rpx rgba(55, 42, 32, 0.035);
 }
 
 .case-image {

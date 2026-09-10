@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { appointmentFollowUp, getAppointmentDetailApi } from '@/api/appointment'
+import {
+  appointmentComplete,
+  appointmentConfirmVisit,
+  appointmentFollowUp,
+  getAppointmentDetailApi,
+} from '@/api/appointment'
 import { appointmentStatusText, appointmentTypeText } from '@/stores/modules/renovation-business'
 import type { Appointment } from '@/types/renovation-business'
-import { formatDateTime } from '../utils/format'
+import { formatDateTime } from '@/utils/format'
 // 页面传入的预约编号
 const props = defineProps<{ appointmentId: number }>()
 // 当前预约详情
@@ -18,6 +23,10 @@ const followText = ref('')
 const followSubmitting = ref(false)
 // 最近一次跟进是否保存成功
 const followSaved = ref(false)
+// 确认上门提交状态
+const visitSubmitting = ref(false)
+// 标记服务完成提交状态
+const completeSubmitting = ref(false)
 // 日历组件实例
 const calendarRef = ref<any>()
 // 计划上门日期
@@ -145,16 +154,62 @@ const addFollow = async () => {
   }
 }
 // 确认预约上门安排
-const confirm = () => {
+const confirm = async () => {
+  const currentAppointment = appointment.value
+  if (!currentAppointment || visitSubmitting.value) return
+  if (currentAppointment.status !== 'PENDING_CONTACT') return
   if (!canConfirmVisit.value) {
     uni.showToast({ title: '请完善上门安排', icon: 'none' })
     return
   }
-  console.log('确认上门请求参数：', confirmVisitPayload.value)
-  showActionPending()
+  visitSubmitting.value = true
+  try {
+    const { visitDate, timeSlot, visitAddress } = confirmVisitPayload.value
+    const { data } = await appointmentConfirmVisit(
+      currentAppointment.id,
+      visitDate,
+      timeSlot,
+      visitAddress,
+    )
+    if (props.appointmentId !== currentAppointment.id || !appointment.value) return
+    appointment.value = {
+      ...appointment.value,
+      status: data.status,
+      visitDate: data.visitDate.slice(0, 10),
+      timeSlot: data.timeSlot,
+      visitAddress: data.visitAddress,
+      updatedAt: data.updatedAt,
+    }
+    uni.showToast({ title: '已确认上门安排', icon: 'success' })
+  } catch (error) {
+    console.error('确认预约上门失败：', error)
+  } finally {
+    visitSubmitting.value = false
+  }
 }
 // 标记预约服务完成
-const complete = () => showActionPending()
+const complete = async () => {
+  const currentAppointment = appointment.value
+  if (!currentAppointment || completeSubmitting.value) return
+  if (currentAppointment.status !== 'PENDING_VISIT') return
+  completeSubmitting.value = true
+  try {
+    const { data, code } = await appointmentComplete(currentAppointment.id)
+    if (code === 400) return
+    if (props.appointmentId !== currentAppointment.id || !appointment.value) return
+    appointment.value = {
+      ...appointment.value,
+      status: data.status,
+      completedAt: data.completedAt,
+      updatedAt: data.updatedAt,
+    }
+    uni.showToast({ title: '服务已完成', icon: 'success' })
+  } catch (error) {
+    console.error('标记预约服务完成失败：', error)
+  } finally {
+    completeSubmitting.value = false
+  }
+}
 // 将已完成预约转为装修项目
 const convert = () => showActionPending()
 // 拨打客户电话
@@ -246,7 +301,9 @@ const call = () => appointment.value && uni.makePhoneCall({ phoneNumber: appoint
             <view>{{ item.content }}</view
             ><text
               >{{ formatDateTime(item.createdAt)
-              }}<template v-if="item.nextFollowAt"> · 下次 {{ item.nextFollowAt }}</template></text
+              }}<template v-if="item.nextFollowAt">
+                · 下次 {{ formatDateTime(item.nextFollowAt) }}</template
+              ></text
             >
           </view>
           <view class="follow-editor">
@@ -308,8 +365,13 @@ const call = () => appointment.value && uni.makePhoneCall({ phoneNumber: appoint
               </view>
             </view>
           </view>
-          <button class="primary" :disabled="!canConfirmVisit" @click="confirm">
-            确认预约并进入待上门
+          <button
+            class="primary"
+            :loading="visitSubmitting"
+            :disabled="!canConfirmVisit || visitSubmitting"
+            @click="confirm"
+          >
+            {{ visitSubmitting ? '提交中...' : '确认预约并进入待上门' }}
           </button>
         </view>
         <view v-if="appointment.status === 'PENDING_VISIT'" class="card">
@@ -320,7 +382,14 @@ const call = () => appointment.value && uni.makePhoneCall({ phoneNumber: appoint
           >
           <view class="row"
             ><text>地址</text><text>{{ appointment.visitAddress }}</text></view
-          ><button class="primary" @click="complete">标记服务完成</button>
+          ><button
+            class="primary"
+            :loading="completeSubmitting"
+            :disabled="completeSubmitting"
+            @click="complete"
+          >
+            {{ completeSubmitting ? '提交中...' : '标记服务完成' }}
+          </button>
         </view>
         <view v-if="appointment.status === 'COMPLETED'" class="card">
           <view class="section-title">预约转化</view>

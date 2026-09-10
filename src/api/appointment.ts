@@ -1,61 +1,17 @@
+import type {
+  AssignedAppointmentListParams,
+  AppointmentListParams,
+  CreateBudgetAppointmentInput,
+  CreatePlanAppointmentInput,
+  CreatePlanAppointmentResult,
+  AppointmentListResult,
+  CancelAppointmentResult,
+  AppointmentFollowUpResult,
+  AppointmentConfirmVisitResult,
+  AppointmentCompleteResult,
+} from '@/types/appointment'
 import { request } from '@/utils/http'
-import type { Appointment, AppointmentType } from '@/types/renovation-business'
-
-export interface PlanAppointmentItemInput {
-  sourceItemId: number
-  candidateId?: number | null
-  productId?: number | null
-  category: string
-  name: string
-  description?: string | null
-  unit: string
-  unitPrice: string
-  quantity: string
-  image?: string | null
-}
-
-export interface PlanAppointmentSnapshotInput {
-  title: string
-  cover?: string | null
-  referencePrice: string
-  items: PlanAppointmentItemInput[]
-}
-
-export interface CreatePlanAppointmentInput {
-  userId: number
-  planId: number
-  snapshot: PlanAppointmentSnapshotInput
-}
-
-export interface CreatePlanAppointmentResult {
-  appointmentId: number
-  appointmentNo: string
-}
-
-/** 装修计算器预约提交参数 */
-export interface CreateBudgetAppointmentInput {
-  appointmentNo: string
-  userId: number
-  type: 'BUDGET'
-  source: '装修计算器'
-  mobile: string
-  houseType: '旧房' | '新房'
-  city: string
-  area: string
-  roomLayout: string
-}
-
-/** 预约列表查询参数 */
-export interface AppointmentListParams {
-  pageNum: number
-  pageSize: number
-  type: AppointmentType | 'ALL'
-}
-
-/** 员工名下预约查询参数，userId 为当前登录用户 ID */
-export interface AssignedAppointmentListParams extends AppointmentListParams {
-  userId: number
-}
+import type { Appointment } from '@/types/renovation-business'
 
 /** 分页获取分配给当前员工的预约 */
 export const getAssignedAppointmentListApi = (params: AssignedAppointmentListParams) =>
@@ -64,24 +20,6 @@ export const getAssignedAppointmentListApi = (params: AssignedAppointmentListPar
     url: '/appointment/assigned',
     data: params,
   })
-
-/** 预约列表分页结果 */
-export interface AppointmentListResult {
-  list: Appointment[]
-  total: number
-  pageNum: number
-  pageSize: number
-  totalPage: number
-}
-
-/** 取消预约结果 */
-export interface CancelAppointmentResult {
-  id: number
-  appointmentNo: string
-  type: AppointmentType
-  status: Appointment['status']
-  canceledAt: string | null
-}
 
 /** 提交焕新方案预约 */
 export const createPlanAppointmentApi = (data: CreatePlanAppointmentInput) =>
@@ -123,8 +61,28 @@ export const cancelAppointmentApi = (id: number) =>
 
 /** 提交跟进记录 */
 export const appointmentFollowUp = (id: number, content: string, employeeId: number) =>
-  request({
+  request<AppointmentFollowUpResult>({
     method: 'POST',
     url: `/appointment/${id}/follow-up`,
     data: { content, employeeId },
+  })
+
+/** 预约状态转换成待上门 */
+export const appointmentConfirmVisit = (
+  id: number,
+  visitDate: string,
+  timeSlot: string,
+  visitAddress: string,
+) =>
+  request<AppointmentConfirmVisitResult>({
+    method: 'POST',
+    url: `/appointment/${id}/confirm-visit`,
+    data: { visitDate, timeSlot, visitAddress },
+  })
+
+/** 标记预约服务完成，仅通过路径传入预约 ID */
+export const appointmentComplete = (id: number) =>
+  request<AppointmentCompleteResult>({
+    method: 'POST',
+    url: `/appointment/${id}/complete`,
   })
