@@ -172,7 +172,9 @@ onShow(() => loadAppointments(true))
               ><view
                 ><view class="card-title">{{ appointmentTypeText[item.type] }}</view
                 ><view class="source">{{ item.source }} · {{ item.appointmentNo }}</view></view
-              ><text class="status">{{ appointmentStatusText[item.status] }}</text></view
+              ><view class="status" :class="`status--${item.status}`"
+                ><text>{{ appointmentStatusText[item.status] }}</text></view
+              ></view
             >
             <view class="line"
               ><text>客户</text><text>{{ item.customerName }} {{ item.mobile }}</text></view
@@ -303,8 +305,32 @@ onShow(() => loadAppointments(true))
   font-size: 21rpx;
 }
 .status {
-  color: #d92d20;
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-left: 16rpx;
+  padding: 6rpx 16rpx;
+  color: #667085;
+  background: #f2f4f7;
+  border-radius: 8rpx;
   font-size: 23rpx;
+  line-height: 1.5;
+  white-space: nowrap;
+  &--PENDING_CONTACT {
+    color: #b54708;
+    background: #fffaeb;
+  }
+  &--PENDING_VISIT {
+    color: #175cd3;
+    background: #eff8ff;
+  }
+  &--COMPLETED {
+    color: #067647;
+    background: #ecfdf3;
+  }
+  &--CANCELED {
+    color: #667085;
+    background: #f2f4f7;
+  }
 }
 .line {
   margin-top: 18rpx;

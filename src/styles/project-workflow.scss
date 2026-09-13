@@ -1,0 +1,158 @@
+.workflow {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #f8f7f5;
+  color: #333;
+}
+.workflow-scroll {
+  flex: 1;
+  min-height: 0;
+  height: 0;
+}
+.content {
+  padding: 24rpx 24rpx calc(32rpx + env(safe-area-inset-bottom));
+}
+.card {
+  padding: 28rpx;
+  margin-bottom: 24rpx;
+  background: #fff;
+  border-radius: 18rpx;
+}
+.title {
+  font-size: 34rpx;
+  font-weight: 700;
+  margin-bottom: 14rpx;
+}
+.section-title {
+  font-size: 30rpx;
+  font-weight: 700;
+}
+.tip {
+  font-size: 24rpx;
+  color: #888;
+  line-height: 1.6;
+  margin-top: 12rpx;
+  overflow-wrap: anywhere;
+}
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  margin: 20rpx 0;
+  font-size: 26rpx;
+}
+.row > text:last-child {
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.link {
+  color: #d92d20;
+}
+.field {
+  margin-top: 24rpx;
+}
+.label {
+  font-size: 26rpx;
+  margin-bottom: 12rpx;
+}
+input,
+textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 28rpx;
+  background: #f8f7f5;
+  border-radius: 10rpx;
+}
+input {
+  height: 84rpx;
+  padding: 0 20rpx;
+  line-height: 84rpx;
+}
+textarea {
+  height: 160rpx;
+  padding: 20rpx;
+  line-height: 1.5;
+}
+.primary,
+.secondary {
+  font-size: 28rpx;
+  line-height: 80rpx;
+  border-radius: 40rpx;
+  margin: 16rpx 0 0;
+}
+.primary {
+  color: #fff;
+  background: #d92d20;
+}
+.secondary {
+  color: #d92d20;
+  background: #fff1ef;
+}
+.primary[disabled] {
+  color: #fff;
+  background: #e8aaa6;
+}
+.primary::after,
+.secondary::after {
+  border: 0;
+}
+.actions {
+  display: flex;
+  gap: 16rpx;
+}
+.actions > button {
+  flex: 1;
+}
+.footer {
+  flex-shrink: 0;
+  padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom));
+  background: #fff;
+  border-top: 1rpx solid #eee;
+}
+.footer button {
+  margin-top: 0;
+}
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin: 24rpx 0;
+}
+.tab {
+  padding: 12rpx 24rpx;
+  border-radius: 28rpx;
+  background: #fff;
+  font-size: 24rpx;
+}
+.tab.active {
+  background: #d92d20;
+  color: #fff;
+}
+.empty {
+  padding: 80rpx 24rpx;
+  text-align: center;
+  color: #888;
+  font-size: 26rpx;
+}
+.mask {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: flex-end;
+}
+.sheet {
+  width: 100%;
+  max-height: 85vh;
+  background: #fff;
+  border-radius: 24rpx 24rpx 0 0;
+  display: flex;
+  flex-direction: column;
+}
+.sheet-scroll {
+  height: 60vh;
+  flex: none;
+}

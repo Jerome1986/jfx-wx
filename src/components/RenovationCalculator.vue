@@ -41,7 +41,7 @@ const calculatorBenefits = ref([
   },
 ])
 
-// 进入装修预算详情并携带已填写信息
+// 进入装修报价需求页并携带已填写信息
 const goToBudgetDetail = () => {
   const query = `area=${encodeURIComponent(areaValue.value)}&layout=${encodeURIComponent(
     layoutValue.value[0] || '',
@@ -55,10 +55,10 @@ const goToBudgetDetail = () => {
     <view class="calculator">
       <view class="calculator-info">
         <view class="calculator-title-row">
-          <view class="calculator-title">装修预算计算器</view>
-          <view class="calculator-badge">30秒获取报价</view>
+          <view class="calculator-title">获取装修报价</view>
+          <view class="calculator-badge">免费上门测量</view>
         </view>
-        <view class="calculator-description">输入面积，选择户型，获取精准预算</view>
+        <view class="calculator-description">填写房屋信息，由专业顾问上门测量并提供预估报价</view>
       </view>
       <view class="calculator-action">
         <image
@@ -67,7 +67,7 @@ const goToBudgetDetail = () => {
           mode="aspectFit"
         />
         <view class="calculator-reference">
-          已为 <text class="reference-count">8231</text> 户家庭 提供预算参考
+          已为 <text class="reference-count">8231</text> 户家庭 提供报价服务
         </view>
       </view>
     </view>
@@ -112,7 +112,7 @@ const goToBudgetDetail = () => {
           />
         </view>
       </view>
-      <button class="calculator-submit" @click="goToBudgetDetail">立即测算</button>
+      <button class="calculator-submit" @click="goToBudgetDetail">免费获取报价</button>
     </view>
     <!-- 图标和报价 -->
     <view class="calculator-benefits">
@@ -128,7 +128,7 @@ const goToBudgetDetail = () => {
 </template>
 
 <style lang="scss">
-// 装修预算计算器模块
+// 装修报价需求模块
 .calculator-module {
   margin: 0 24rpx;
   padding: 24rpx;

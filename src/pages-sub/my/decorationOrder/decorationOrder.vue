@@ -9,15 +9,17 @@ import { formatDateTime, maskMobile } from '@/utils/format'
 
 // 每页加载数量
 const PAGE_SIZE = 10
-type Group = 'all' | 'budget' | 'measure' | 'plan' | 'consult'
+type Group = 'all' | 'budget' | 'measure' | 'quote' | 'plan' | 'case' | 'outlet'
 type AppointmentQueryType = AppointmentType | 'ALL'
 // 预约类型分组配置
-const groups: Array<{ label: string; value: Group; types: AppointmentQueryType[] }> = [
-  { label: '全部', value: 'all', types: ['ALL'] },
-  { label: '预算报价', value: 'budget', types: ['BUDGET', 'QUOTE'] },
-  { label: '量房服务', value: 'measure', types: ['MEASURE'] },
-  { label: '焕新服务', value: 'plan', types: ['PLAN'] },
-  { label: '咨询服务', value: 'consult', types: ['CASE', 'OUTLET'] },
+const groups: Array<{ label: string; value: Group; type: AppointmentQueryType }> = [
+  { label: '全部', value: 'all', type: 'ALL' },
+  { label: '装修预算', value: 'budget', type: 'BUDGET' },
+  { label: '免费量房', value: 'measure', type: 'MEASURE' },
+  { label: '房屋报价', value: 'quote', type: 'QUOTE' },
+  { label: '焕新方案', value: 'plan', type: 'PLAN' },
+  { label: '同款案例', value: 'case', type: 'CASE' },
+  { label: '网点咨询', value: 'outlet', type: 'OUTLET' },
 ]
 // 当前选中的预约分组
 const activeGroup = ref<Group>('all')
@@ -35,14 +37,40 @@ const loading = ref(false)
 const loadFailed = ref(false)
 // 是否还有下一页
 const hasMore = computed(() => pageNum.value < totalPage.value)
-// 当前分组对应的接口预约类型
-const activeTypes = computed<AppointmentQueryType[]>(
-  () => groups.find(({ value }) => value === activeGroup.value)?.types ?? ['ALL'],
+// 当前标签对应的接口预约类型
+const activeType = computed<AppointmentQueryType>(
+  () => groups.find(({ value }) => value === activeGroup.value)?.type ?? 'ALL',
 )
-// 获取预约状态对应的样式类名
-const statusClass = (status: Appointment['status']) => status.toLowerCase().replace('_', '-')
-// 获取预约摘要
-const summary = (item: Appointment) => getAppointmentSummary(item, appointmentTypeText[item.type])
+// 判断是否属于报价需求预约
+const isQuoteAppointment = (item: Appointment) => ['BUDGET', 'QUOTE'].includes(item.type)
+// 获取用户端预约标题
+const displayTitle = (item: Appointment) =>
+  isQuoteAppointment(item) ? '装修报价需求' : appointmentTypeText[item.type]
+// 获取用户端预约状态文案
+const displayStatus = (item: Appointment) => {
+  if (!isQuoteAppointment(item)) return appointmentStatusText[item.status]
+  if (item.status === 'PENDING_CONTACT') return '需求已提交'
+  if (item.status === 'PENDING_VISIT') return '待上门测量'
+  if (item.status === 'COMPLETED') return item.estimatedAmount ? '预估报价已出' : '报价待补充'
+  return appointmentStatusText[item.status]
+}
+// 获取用户端预约状态对应的样式类名
+const statusClass = (item: Appointment) => {
+  if (isQuoteAppointment(item) && item.status === 'COMPLETED')
+    return item.estimatedAmount ? 'quoted' : 'quoting'
+  return item.status.toLowerCase().replace('_', '-')
+}
+// 获取用户端预约进度摘要
+const summary = (item: Appointment) => {
+  if (!isQuoteAppointment(item)) return getAppointmentSummary(item, appointmentTypeText[item.type])
+  if (item.status === 'PENDING_CONTACT') return '报价需求已提交，等待顾问联系'
+  if (item.status === 'PENDING_VISIT')
+    return [item.visitDate, item.timeSlot, '上门测量'].filter(Boolean).join(' ')
+  if (item.status === 'COMPLETED' && item.estimatedAmount)
+    return `上门测量已完成，预估报价 ¥${item.estimatedAmount}`
+  if (item.status === 'COMPLETED') return '预约已完成，预估报价待补充'
+  return '本次报价需求已取消'
+}
 // 打开预约详情页
 const openDetail = (item: Appointment) =>
   uni.navigateTo({
@@ -58,22 +86,18 @@ const loadAppointments = async (reset = false) => {
   loadFailed.value = false
 
   try {
-    const pages = await Promise.all(
-      activeTypes.value.map(async (type) => {
-        const { data } = await getAppointmentListApi({
-          pageNum: nextPage,
-          pageSize: PAGE_SIZE,
-          type,
-        })
-        return data
-      }),
-    )
-
-    const pageItems = pages.flatMap(({ list }) => list)
-    appointments.value = reset ? pageItems : [...appointments.value, ...pageItems]
-    pageNum.value = nextPage
-    totalPage.value = Math.max(0, ...pages.map((page) => page.totalPage))
-    total.value = pages.reduce((sum, page) => sum + page.total, 0)
+    // 1. 当前标签只对应一个后端预约类型，直接请求一次分页接口。
+    const { data } = await getAppointmentListApi({
+      pageNum: nextPage,
+      pageSize: PAGE_SIZE,
+      type: activeType.value,
+    })
+    // 2. 重置时替换列表，加载更多时追加当前页数据。
+    appointments.value = reset ? data.list : [...appointments.value, ...data.list]
+    // 3. 直接采用后端返回的分页信息。
+    pageNum.value = data.pageNum
+    totalPage.value = data.totalPage
+    total.value = data.total
   } catch (error) {
     console.error('获取焕新预约列表失败：', error)
     loadFailed.value = true
@@ -93,8 +117,9 @@ const selectGroup = (group: Group) => {
 // 避免首次进入页面时 onLoad 与 onShow 重复请求
 const loaded = ref(false)
 onLoad((query) => {
-  // 页面参数指定的初始分组
-  const group = query?.group as Group | undefined
+  // 页面参数指定的初始分组；旧的 consult 入口来自案例页面，兼容映射为 CASE。
+  const rawGroup = query?.group
+  const group = (rawGroup === 'consult' ? 'case' : rawGroup) as Group | undefined
   if (groups.some((item) => item.value === group)) activeGroup.value = group!
   loadAppointments(true).finally(() => {
     loaded.value = true
@@ -112,7 +137,7 @@ onShow(() => {
     <view class="content">
       <view class="summary-card">
         <view class="summary-title">预约管理</view>
-        <view class="summary-tip">统一查看预算、量房、焕新方案和咨询服务的预约进度</view>
+        <view class="summary-tip">统一查看报价、量房、焕新方案和咨询服务的预约进度</view>
         <view class="summary-count">当前分类共 {{ total }} 条预约</view>
       </view>
       <scroll-view class="tabs" scroll-x :show-scrollbar="false">
@@ -142,16 +167,14 @@ onShow(() => {
               v-for="item in appointments"
               :key="item.id"
               class="card"
-              :class="`card-${statusClass(item.status)}`"
+              :class="`card-${statusClass(item)}`"
               @click="openDetail(item)"
             >
               <view class="heading">
                 <view>
-                  <view class="title">{{ appointmentTypeText[item.type] }}</view>
+                  <view class="title">{{ displayTitle(item) }}</view>
                   <view class="source">来源：{{ item.source }}</view> </view
-                ><text class="status" :class="statusClass(item.status)">{{
-                  appointmentStatusText[item.status]
-                }}</text>
+                ><text class="status" :class="statusClass(item)">{{ displayStatus(item) }}</text>
               </view>
               <view class="divider" />
               <view class="line"
@@ -293,6 +316,14 @@ onShow(() => {
   border-left-color: #bd7411;
 }
 
+.card-quoting {
+  border-left-color: #bd7411;
+}
+
+.card-quoted {
+  border-left-color: #d92d20;
+}
+
 .card-completed,
 .card-canceled {
   border-left-color: #70706f;
@@ -333,6 +364,16 @@ onShow(() => {
 .status.pending-visit {
   color: #b96e0a;
   background: #fff3df;
+}
+
+.status.quoting {
+  color: #b96e0a;
+  background: #fff3df;
+}
+
+.status.quoted {
+  color: #d92d20;
+  background: #fff0ef;
 }
 
 .status.completed,

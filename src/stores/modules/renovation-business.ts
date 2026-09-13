@@ -10,6 +10,8 @@ import type {
   RenovationProject,
   RenovationProjectStatus,
 } from '@/types/renovation-business'
+import type { ProjectDraft, ProjectPlanCandidate } from '@/types/project-quote'
+import { copyQuoteData, newQuoteLineId } from '@/utils/project-quote'
 
 const nowText = () => {
   const date = new Date()
@@ -59,24 +61,6 @@ const seedAppointments: Appointment[] = [
   updatedAt: `2026-08-${String(18 - index).padStart(2, '0')} 14:30`,
 }))
 
-const seedProjects: RenovationProject[] = [
-  {
-    id: 1,
-    projectNo: 'PRJ2026080001',
-    appointmentId: 3,
-    userId: 1,
-    employeeId: 1,
-    name: '95㎡老房厨房改造',
-    customerName: '张先生',
-    mobile: '13800005628',
-    serviceAddress: '武汉市洪山区珞瑜路88号',
-    quotedAmount: 14163,
-    status: 'PENDING_CONFIRM',
-    createdAt: '2026-08-18 15:00',
-    updatedAt: '2026-08-18 15:00',
-  },
-]
-
 export const appointmentTypeText: Record<AppointmentType, string> = {
   BUDGET: '装修预算',
   MEASURE: '免费量房',
@@ -94,7 +78,7 @@ export const appointmentStatusText: Record<AppointmentStatus, string> = {
 }
 
 export const projectStatusText: Record<RenovationProjectStatus, string> = {
-  PENDING_CONFIRM: '待确认',
+  PENDING_CONFIRM: '待客户确认',
   IN_SERVICE: '服务中',
   COMPLETED: '已完成',
   CANCELED: '已取消',
@@ -105,7 +89,92 @@ export const useRenovationBusinessStore = defineStore(
   () => {
     const appointments = ref<Appointment[]>(seedAppointments)
     const followUps = ref<FollowUp[]>([])
-    const projects = ref<RenovationProject[]>(seedProjects)
+    const projects = ref<RenovationProject[]>([])
+    // 与演示预约隔离，保留从真实预约详情进入建项时的快照。
+    const projectSources = ref<Record<number, Appointment>>({})
+    // 按预约 ID 保存跨页面使用的建项草稿。
+    const projectDrafts = ref<Record<number, ProjectDraft>>({})
+    // 根据已完成预约初始化或恢复建项草稿。
+    const ensureProjectDraft = (id: number) => {
+      // 1. 只接受已完成预约作为建项来源。
+      const appointment = projectSources.value[id]
+      if (!appointment || appointment.status !== 'COMPLETED') return undefined
+      // 2. 已有草稿时直接复用，避免覆盖员工修改。
+      if (projectDrafts.value[id]) return projectDrafts.value[id]
+      // 3. 报价需求的预估价不作为项目报价明细，项目报价需重新选择方案。
+      const initialItems = ['BUDGET', 'QUOTE'].includes(appointment.type)
+        ? []
+        : appointment.snapshot?.items || []
+      // 4. 从预约基础信息和业务快照生成初始草稿。
+      projectDrafts.value[id] = {
+        customerName: appointment.customerName || '',
+        mobile: appointment.mobile || '',
+        serviceAddress:
+          appointment.visitAddress ||
+          appointment.serviceAddress ||
+          appointment.snapshot?.address ||
+          '',
+        name: appointment.snapshot?.title || `${appointmentTypeText[appointment.type]}装修项目`,
+        renovationScope: appointment.demand || '',
+        planId: appointment.planId,
+        planName: appointment.planId
+          ? String(
+              appointment.plan?.name || appointment.snapshot?.title || `方案 ${appointment.planId}`,
+            )
+          : undefined,
+        planSource: appointment.planId ? 'appointment' : undefined,
+        quote: {
+          discount: '0',
+          items: initialItems.map((item) => ({
+            id: newQuoteLineId(),
+            source: 'appointment',
+            productId: item.productId ?? undefined,
+            sourceItemId: item.sourceItemId,
+            candidateId: item.candidateId,
+            businessCategory: item.category,
+            category:
+              item.productId !== null && item.productId !== undefined ? 'product' : 'service',
+            name: item.name,
+            description: item.description || '',
+            image: item.image || '',
+            unit: item.unit || '',
+            unitPrice: item.unitPrice || '',
+            quantity: item.quantity || '',
+          })),
+        },
+        remark: '',
+      }
+      // 5. 返回新建草稿供页面立即使用。
+      return projectDrafts.value[id]
+    }
+    // 将员工选择的真实方案写入建项草稿。
+    const selectProjectPlan = (id: number, plan?: ProjectPlanCandidate) => {
+      // 1. 校验草稿和来源预约状态。
+      const draft = projectDrafts.value[id]
+      if (!draft || projectSources.value[id]?.status !== 'COMPLETED') return false
+      // 2. 更新方案关联信息。
+      draft.planId = plan?.id
+      draft.planName = plan?.name
+      draft.planSource = plan ? 'api' : undefined
+      // 3. 选择方案时用方案明细覆盖报价草稿。
+      if (plan)
+        draft.quote = {
+          discount: '0',
+          items: plan.items.map((item) => ({ ...copyQuoteData(item), id: newQuoteLineId() })),
+        }
+      // 4. 返回写入结果。
+      return true
+    }
+    // 缓存进入建项流程时的预约快照。
+    const cacheProjectSource = (appointment: Appointment) => {
+      // 深拷贝预约，避免详情页后续更新影响建项草稿。
+      projectSources.value[appointment.id] = JSON.parse(JSON.stringify(appointment))
+    }
+    // 根据来源预约 ID 查找已转换项目。
+    const getConvertedProject = (appointmentId: number) =>
+      projects.value.find(
+        (item) => item.sourceKind === 'appointment' && item.appointmentId === appointmentId,
+      )
 
     // 清理已下线的列表快捷入口曾产生的重复模拟记录
     const removeLegacyQuickAppointments = () => {
@@ -114,6 +183,13 @@ export const useRenovationBusinessStore = defineStore(
       )
     }
     removeLegacyQuickAppointments()
+
+    const removeLegacyProjectTestData = () => {
+      projects.value = projects.value.filter(
+        (item) => !(item.id === 1 && item.projectNo === 'PRJ2026080001' && !item.sourceKind),
+      )
+    }
+    removeLegacyProjectTestData()
 
     const appointmentCount = computed(() => appointments.value.length)
     const listAppointments = (types?: AppointmentType[], status?: AppointmentStatus) =>
@@ -188,42 +264,50 @@ export const useRenovationBusinessStore = defineStore(
       return true
     }
 
-    const convertToRenovationProject = (id: number) => {
-      const appointment = getAppointment(id)
-      if (!appointment || appointment.status !== 'COMPLETED') return undefined
-      const existing = projects.value.find((item) => item.appointmentId === id)
-      if (existing) return existing
-      const projectId = Math.max(0, ...projects.value.map((item) => item.id)) + 1
-      const createdAt = nowText()
-      const amount = Number(appointment.snapshot?.referencePrice || 0)
-      const project: RenovationProject = {
-        id: projectId,
-        projectNo: `PRJ${createdAt.replace(/[- :]/g, '').slice(0, 12)}${String(projectId).padStart(
-          3,
-          '0',
-        )}`,
-        appointmentId: id,
-        userId: appointment.userId || 1,
-        employeeId: appointment.employeeId || 1,
-        planId: appointment.planId,
-        name: appointment.snapshot?.title || `${appointmentTypeText[appointment.type]}装修项目`,
-        customerName: appointment.customerName,
-        mobile: appointment.mobile,
-        serviceAddress:
-          appointment.visitAddress || appointment.snapshot?.address || '待确认服务地址',
-        quotedAmount: Number.isFinite(amount) ? amount : 0,
-        status: 'PENDING_CONFIRM',
-        createdAt,
-        updatedAt: createdAt,
-      }
-      projects.value.push(project)
-      return project
+    // 临时缓存接口创建成功的项目，供详情接口接入前展示。
+    const cacheCreatedProject = (project: RenovationProject) => {
+      // 1. 查找相同后端项目 ID 的缓存位置。
+      const index = projects.value.findIndex((item) => item.id === project.id)
+      // 2. 已存在时更新，否则追加项目。
+      if (index >= 0) projects.value[index] = project
+      else projects.value.push(project)
+    }
+
+    // 清理指定预约已经提交的建项草稿。
+    const clearProjectDraft = (id: number) => {
+      delete projectDrafts.value[id]
+    }
+
+    const confirmProjectQuote = (id: number) => {
+      const project = getProject(id)
+      if (!project || project.status !== 'PENDING_CONFIRM') return false
+      project.status = 'IN_SERVICE'
+      project.customerConfirmedAt = nowText()
+      project.updatedAt = project.customerConfirmedAt
+      return true
+    }
+
+    const completeProject = (id: number) => {
+      const project = getProject(id)
+      if (!project || project.status !== 'IN_SERVICE') return false
+      project.status = 'COMPLETED'
+      project.completedAt = nowText()
+      project.updatedAt = project.completedAt
+      return true
     }
 
     return {
       appointments,
       followUps,
       projects,
+      projectSources,
+      projectDrafts,
+      ensureProjectDraft,
+      selectProjectPlan,
+      cacheProjectSource,
+      getConvertedProject,
+      confirmProjectQuote,
+      completeProject,
       appointmentCount,
       listAppointments,
       getAppointment,
@@ -233,13 +317,18 @@ export const useRenovationBusinessStore = defineStore(
       confirmVisit,
       completeAppointment,
       addFollowUp,
-      convertToRenovationProject,
+      cacheCreatedProject,
+      clearProjectDraft,
       removeLegacyQuickAppointments,
+      removeLegacyProjectTestData,
     }
   },
   {
     persist: {
-      afterRestore: ({ store }) => store.removeLegacyQuickAppointments(),
+      afterRestore: ({ store }) => {
+        store.removeLegacyQuickAppointments()
+        store.removeLegacyProjectTestData()
+      },
     },
   },
 )

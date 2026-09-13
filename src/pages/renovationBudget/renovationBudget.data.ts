@@ -4,13 +4,13 @@ import type { BenefitItem, CalculationNote } from '@/types/renovation-budget'
 export const benefitList: BenefitItem[] = [
   {
     icon: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/tubiao/gujia.png',
-    title: '总体估价',
-    description: '按城市、面积、户型\n快速计算预算区间',
+    title: '上门测量',
+    description: '顾问联系确认时间\n现场核实房屋情况',
   },
   {
     icon: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/tubiao/mingxi.png',
     title: '费用明细',
-    description: '主材、辅材、人工\n分享展示更清晰',
+    description: '主材、辅材、人工\n预估报价清晰可查',
   },
   {
     icon: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/tubiao/jianyi.png',
@@ -23,11 +23,11 @@ export const benefitList: BenefitItem[] = [
 export const calculationNotes: CalculationNote[] = [
   {
     icon: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/tubiao/house.png',
-    content: '预算会收城市、面积、户型、房屋新旧和装修范围影响。',
+    content: '房屋信息用于顾问了解需求和安排后续上门测量。',
   },
   {
     icon: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/tubiao/zhucai.png',
-    content: '主材品牌、施工工艺和增项需求会在符合后形成正式报价。',
+    content: '主材品牌、施工工艺和现场情况确认后形成预估报价。',
   },
   {
     icon: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/tubiao/anquandunpai.png',

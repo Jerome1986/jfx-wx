@@ -150,6 +150,20 @@ export interface AppointmentCompleteResult
   timeSlot: string | null
   /** 上门详细地址 */
   visitAddress: string | null
+  /** 上门测量后给客户的预估报价 */
+  estimatedAmount: string | null
+  /** 预估报价说明 */
+  estimateDescription: string | null
+  /** 预估报价提交时间 */
+  estimatedAt: string | null
+}
+
+/** 员工完成报价预约时提交的预估报价 */
+export interface CompleteAppointmentInput {
+  /** 预估报价金额，报价类预约必填 */
+  estimatedAmount?: string
+  /** 预估报价说明 */
+  estimateDescription?: string | null
 }
 
 /** 预约方案明细提交参数 */

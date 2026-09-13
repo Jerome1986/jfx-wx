@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { projectStatusText, useRenovationBusinessStore } from '@/stores/modules/renovation-business'
 import { formatDateTime } from '@/utils/format'
+import ProjectQuoteSummary from '@/components/project/ProjectQuoteSummary.vue'
 
 // 当前装修项目 ID
 const id = ref(0)
@@ -12,6 +13,29 @@ const store = useRenovationBusinessStore()
 const project = computed(() => store.getProject(id.value))
 // 当前项目的跟进记录
 const records = computed(() => store.followUps.filter((item) => item.projectId === id.value))
+
+const openQuote = () =>
+  uni.navigateTo({ url: `/pages-sub/my/projectQuote/projectQuote?target=project&id=${id.value}` })
+
+const confirmQuote = async () => {
+  if (project.value?.status !== 'PENDING_CONFIRM') return
+  const confirmed = await new Promise<boolean>((resolve) =>
+    uni.showModal({
+      title: '确认项目报价',
+      content: `确认接受报价 ¥${Number(project.value?.quotedAmount || 0).toFixed(2)} 并开始服务？`,
+      confirmText: '确认报价',
+      confirmColor: '#d92d20',
+      success: (result) => resolve(result.confirm),
+      fail: () => resolve(false),
+    }),
+  )
+  if (!confirmed) return
+  if (store.confirmProjectQuote(id.value)) {
+    uni.showToast({ title: '报价已确认', icon: 'success' })
+  } else {
+    uni.showToast({ title: '项目状态已变化，请刷新', icon: 'none' })
+  }
+}
 
 onLoad((query) => {
   id.value = Number(query?.id) || 0
@@ -64,6 +88,18 @@ onLoad((query) => {
         </view>
       </view>
 
+      <view class="card quote-card">
+        <view class="section-head">
+          <text class="section-title">项目报价</text>
+          <button class="quote-link" @click="openQuote">查看明细</button>
+        </view>
+        <ProjectQuoteSummary v-if="project.quote" :quote="project.quote" />
+        <view v-else class="legacy-quote">
+          <text>项目报价</text>
+          <text>¥{{ Number(project.quotedAmount).toFixed(2) }}</text>
+        </view>
+      </view>
+
       <view v-if="records.length" class="card follow-card">
         <view class="section-head">
           <text class="section-title">项目跟进</text>
@@ -81,6 +117,11 @@ onLoad((query) => {
             </view>
           </view>
         </view>
+      </view>
+
+      <view v-if="project.status === 'PENDING_CONFIRM'" class="confirm-wrap">
+        <view class="confirm-tip">请核对报价清单，确认后项目将进入服务阶段</view>
+        <button class="confirm-button" @click="confirmQuote">确认报价并开始服务</button>
       </view>
     </view>
 
@@ -191,8 +232,69 @@ onLoad((query) => {
 }
 
 .info-card,
+.quote-card,
 .follow-card {
   padding: 24rpx;
+}
+
+.quote-card :deep(.quote-summary) {
+  margin-top: 18rpx;
+}
+
+.quote-link {
+  width: auto;
+  height: 48rpx;
+  margin: 0;
+  padding: 0 18rpx;
+  color: #d92d20;
+  font-size: 21rpx;
+  line-height: 48rpx;
+  background: #fff2f0;
+  border-radius: 24rpx;
+}
+
+.quote-link::after,
+.confirm-button::after {
+  border: 0;
+}
+
+.legacy-quote {
+  display: flex;
+  margin-top: 18rpx;
+  padding-top: 20rpx;
+  align-items: center;
+  justify-content: space-between;
+  color: #888;
+  font-size: 23rpx;
+  border-top: 2rpx solid #f0efed;
+}
+
+.legacy-quote text:last-child {
+  color: #d92d20;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.confirm-wrap {
+  margin-top: 26rpx;
+  text-align: center;
+}
+
+.confirm-tip {
+  margin-bottom: 14rpx;
+  color: #978f89;
+  font-size: 21rpx;
+}
+
+.confirm-button {
+  height: 72rpx;
+  margin: 0;
+  color: #fff;
+  font-size: 25rpx;
+  font-weight: 500;
+  line-height: 72rpx;
+  background: #d92d20;
+  border-radius: 36rpx;
 }
 
 .section-head {

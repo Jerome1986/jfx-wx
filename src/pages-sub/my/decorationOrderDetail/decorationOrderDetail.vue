@@ -19,6 +19,25 @@ const canceling = ref(false)
 const isQuote = computed(() => ['BUDGET', 'QUOTE'].includes(appointment.value?.type || ''))
 // 是否属于量房预约
 const isMeasure = computed(() => appointment.value?.type === 'MEASURE')
+// 报价预约已关联的装修项目
+const convertedProject = computed(() => appointment.value?.project || undefined)
+// 用户端展示的预约状态文案
+const displayStatusText = computed(() => {
+  const item = appointment.value
+  if (!item || !isQuote.value) return item ? appointmentStatusText[item.status] : ''
+  if (item.status === 'PENDING_CONTACT') return '报价需求已提交'
+  if (item.status === 'PENDING_VISIT') return '待上门测量'
+  if (item.status === 'COMPLETED') return item.estimatedAmount ? '预估报价已出' : '报价待补充'
+  return appointmentStatusText[item.status]
+})
+// 用户端状态标签的样式名称。
+const displayStatusClass = computed(() => {
+  const item = appointment.value
+  if (!item) return ''
+  if (isQuote.value && item.status === 'COMPLETED')
+    return item.estimatedAmount ? 'quoted' : 'quoting'
+  return item.status.toLowerCase()
+})
 // 当前预约是否允许取消
 const canCancel = computed(() =>
   appointment.value
@@ -47,7 +66,13 @@ const serviceDescription = computed(() => {
   const item = appointment.value
   if (!item) return ''
   if (item.type === 'MEASURE') return '顾问将按约定时间上门量房，记录房屋尺寸和基础需求'
-  if (isQuote.value) return '顾问会根据您提交的信息，先电话沟通大致报价范围'
+  if (isQuote.value) {
+    if (item.status === 'PENDING_CONTACT') return '专业顾问将联系您并安排上门测量'
+    if (item.status === 'PENDING_VISIT') return '顾问将按约定时间上门，完成测量后提供预估报价'
+    if (item.status === 'COMPLETED' && item.estimatedAmount) return '上门测量已完成，预估报价已提供'
+    if (item.status === 'COMPLETED') return '预约已完成，预估报价待顾问补充'
+    return '报价需求已取消'
+  }
   if (item.type === 'PLAN') return '顾问会结合您选择的焕新方案，联系确认现场情况和服务安排'
   if (item.type === 'CASE') return '顾问会参考您选择的案例，沟通同款改造范围与预算'
   return '服务网点会根据您的咨询需求，安排顾问与您进一步联系'
@@ -114,6 +139,17 @@ const contactConsultant = () => {
   })
 }
 
+// 打开报价预约已经生成的装修项目
+const openProject = () => {
+  // 1. 校验预约是否已经关联项目。
+  const projectId = convertedProject.value?.id
+  if (!projectId) return
+  // 2. 使用后端项目 ID 进入用户装修项目详情。
+  uni.navigateTo({
+    url: `/pages-sub/my/renovationOrderDetail/renovationOrderDetail?id=${projectId}`,
+  })
+}
+
 // 加载当前预约详情
 const loadAppointmentDetail = async () => {
   if (!appointmentId.value) return
@@ -121,8 +157,6 @@ const loadAppointmentDetail = async () => {
   loadFailed.value = false
   try {
     const { data } = await getAppointmentDetailApi(appointmentId.value)
-    console.log('预约详情', data)
-
     appointment.value = data
   } catch (error) {
     console.error('获取预约详情失败：', error)
@@ -151,11 +185,11 @@ onLoad((options) => {
     <view v-if="loading" class="empty-state">正在加载预约详情...</view>
     <scroll-view v-else-if="appointment" class="detail-scroll" scroll-y :show-scrollbar="false">
       <view class="page-content">
-        <view class="service-card" :class="`service-${appointment.status.toLowerCase()}`">
+        <view class="service-card" :class="`service-${displayStatusClass}`">
           <view class="service-heading">
             <view class="service-title">{{ serviceTitle }}</view>
-            <view class="status-badge" :class="appointment.status.toLowerCase()">
-              {{ appointmentStatusText[appointment.status] }}
+            <view class="status-badge" :class="displayStatusClass">
+              {{ displayStatusText }}
             </view>
           </view>
           <view class="service-number">服务编号 {{ appointment.appointmentNo }}</view>
@@ -189,31 +223,46 @@ onLoad((options) => {
           <view class="section-card">
             <view class="section-title">报价需求</view>
             <view class="requirement-tags"
-              ><text>厨房改造</text><text>老房翻新</text><text>先估预算</text></view
+              ><text>{{ appointment.houseType || '房屋情况待确认' }}</text
+              ><text>{{ appointment.roomLayout || '户型待确认' }}</text
+              ><text>上门后提供预估报价</text></view
             >
             <view class="section-divider" />
             <view class="detail-line"
               ><text class="detail-label">关注内容</text
-              ><text>{{ appointment.focus || '大概费用、工期范围、是否需要上门复核' }}</text></view
+              ><text>{{ appointment.focus || '装修范围、材料选择和施工需求' }}</text></view
             >
             <view class="detail-line"
               ><text class="detail-label">补充说明</text
-              ><text>{{ appointment.demand || '想先了解预算，合适后再继续沟通方案' }}</text></view
+              ><text>{{ appointment.demand || '等待顾问联系并进一步确认装修需求' }}</text></view
             >
           </view>
           <view class="section-card">
-            <view class="section-title">顾问联系</view>
+            <view class="section-title">下一步安排</view>
             <view class="bullet-list">
-              <view>预计24小时内电话联系您</view>
-              <view>会先核对面积、户型和改造范围</view>
-              <view>如需要现场判断，顾问会建议您再预约量房</view>
+              <view>专业顾问将联系您核对房屋和装修需求</view>
+              <view>双方确认时间后，顾问按约定上门测量</view>
+              <view>完成现场测量后，顾问提供预估报价</view>
             </view>
           </view>
           <view class="section-card">
             <view class="section-title">服务说明</view>
             <view class="paragraph"
-              >房屋报价服务用于初步了解预算范围，不等同于正式装修报价。若后续继续推进，顾问会协助进入装修订单确认方案、地址和报价。</view
+              >预约预估报价用于前期决策参考，不等同于装修项目的实际报价。确认装修意向后，员工会另行创建装修项目并编制项目报价。</view
             >
+          </view>
+          <view v-if="appointment.estimatedAmount" class="section-card quote-ready-card">
+            <view class="section-title">预估报价</view>
+            <view class="appointment-estimate">¥{{ appointment.estimatedAmount }}</view>
+            <view v-if="appointment.estimateDescription" class="paragraph">
+              {{ appointment.estimateDescription }}
+            </view>
+            <view class="section-tip">仅供参考，实际装修价格以装修项目报价为准。</view>
+          </view>
+          <view v-if="convertedProject" class="section-card">
+            <view class="section-title">装修项目</view>
+            <view class="paragraph">您已确认装修意向，员工已创建装修项目。</view>
+            <button class="project-button" @click="openProject">查看装修项目</button>
           </view>
           <view class="section-card">
             <view class="section-title">温馨提示</view>
@@ -429,7 +478,7 @@ onLoad((options) => {
         {{ canceling ? '取消中' : '取消预约' }}
       </button>
       <button class="primary-button" @click="contactConsultant">
-        {{ isMeasure ? '联系顾问' : '联系客服' }}
+        {{ isMeasure || isQuote ? '联系顾问' : '联系客服' }}
       </button>
     </view>
   </view>
@@ -471,6 +520,14 @@ onLoad((options) => {
   border-left-color: #c77a17;
 }
 
+.service-quoting {
+  border-left-color: #c77a17;
+}
+
+.service-quoted {
+  border-left-color: $jfx-brandColor;
+}
+
 .service-completed,
 .service-canceled {
   border-left-color: #777;
@@ -505,6 +562,16 @@ onLoad((options) => {
 .status-badge.pending_visit {
   color: #c77a17;
   background: #fff5e8;
+}
+
+.status-badge.quoting {
+  color: #c77a17;
+  background: #fff5e8;
+}
+
+.status-badge.quoted {
+  color: $jfx-brandColor;
+  background: #fff0ef;
 }
 
 .status-badge.completed,
@@ -623,6 +690,30 @@ onLoad((options) => {
   color: #777;
   font-size: 22rpx;
   line-height: 38rpx;
+}
+
+.project-button {
+  width: auto;
+  height: 56rpx;
+  margin: 20rpx 0 0 auto;
+  padding: 0 24rpx;
+  color: #fff;
+  font-size: 22rpx;
+  line-height: 56rpx;
+  background: $jfx-brandColor;
+  border-radius: 28rpx;
+}
+
+.appointment-estimate {
+  margin-top: 20rpx;
+  color: #d92d20;
+  font-size: 44rpx;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.project-button::after {
+  border: 0;
 }
 
 .snapshot-heading {

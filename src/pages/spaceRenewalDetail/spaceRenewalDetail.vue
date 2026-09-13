@@ -138,9 +138,11 @@ const hasDuplicateCandidate = (currentItem: ServiceItem, candidate: RenewalRepla
   items.value.some((item) => {
     if (item === currentItem) return false
     if (candidate.productId !== null) return item.productId === candidate.productId
-    // 服务候选项编号
-    const serviceCandidateId = item.candidateId ?? item.sourceItemId
-    return item.productId === null && serviceCandidateId === candidate.id
+    if (item.productId !== null) return false
+    // 已替换服务按目录 ID 判断，原方案服务缺少目录 ID 时按名称兜底
+    return item.candidateId
+      ? item.candidateId === candidate.id
+      : item.title.trim() === candidate.name.trim()
   })
 
 // 替换当前处理项

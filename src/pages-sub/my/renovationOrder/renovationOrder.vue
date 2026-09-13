@@ -1,36 +1,94 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
-import { projectStatusText, useRenovationBusinessStore } from '@/stores/modules/renovation-business'
-import type { RenovationProjectStatus } from '@/types/renovation-business'
+import { onLoad, onShow } from '@dcloudio/uni-app'
+import { getUserProjectListApi } from '@/api/project'
+import { projectStatusText } from '@/stores/modules/renovation-business'
+import type { RenovationProject } from '@/types/renovation-business'
+import type { UserProjectListStatus } from '@/types/project'
 
-type Filter = 'all' | RenovationProjectStatus
-// 装修项目筛选项
-const filters: Array<{ label: string; value: Filter }> = [
-  { label: '全部', value: 'all' },
+// 每页加载的项目数量。
+const PAGE_SIZE = 10
+// 装修项目状态筛选项。
+const filters: Array<{ label: string; value: UserProjectListStatus }> = [
+  { label: '全部', value: 'ALL' },
   { label: '待确认', value: 'PENDING_CONFIRM' },
   { label: '服务中', value: 'IN_SERVICE' },
   { label: '已完成', value: 'COMPLETED' },
 ]
-// 当前项目筛选状态
-const active = ref<Filter>('all')
-// 装修业务状态
-const store = useRenovationBusinessStore()
-// 当前筛选后的装修项目列表
-const list = computed(() =>
-  store.projects
-    .filter((item) => active.value === 'all' || item.status === active.value)
-    .slice()
-    .sort((a, b) => b.id - a.id),
-)
-// 打开装修项目详情
+// 当前选中的项目状态。
+const active = ref<UserProjectListStatus>('ALL')
+// 接口已加载的装修项目列表。
+const list = ref<RenovationProject[]>([])
+// 当前成功加载的页码。
+const pageNum = ref(0)
+// 接口返回的总页数。
+const totalPage = ref(0)
+// 当前状态下的项目总数。
+const total = ref(0)
+// 项目列表加载状态。
+const loading = ref(false)
+// 项目列表加载失败状态。
+const loadFailed = ref(false)
+// 是否已经完成首次页面加载。
+const loaded = ref(false)
+// 当前筛选是否还有下一页。
+const hasMore = computed(() => pageNum.value < totalPage.value)
+
+// 打开用户装修项目详情。
 const open = (id: number) =>
   uni.navigateTo({ url: `/pages-sub/my/renovationOrderDetail/renovationOrderDetail?id=${id}` })
 
+// 分页加载当前状态的用户装修项目。
+const loadProjects = async (reset = false) => {
+  // 1. 阻止重复请求或无更多数据时继续翻页。
+  if (loading.value || (!reset && !hasMore.value)) return
+  // 2. 计算请求页码并重置请求状态。
+  const nextPage = reset ? 1 : pageNum.value + 1
+  loading.value = true
+  loadFailed.value = false
+  try {
+    // 3. 按当前状态请求用户装修项目分页数据。
+    const { data } = await getUserProjectListApi({
+      status: active.value,
+      pageNum: nextPage,
+      pageSize: PAGE_SIZE,
+    })
+    // 4. 首次加载替换列表，翻页时追加列表。
+    list.value = reset ? data.list : [...list.value, ...data.list]
+    pageNum.value = data.pageNum
+    totalPage.value = data.totalPage
+    total.value = data.total
+  } catch (error) {
+    // 5. 请求失败时保留已有列表并显示重试入口。
+    console.error('获取用户装修项目列表失败：', error)
+    loadFailed.value = true
+  } finally {
+    loading.value = false
+  }
+}
+
+// 切换项目状态并重新请求第一页。
+const selectStatus = (status: UserProjectListStatus) => {
+  // 1. 忽略当前状态和加载过程中的重复操作。
+  if (active.value === status || loading.value) return
+  // 2. 更新状态并重新加载项目列表。
+  active.value = status
+  loadProjects(true)
+}
+
 onLoad((query) => {
-  // 页面参数指定的初始筛选状态
-  const value = query?.status as Filter
+  // 1. 读取页面参数指定的初始状态。
+  const value = query?.status as UserProjectListStatus
   if (filters.some((item) => item.value === value)) active.value = value
+  // 2. 首次进入页面时加载项目列表。
+  loadProjects(true).finally(() => {
+    loaded.value = true
+  })
+})
+
+onShow(() => {
+  // 从项目详情返回时刷新当前状态列表。
+  if (loaded.value) loadProjects(true)
 })
 </script>
 <template>
@@ -41,15 +99,21 @@ onLoad((query) => {
         :key="item.value"
         class="tab-item"
         :class="{ active: active === item.value }"
-        @click="active = item.value"
+        @click="selectStatus(item.value)"
       >
         {{ item.label }}
       </view>
     </view>
 
-    <scroll-view class="scroll" scroll-y :show-scrollbar="false">
+    <scroll-view
+      class="scroll"
+      scroll-y
+      :show-scrollbar="false"
+      lower-threshold="120"
+      @scrolltolower="loadProjects()"
+    >
       <view class="content">
-        <view class="count">共 {{ list.length }} 个装修项目</view>
+        <view class="count">共 {{ total }} 个装修项目</view>
 
         <view class="project-list">
           <view v-for="item in list" :key="item.id" class="card" @click="open(item.id)">
@@ -70,7 +134,7 @@ onLoad((query) => {
               </view>
               <view class="line">
                 <text class="label">预估金额</text>
-                <text class="amount">¥{{ item.quotedAmount.toFixed(2) }}</text>
+                <text class="amount">¥{{ Number(item.quotedAmount).toFixed(2) }}</text>
               </view>
             </view>
 
@@ -81,7 +145,16 @@ onLoad((query) => {
           </view>
         </view>
 
-        <view v-if="!list.length" class="empty">暂无相关装修项目</view>
+        <view v-if="list.length && loading" class="list-state">正在加载...</view>
+        <view v-else-if="list.length && loadFailed" class="list-state retry" @click="loadProjects()"
+          >加载失败，点击重试</view
+        >
+        <view v-else-if="list.length && !hasMore" class="list-state">没有更多了</view>
+        <view v-else-if="loading" class="empty">正在加载装修项目...</view>
+        <view v-else-if="loadFailed" class="empty retry" @click="loadProjects(true)"
+          >加载失败，点击重试</view
+        >
+        <view v-else-if="!list.length" class="empty">暂无相关装修项目</view>
       </view>
     </scroll-view>
   </view>
@@ -286,5 +359,16 @@ onLoad((query) => {
   color: #aaaaaa;
   font-size: 24rpx;
   text-align: center;
+}
+
+.list-state {
+  padding: 28rpx 0 8rpx;
+  color: #aaaaaa;
+  font-size: 23rpx;
+  text-align: center;
+}
+
+.retry {
+  color: #d92d20;
 }
 </style>

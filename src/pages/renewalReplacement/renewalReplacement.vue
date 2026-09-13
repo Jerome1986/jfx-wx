@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { getRenewalPlanListApi } from '@/api/renewal-plan'
-import { getRenewalReplacementProductsApi } from '@/api/renewal-replacement'
+import {
+  getConstructionServiceListApi,
+  getRenewalReplacementProductsApi,
+} from '@/api/renewal-replacement'
 import type {
   RenewalReplacementCandidate,
   RenewalReplacementType,
@@ -18,6 +20,18 @@ const currentUnit = ref('')
 const currentQuantity = ref('1')
 // 搜索关键词
 const keyword = ref('')
+// 已成功加载的候选列表页码
+const pageNum = ref(0)
+// 候选列表分页大小
+const pageSize = 10
+// 候选项总数
+const total = ref(0)
+// 候选列表总页数
+const totalPage = ref(0)
+// 当前搜索实际使用的关键词
+const appliedKeyword = ref('')
+// 请求版本号，用于忽略过期搜索响应
+let requestVersion = 0
 // 可供替换的候选项列表
 const candidates = ref<RenewalReplacementCandidate[]>([])
 // 加载状态
@@ -29,7 +43,7 @@ const selecting = ref(false)
 // 页面间事件通道
 let eventChannel: UniApp.EventChannel | undefined
 
-// 当前内容是否为商品
+// 替换类型判断：路由 type=PRODUCT 为商品，type=SERVICE 为服务
 const isProduct = computed(() => type.value === 'PRODUCT')
 // 页面标题
 const pageTitle = computed(() => (isProduct.value ? '选择替换商品' : '选择替换服务'))
@@ -37,70 +51,90 @@ const pageTitle = computed(() => (isProduct.value ? '选择替换商品' : '选�
 const sectionTitle = computed(() => (isProduct.value ? '可替换商品' : '可替换服务'))
 // 占位提示
 const placeholder = computed(() => (isProduct.value ? '搜索商品名称或描述' : '搜索服务名称或描述'))
+// 候选列表是否还有下一页
+const hasMore = computed(() => pageNum.value < totalPage.value)
 
 // 加载可替换的候选项
-const loadCandidates = async () => {
+const loadCandidates = async (append = false) => {
+  if (append && (loading.value || !hasMore.value)) return
+  if (!append) {
+    requestVersion += 1
+    appliedKeyword.value = keyword.value.trim()
+    pageNum.value = 0
+    total.value = 0
+    totalPage.value = 0
+    candidates.value = []
+  }
+  const version = requestVersion
+  const nextPage = append ? pageNum.value + 1 : 1
   loading.value = true
   loadFailed.value = false
   try {
-    // 当前处理值
-    const value = keyword.value.trim().toLowerCase()
     if (isProduct.value) {
-      const { data } = await getRenewalReplacementProductsApi()
-      candidates.value = data
-        .filter((product) => product.isPublished && product.stock > 0)
-        .filter((product) =>
-          value
-            ? `${product.name}${product.description}${product.brand}`.toLowerCase().includes(value)
-            : true,
-        )
-        .map((product) => ({
-          id: product.id,
-          productId: product.id,
-          category: category.value,
-          name: product.name,
-          description: product.description,
-          unit: currentUnit.value,
-          unitPrice: product.price,
-          quantity: currentQuantity.value,
-          image: product.mainImage,
-        }))
+      const { data } = await getRenewalReplacementProductsApi({
+        isPublished: true,
+        inStock: true,
+        pageNum: nextPage,
+        pageSize,
+        ...(appliedKeyword.value ? { keyword: appliedKeyword.value } : {}),
+      })
+      if (version !== requestVersion) return
+      const items = data.list.map((product) => ({
+        id: product.id,
+        productId: product.id,
+        category: category.value,
+        name: product.name,
+        description: product.description,
+        unit: currentUnit.value,
+        unitPrice: product.price,
+        quantity: currentQuantity.value,
+        image: product.mainImage,
+      }))
+      const existingIds = new Set(candidates.value.map((item) => item.id))
+      candidates.value = append
+        ? [...candidates.value, ...items.filter((item) => !existingIds.has(item.id))]
+        : items
+      pageNum.value = data.pageNum
+      total.value = data.total
+      totalPage.value = data.totalPage
     } else {
-      const { data } = await getRenewalPlanListApi()
-      candidates.value = data
-        .filter((plan) => plan.status === 'PUBLISHED')
-        .flatMap((plan) => plan.items)
-        .filter((item) => item.productId === null)
-        .filter((item) => {
-          if (item.category === category.value) return true
-          // 判断文本是否属于人工辅材
-          const isLaborMaterial = (text: string) => text.includes('人工') || text.includes('辅材')
-          return isLaborMaterial(category.value) && isLaborMaterial(item.category)
-        })
-        .filter((item) =>
-          value ? `${item.name}${item.description}`.toLowerCase().includes(value) : true,
-        )
-        .map((item) => ({
-          id: item.id,
-          productId: null,
-          category: item.category,
-          name: item.name,
-          description: item.description,
-          unit: item.unit,
-          unitPrice: item.unitPrice,
-          quantity: item.quantity,
-          image: item.image,
-        }))
+      const { data } = await getConstructionServiceListApi({
+        isEnabled: true,
+        pageNum: nextPage,
+        pageSize,
+        ...(appliedKeyword.value ? { keyword: appliedKeyword.value } : {}),
+      })
+      if (version !== requestVersion) return
+      const items = data.list.map((service) => ({
+        id: service.id,
+        productId: null,
+        category: category.value,
+        name: service.name,
+        description: service.description,
+        unit: service.unit,
+        unitPrice: service.unitPrice,
+        quantity: currentQuantity.value,
+        image: service.image,
+      }))
+      const existingIds = new Set(candidates.value.map((item) => item.id))
+      candidates.value = append
+        ? [...candidates.value, ...items.filter((item) => !existingIds.has(item.id))]
+        : items
+      pageNum.value = data.pageNum
+      total.value = data.total
+      totalPage.value = data.totalPage
     }
   } catch (error) {
+    if (version !== requestVersion) return
     console.error('获取焕新替换候选失败：', error)
     loadFailed.value = true
   } finally {
-    loading.value = false
+    if (version === requestVersion) loading.value = false
   }
 }
 
 onLoad((options) => {
+  // 路由参数决定替换类型：只有明确传入 SERVICE 才进入服务分支，其余均按商品处理
   type.value = options?.type === 'SERVICE' ? 'SERVICE' : 'PRODUCT'
   category.value = options?.category ? decodeURIComponent(options.category) : ''
   currentUnit.value = options?.unit ? decodeURIComponent(options.unit) : ''
@@ -149,10 +183,10 @@ const selectCandidate = (candidate: RenewalReplacementCandidate) => {
           confirm-type="search"
           :placeholder="placeholder"
           placeholder-class="search-placeholder"
-          @confirm="loadCandidates"
+          @confirm="loadCandidates()"
         />
       </view>
-      <text class="search-action" @click="loadCandidates">搜索</text>
+      <text class="search-action" @click="loadCandidates()">搜索</text>
     </view>
 
     <view class="section-heading">
@@ -161,11 +195,18 @@ const selectCandidate = (candidate: RenewalReplacementCandidate) => {
     </view>
     <view class="section-tip">选择后将替换当前方案明细，预约前不会保存</view>
 
-    <scroll-view class="candidate-scroll" scroll-y :show-scrollbar="false">
-      <view v-if="loading" class="page-state">正在加载{{ isProduct ? '商品' : '服务' }}...</view>
-      <view v-else-if="loadFailed" class="page-state">
+    <scroll-view
+      class="candidate-scroll"
+      scroll-y
+      :show-scrollbar="false"
+      @scrolltolower="loadCandidates(true)"
+    >
+      <view v-if="loading && !candidates.length" class="page-state"
+        >正在加载{{ isProduct ? '商品' : '服务' }}...</view
+      >
+      <view v-else-if="loadFailed && !candidates.length" class="page-state">
         <view>候选项加载失败</view>
-        <button class="retry-button" @click="loadCandidates">重新加载</button>
+        <button class="retry-button" @click="loadCandidates()">重新加载</button>
       </view>
       <view v-else-if="candidates.length" class="candidate-list">
         <view
@@ -195,6 +236,17 @@ const selectCandidate = (candidate: RenewalReplacementCandidate) => {
         </view>
       </view>
       <view v-else class="page-state">没有找到可替换的{{ isProduct ? '商品' : '服务' }}</view>
+      <view v-if="candidates.length" class="pagination-state">
+        <text v-if="loading">正在加载更多...</text>
+        <button
+          v-else-if="loadFailed"
+          class="retry-button pagination-retry"
+          @click="loadCandidates(true)"
+        >
+          加载失败，重试
+        </button>
+        <text v-else-if="!hasMore">没有更多{{ isProduct ? '商品' : '服务' }}了</text>
+      </view>
     </scroll-view>
   </view>
 </template>
@@ -285,7 +337,7 @@ const selectCandidate = (candidate: RenewalReplacementCandidate) => {
 }
 
 .candidate-list {
-  padding-bottom: calc(32rpx + env(safe-area-inset-bottom));
+  padding-bottom: 4rpx;
 }
 
 .candidate-card {
@@ -372,6 +424,14 @@ const selectCandidate = (candidate: RenewalReplacementCandidate) => {
   text-align: center;
 }
 
+.pagination-state {
+  padding: 12rpx 0 calc(28rpx + env(safe-area-inset-bottom));
+  color: $jfx-font-dec2;
+  font-size: 23rpx;
+  line-height: 34rpx;
+  text-align: center;
+}
+
 .retry-button {
   width: 180rpx;
   height: 56rpx;
@@ -381,6 +441,10 @@ const selectCandidate = (candidate: RenewalReplacementCandidate) => {
   line-height: 56rpx;
   background: $jfx-brandColor;
   border-radius: 28rpx;
+}
+
+.pagination-retry {
+  margin-top: 0;
 }
 
 button::after {

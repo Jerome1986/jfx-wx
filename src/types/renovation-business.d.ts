@@ -91,6 +91,12 @@ export interface Appointment {
   status: AppointmentStatus
   /** 提交预约时的业务快照 */
   snapshot?: AppointmentSnapshot
+  /** 上门测量后给客户的预估报价 */
+  estimatedAmount?: string | null
+  /** 预估报价说明 */
+  estimateDescription?: string | null
+  /** 预估报价提交时间 */
+  estimatedAt?: string | null
   /** 完成时间 */
   completedAt?: string
   /** 取消时间 */
@@ -140,6 +146,14 @@ export interface FollowUp {
 
 /** 由预约转化的装修项目 */
 export interface RenovationProject {
+  quote?: import('./project-quote').ProjectQuote
+  planSource?: import('./project-quote').QuoteSource
+  /** 本地建项来源，用于区分接口预约与演示数据 */
+  sourceKind?: 'appointment'
+  renovationScope?: string
+  employeeName?: string
+  planName?: string
+  remark?: string
   /** 项目 ID */
   id: number
   /** 项目编号 */
@@ -147,7 +161,7 @@ export interface RenovationProject {
   /** 来源预约 ID */
   appointmentId?: number
   /** 客户用户 ID */
-  userId: number
+  userId?: number
   /** 负责员工 ID */
   employeeId?: number
   /** 关联焕新方案 ID */
@@ -162,15 +176,22 @@ export interface RenovationProject {
   serviceAddress: string
   /** 报价金额 */
   quotedAmount: number
-  /** 合同金额 */
-  contractAmount?: number
   /** 项目状态 */
   status: RenovationProjectStatus
+  /** 项目创建并提交报价的时间 */
+  quoteSubmittedAt?: string
+  /** 客户确认报价时间 */
+  customerConfirmedAt?: string
+  /** 项目完成时间 */
+  completedAt?: string
   /** 创建时间 */
   createdAt: string
   /** 更新时间 */
   updatedAt: string
 }
+
+/** 员工核实后的建项表单 */
+export type CreateRenovationProjectInput = import('./project-quote').ProjectDraft
 
 /** 创建预约所需参数 */
 export interface CreateAppointmentInput {

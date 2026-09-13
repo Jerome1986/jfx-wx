@@ -20,7 +20,7 @@ const formData = ref<BudgetForm>({
 const memberStore = useMemberStore()
 // 是否正在获取本机号码
 const phoneAuthorizing = ref(false)
-// 是否正在提交预算预约
+// 是否正在提交报价需求
 const submitting = ref(false)
 
 // 城市和户型选择器
@@ -102,7 +102,7 @@ const handleUseLocalPhone = () => {
   uni.showToast({ title: '手机号已填入', icon: 'success' })
 }
 
-// 提交装修计算器预约
+// 提交装修报价需求
 const submitBudget = async () => {
   if (!formData.value.area || !formData.value.layout) {
     uni.showToast({ title: '请完善面积和户型', icon: 'none' })
@@ -127,8 +127,8 @@ const submitBudget = async () => {
   const confirmed = await new Promise<boolean>((resolve) => {
     uni.showModal({
       title: '确认提交',
-      content: '确认提交装修预算信息并获取报价吗？',
-      confirmText: '确定',
+      content: '提交后专业顾问将联系您安排上门测量，并在测量完成后提供预估报价。',
+      confirmText: '确认提交',
       confirmColor: '#D92D20',
       cancelText: '取消',
       success: ({ confirm }) => resolve(confirm),
@@ -150,13 +150,17 @@ const submitBudget = async () => {
       area: formData.value.area,
       roomLayout: formData.value.layout,
     })
-    uni.showToast({ title: '报价信息已提交', icon: 'success' })
     formData.value.area = ''
     formData.value.phone = ''
-    setTimeout(
-      () => uni.navigateTo({ url: '/pages-sub/my/decorationOrder/decorationOrder?group=budget' }),
-      400,
-    )
+    uni.showModal({
+      title: '报价需求已提交',
+      content: '专业顾问将联系您并安排上门测量，完成测量后提供预估报价。',
+      showCancel: false,
+      confirmText: '查看预约',
+      confirmColor: '#D92D20',
+      complete: () =>
+        uni.navigateTo({ url: '/pages-sub/my/decorationOrder/decorationOrder?group=budget' }),
+    })
   } catch (error) {
     console.error('装修预算预约提交失败：', error)
   } finally {
@@ -182,7 +186,7 @@ const houseTypeTabStyle = (value: BudgetForm['houseType']) => {
 <template>
   <scroll-view class="budget-page" scroll-y :show-scrollbar="false">
     <view class="page-content">
-      <!-- 顶部预算介绍 -->
+      <!-- 顶部报价服务介绍 -->
       <image
         class="budget-hero"
         src="https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/beijingtu/背景图-yusuan.png"
@@ -193,7 +197,7 @@ const houseTypeTabStyle = (value: BudgetForm['houseType']) => {
       <view class="budget-card form-card">
         <view class="card-heading">
           <text class="card-title">房屋信息</text>
-          <text class="heading-tip">用于估算报价</text>
+          <text class="heading-tip">用于安排上门报价</text>
         </view>
         <wd-form
           :model="formData"
@@ -281,12 +285,12 @@ const houseTypeTabStyle = (value: BudgetForm['houseType']) => {
           :disabled="submitting"
           @click="submitBudget"
         >
-          计算报价
+          提交报价需求
         </button>
-        <view class="form-notice">提交后管家将结合面积和需求符合，报价仅作预算参考</view>
+        <view class="form-notice">提交后顾问将联系并安排上门，测量完成后提供预估报价</view>
       </view>
 
-      <!-- 可获得的预算服务 -->
+      <!-- 可获得的报价服务 -->
       <view class="budget-card benefits-card">
         <view class="section-title">您将获得</view>
         <view class="benefit-list">
@@ -298,9 +302,9 @@ const houseTypeTabStyle = (value: BudgetForm['houseType']) => {
         </view>
       </view>
 
-      <!-- 计算说明 -->
+      <!-- 报价说明 -->
       <view class="budget-card notes-card">
-        <view class="section-title">计算说明</view>
+        <view class="section-title">报价说明</view>
         <view v-for="item in calculationNotes" :key="item.content" class="note-item">
           <image class="note-icon" :src="item.icon" mode="aspectFit" />
           <text class="note-content">{{ item.content }}</text>

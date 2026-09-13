@@ -6,13 +6,18 @@ import {
   appointmentFollowUp,
   getAppointmentDetailApi,
 } from '@/api/appointment'
-import { appointmentStatusText, appointmentTypeText } from '@/stores/modules/renovation-business'
+import {
+  appointmentStatusText,
+  appointmentTypeText,
+  useRenovationBusinessStore,
+} from '@/stores/modules/renovation-business'
 import type { Appointment } from '@/types/renovation-business'
 import { formatDateTime } from '@/utils/format'
 // 页面传入的预约编号
 const props = defineProps<{ appointmentId: number }>()
 // 当前预约详情
 const appointment = ref<Appointment>()
+const businessStore = useRenovationBusinessStore()
 // 详情加载状态
 const loading = ref(false)
 // 详情加载失败状态
@@ -25,8 +30,12 @@ const followSubmitting = ref(false)
 const followSaved = ref(false)
 // 确认上门提交状态
 const visitSubmitting = ref(false)
-// 标记服务完成提交状态
+// 完成预约提交状态
 const completeSubmitting = ref(false)
+// 待提交的预约预估报价
+const estimatedAmount = ref('')
+// 待提交的预估报价说明
+const estimateDescription = ref('')
 // 日历组件实例
 const calendarRef = ref<any>()
 // 计划上门日期
@@ -53,9 +62,17 @@ const records = computed(() =>
   [...(appointment.value?.followUps || [])].sort((a, b) => b.id - a.id),
 )
 // 当前预约关联的装修项目
-const convertedProject = computed(() => appointment.value?.project)
+const convertedProject = computed(() =>
+  appointment.value
+    ? appointment.value.project || businessStore.getConvertedProject(appointment.value.id)
+    : undefined,
+)
 // 方案明细列表
 const planItems = computed(() => appointment.value?.snapshot?.items || [])
+// 当前预约是否需要在上门后提供预估报价
+const isQuoteAppointment = computed(() =>
+  appointment.value ? ['BUDGET', 'QUOTE'].includes(appointment.value.type) : false,
+)
 // 确认上门所需数据是否完整
 const canConfirmVisit = computed(() =>
   Boolean(visitAddress.value.trim() && visitDate.value && timeSlot.value),
@@ -114,19 +131,20 @@ watch(
   { immediate: true },
 )
 watch(appointment, (item) => {
+  // 1. 回填上门安排。
   visitDate.value = item?.visitDate || ''
   timeSlot.value = item?.timeSlot || ''
   visitAddress.value = item?.visitAddress || item?.serviceAddress || ''
+  // 2. 回填已经保存的预估报价。
+  estimatedAmount.value = item?.estimatedAmount || ''
+  estimateDescription.value = item?.estimateDescription || ''
+  // 3. 同步日历默认日期。
   const visitTimestamp = parseLocalDate(item?.visitDate)
   calendarValue.value = visitTimestamp || minDate
 })
 watch(followText, () => {
   followSaved.value = false
 })
-// 提示员工操作接口尚未接入
-const showActionPending = () => {
-  uni.showToast({ title: '该操作接口待对接', icon: 'none' })
-}
 // 保存预约跟进记录
 const addFollow = async () => {
   const content = followText.value.trim()
@@ -187,31 +205,75 @@ const confirm = async () => {
     visitSubmitting.value = false
   }
 }
-// 标记预约服务完成
+// 提交预估报价并完成预约
 const complete = async () => {
+  // 1. 校验当前状态和报价类预约的预估金额。
   const currentAppointment = appointment.value
   if (!currentAppointment || completeSubmitting.value) return
   if (currentAppointment.status !== 'PENDING_VISIT') return
+  const amount = estimatedAmount.value.trim()
+  if (
+    isQuoteAppointment.value &&
+    !/^(?:0\.(?:0[1-9]|[1-9]\d?)|[1-9]\d{0,7}(?:\.\d{1,2})?)$/.test(amount)
+  ) {
+    uni.showToast({ title: '请输入大于0且最多两位小数的预估金额', icon: 'none' })
+    return
+  }
+  // 2. 报价类预约携带预估结果，普通预约只完成服务。
   completeSubmitting.value = true
   try {
-    const { data, code } = await appointmentComplete(currentAppointment.id)
+    const payload = isQuoteAppointment.value
+      ? {
+          estimatedAmount: amount,
+          estimateDescription: estimateDescription.value.trim() || null,
+        }
+      : undefined
+    const { data, code } = await appointmentComplete(currentAppointment.id, payload)
     if (code === 400) return
     if (props.appointmentId !== currentAppointment.id || !appointment.value) return
+    // 3. 用接口结果刷新状态和预估报价。
     appointment.value = {
       ...appointment.value,
       status: data.status,
       completedAt: data.completedAt,
+      estimatedAmount: data.estimatedAmount,
+      estimateDescription: data.estimateDescription,
+      estimatedAt: data.estimatedAt,
       updatedAt: data.updatedAt,
     }
-    uni.showToast({ title: '服务已完成', icon: 'success' })
+    uni.showToast({
+      title: isQuoteAppointment.value ? '预估报价已提交' : '服务已完成',
+      icon: 'success',
+    })
   } catch (error) {
     console.error('标记预约服务完成失败：', error)
   } finally {
     completeSubmitting.value = false
   }
 }
-// 将已完成预约转为装修项目
-const convert = () => showActionPending()
+// 查看已转换项目，未转换时进入建项页。
+const convert = () => {
+  // 1. 仅允许已完成预约继续处理。
+  const current = appointment.value
+  if (!current || current.status !== 'COMPLETED') return
+  if (['BUDGET', 'QUOTE'].includes(current.type) && !current.estimatedAmount) {
+    uni.showToast({ title: '请先完成预约预估报价', icon: 'none' })
+    return
+  }
+  // 2. 已转换时直接使用后端返回的项目 ID 查看详情。
+  const project = convertedProject.value
+  if (project) {
+    uni.navigateTo({
+      url: `/pages-sub/my/employeeRenovationOrderDetail/employeeRenovationOrderDetail?id=${project.id}`,
+    })
+    return
+  }
+  // 3. 未转换时缓存预约快照并进入创建项目页面。
+  businessStore.cacheProjectSource(current)
+  uni.navigateTo({
+    url: `/pages-sub/my/createRenovationProject/createRenovationProject?appointmentId=${current.id}`,
+  })
+}
 // 拨打客户电话
 const call = () => appointment.value && uni.makePhoneCall({ phoneNumber: appointment.value.mobile })
 </script>
@@ -382,20 +444,62 @@ const call = () => appointment.value && uni.makePhoneCall({ phoneNumber: appoint
           >
           <view class="row"
             ><text>地址</text><text>{{ appointment.visitAddress }}</text></view
-          ><button
+          >
+          <view v-if="isQuoteAppointment" class="estimate-editor">
+            <view class="subsection-title">填写预估报价</view>
+            <view class="estimate-input-wrap">
+              <text class="estimate-currency">¥</text>
+              <input
+                v-model="estimatedAmount"
+                class="estimate-input"
+                type="digit"
+                :maxlength="11"
+                placeholder="请输入上门测量后的预估金额"
+                placeholder-style="color: #aaa; font-size: 24rpx;"
+              />
+            </view>
+            <textarea
+              v-model="estimateDescription"
+              class="estimate-textarea"
+              :maxlength="191"
+              placeholder="填写报价范围、现场情况等说明（选填）"
+              placeholder-style="color: #aaa; font-size: 24rpx;"
+            />
+            <view class="estimate-hint">预估报价用于客户决策参考，不作为装修项目实际报价。</view>
+          </view>
+          <button
             class="primary"
             :loading="completeSubmitting"
             :disabled="completeSubmitting"
             @click="complete"
           >
-            {{ completeSubmitting ? '提交中...' : '标记服务完成' }}
+            {{
+              completeSubmitting
+                ? '提交中...'
+                : isQuoteAppointment
+                ? '提交预估报价并完成预约'
+                : '标记服务完成'
+            }}
           </button>
+        </view>
+        <view v-if="appointment.status === 'COMPLETED' && isQuoteAppointment" class="card">
+          <view class="section-title">预约预估报价</view>
+          <view v-if="appointment.estimatedAmount" class="estimate-summary">
+            <view class="estimate-amount">¥{{ appointment.estimatedAmount }}</view>
+            <view v-if="appointment.estimateDescription" class="estimate-description">
+              {{ appointment.estimateDescription }}
+            </view>
+            <view v-if="appointment.estimatedAt" class="estimate-time">
+              提交于 {{ formatDateTime(appointment.estimatedAt) }}
+            </view>
+          </view>
+          <view v-else class="hint">该历史预约尚未记录预估报价，请联系后台补充。</view>
         </view>
         <view v-if="appointment.status === 'COMPLETED'" class="card">
           <view class="section-title">预约转化</view>
-          <view class="hint">确认客户成交后，将预约转为正式装修项目。</view
-          ><button class="primary" :disabled="!!convertedProject" @click="convert">
-            {{ convertedProject ? `已转项目 ${convertedProject.projectNo}` : '转为装修项目' }}
+          <view class="hint">客户确认有装修意向后，再将预约转为装修项目并编制实际报价。</view
+          ><button class="primary" @click="convert">
+            {{ convertedProject ? '查看装修项目' : '转为装修项目' }}
           </button>
         </view>
       </view>
@@ -698,6 +802,78 @@ const call = () => appointment.value && uni.makePhoneCall({ phoneNumber: appoint
 .time-value {
   margin-top: 4rpx;
   font-size: 22rpx;
+}
+
+.estimate-editor {
+  margin-top: 26rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid #eee;
+}
+
+.estimate-input-wrap {
+  display: flex;
+  height: 82rpx;
+  margin-top: 18rpx;
+  padding: 0 20rpx;
+  align-items: center;
+  background: #f8f7f5;
+  border-radius: 12rpx;
+}
+
+.estimate-currency {
+  margin-right: 10rpx;
+  color: #d92d20;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.estimate-input {
+  height: 82rpx;
+  flex: 1;
+  color: #2f2926;
+  font-size: 28rpx;
+  line-height: 82rpx;
+}
+
+.estimate-textarea {
+  box-sizing: border-box;
+  width: 100%;
+  height: 132rpx;
+  margin-top: 16rpx;
+  padding: 18rpx 20rpx;
+  color: #333;
+  background: #f8f7f5;
+  border-radius: 12rpx;
+  font-size: 24rpx;
+  line-height: 36rpx;
+}
+
+.estimate-hint,
+.estimate-time {
+  margin-top: 12rpx;
+  color: #9a918c;
+  font-size: 21rpx;
+  line-height: 32rpx;
+}
+
+.estimate-summary {
+  margin-top: 20rpx;
+  padding: 22rpx;
+  background: #fff8f6;
+  border-radius: 14rpx;
+}
+
+.estimate-amount {
+  color: #d92d20;
+  font-size: 42rpx;
+  font-weight: 650;
+}
+
+.estimate-description {
+  margin-top: 14rpx;
+  color: #4e4743;
+  font-size: 24rpx;
+  line-height: 38rpx;
 }
 
 .form-input {

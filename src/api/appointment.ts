@@ -9,6 +9,7 @@ import type {
   AppointmentFollowUpResult,
   AppointmentConfirmVisitResult,
   AppointmentCompleteResult,
+  CompleteAppointmentInput,
 } from '@/types/appointment'
 import { request } from '@/utils/http'
 import type { Appointment } from '@/types/renovation-business'
@@ -80,9 +81,10 @@ export const appointmentConfirmVisit = (
     data: { visitDate, timeSlot, visitAddress },
   })
 
-/** 标记预约服务完成，仅通过路径传入预约 ID */
-export const appointmentComplete = (id: number) =>
+/** 完成预约；报价类预约同时提交上门测量后的预估报价 */
+export const appointmentComplete = (id: number, data?: CompleteAppointmentInput) =>
   request<AppointmentCompleteResult>({
     method: 'POST',
     url: `/appointment/${id}/complete`,
+    data,
   })

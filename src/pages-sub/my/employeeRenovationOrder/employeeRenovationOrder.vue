@@ -45,7 +45,7 @@ onLoad((query) => {
           ><view class="stats"
             ><view
               ><text class="stats-value">{{ count('PENDING_CONFIRM') }}</text
-              ><text>待确认</text></view
+              ><text>客户确认</text></view
             ><view
               ><text class="stats-value">{{ count('IN_SERVICE') }}</text
               ><text>服务中</text></view

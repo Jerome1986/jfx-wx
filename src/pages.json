@@ -83,7 +83,7 @@
     {
       "path": "pages/renovationBudget/renovationBudget",
       "style": {
-        "navigationBarTitleText": "装修预算",
+        "navigationBarTitleText": "获取装修报价",
         "navigationBarBackgroundColor": "#FFFFFF"
       }
     },
@@ -169,6 +169,29 @@
             "navigationBarTitleText": "装修订单",
             "navigationBarBackgroundColor": "#F8F7F5",
             "navigationBarTextStyle": "black",
+            "backgroundColor": "#F8F7F5"
+          }
+        },
+        {
+          "path": "projectPlanSelect/projectPlanSelect",
+          "style": {
+            "navigationBarTitleText": "选择装修方案",
+            "navigationBarBackgroundColor": "#F8F7F5"
+          }
+        },
+        {
+          "path": "projectQuote/projectQuote",
+          "style": {
+            "navigationBarTitleText": "项目报价清单",
+            "navigationBarBackgroundColor": "#F8F7F5",
+            "backgroundColor": "#F8F7F5"
+          }
+        },
+        {
+          "path": "createRenovationProject/createRenovationProject",
+          "style": {
+            "navigationBarTitleText": "创建装修项目",
+            "navigationBarBackgroundColor": "#F8F7F5",
             "backgroundColor": "#F8F7F5"
           }
         },

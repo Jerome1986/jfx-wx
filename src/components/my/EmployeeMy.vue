@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useMemberStore } from '@/stores'
+import type { EmployeeSummary } from '@/api/employee'
+
+const props = defineProps<{ summary?: EmployeeSummary }>()
 
 const memberStore = useMemberStore()
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
@@ -22,12 +25,13 @@ const employeeMobile = computed(() => {
   return `${mobile.slice(0, 3)}****${mobile.slice(-4)}`
 })
 
-const todos = [
-  { value: '8', label: '待联系', highlight: true },
-  { value: '18', label: '待上门' },
-  { value: '811', label: '待确认' },
-  { value: '3', label: '服务中' },
-]
+const todos = computed(() => [
+  { value: props.summary?.pendingContactCount ?? 0, label: '待联系', highlight: true },
+  { value: props.summary?.pendingVisitCount ?? 0, label: '待上门' },
+  { value: props.summary?.pendingConfirmCount ?? 0, label: '待确认' },
+  { value: props.summary?.inServiceCount ?? 0, label: '服务中' },
+])
+const todoTotal = computed(() => todos.value.reduce((total, item) => total + item.value, 0))
 const performance = [
   { value: '32', label: '签约客户' },
   { value: '18', label: '签约金额' },
@@ -164,7 +168,7 @@ const handleTodoClick = (label: string) => {
           <view class="card-heading">
             <text class="card-title">今日待办</text>
             <view class="all-link" @click="requireLogin() && showComingSoon('全部待办')">
-              <text>共有18项待办</text><text class="iconfont icon-youjiantou arrow" />
+              <text>共有{{ todoTotal }}项待办</text><text class="iconfont icon-youjiantou arrow" />
             </view>
           </view>
           <view class="data-grid">

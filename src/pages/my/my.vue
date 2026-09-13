@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { getEmployeeSummary, type EmployeeSummary } from '@/api/employee'
 import { getUserSummary, userInfoFindOne } from '@/api/user'
 import { useMemberStore } from '@/stores'
 import CustomerMy from '@/components/my/CustomerMy.vue'
@@ -19,6 +20,31 @@ const isEmployee = computed(() => memberStore.profile?.role === 'EMPLOYEE')
 // 刷新状态
 let refreshing = false
 
+const employeeSummary = ref<EmployeeSummary>()
+let summaryRequestId = 0
+
+// 账号或角色变化时清空统计，并使旧请求失效。
+watch(
+  [() => memberStore.profile?.id, () => memberStore.profile?.role],
+  () => {
+    employeeSummary.value = undefined
+    summaryRequestId++
+  },
+  { flush: 'sync' },
+)
+
+onShow(async () => {
+  if (!isEmployee.value) return
+  const requestId = ++summaryRequestId
+  try {
+    const { data } = await getEmployeeSummary()
+    if (requestId !== summaryRequestId) return
+    employeeSummary.value = data
+  } catch (error) {
+    console.error('刷新员工待办统计失败：', error)
+  }
+})
+
 // 每次进入“我的”页面时刷新用户资料和统计概览
 onShow(async () => {
   // 当前用户资料
@@ -33,6 +59,8 @@ onShow(async () => {
       userInfoFindOne(userId),
       getUserSummary(userId),
     ])
+    console.log('用户统计返回', summary)
+
     // 切换账号后忽略旧账号尚未完成的请求。
     if (memberStore.profile !== currentProfile) return
     memberStore.setProfile({
@@ -51,7 +79,7 @@ onShow(async () => {
 </script>
 
 <template>
-  <EmployeeMy v-if="isEmployee" />
+  <EmployeeMy v-if="isEmployee" :summary="employeeSummary" />
   <CustomerMy v-else />
   <view v-if="isDevelopment" class="dev-debug-entry">
     <button class="dev-debug-button" @click="openDevDebug">开发调试</button>
@@ -65,12 +93,14 @@ onShow(async () => {
   bottom: calc(24rpx + env(safe-area-inset-bottom) + var(--window-bottom, 0px));
   z-index: 10;
 }
+
 .dev-debug-button {
   color: #d92d20;
   font-size: 28rpx;
   background: #fff;
   border-radius: 20rpx;
   box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.12);
+
   &::after {
     border: 0;
   }
