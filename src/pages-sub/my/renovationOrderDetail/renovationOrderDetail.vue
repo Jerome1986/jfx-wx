@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
+import { confirmProjectQuoteApi, getProjectDetailApi } from '@/api/project'
+import { normalizeProject } from '@/utils/project'
+import type { FollowUp } from '@/types/renovation-business'
 import { projectStatusText, useRenovationBusinessStore } from '@/stores/modules/renovation-business'
 import { formatDateTime } from '@/utils/format'
 import ProjectQuoteSummary from '@/components/project/ProjectQuoteSummary.vue'
@@ -12,39 +15,82 @@ const store = useRenovationBusinessStore()
 // 当前装修项目详情
 const project = computed(() => store.getProject(id.value))
 // 当前项目的跟进记录
-const records = computed(() => store.followUps.filter((item) => item.projectId === id.value))
+const records = ref<FollowUp[]>([])
+const loading = ref(false)
+const loadFailed = ref(false)
+const confirming = ref(false)
+const invalidId = computed(() => !Number.isSafeInteger(id.value) || id.value <= 0)
+
+const loadProject = async () => {
+  if (invalidId.value || loading.value) return
+  loading.value = true
+  loadFailed.value = false
+  try {
+    const { data } = await getProjectDetailApi(id.value)
+    if (data?.id !== id.value) throw new Error('项目详情 ID 不匹配')
+    store.cacheCreatedProject(normalizeProject(data))
+    records.value = data.followUps || []
+  } catch (error) {
+    console.error('获取项目详情失败：', error)
+    loadFailed.value = true
+  } finally {
+    loading.value = false
+  }
+}
 
 const openQuote = () =>
   uni.navigateTo({ url: `/pages-sub/my/projectQuote/projectQuote?target=project&id=${id.value}` })
 
 const confirmQuote = async () => {
+  if (confirming.value || loading.value || loadFailed.value || invalidId.value) return
   if (project.value?.status !== 'PENDING_CONFIRM') return
-  const confirmed = await new Promise<boolean>((resolve) =>
-    uni.showModal({
-      title: '确认项目报价',
-      content: `确认接受报价 ¥${Number(project.value?.quotedAmount || 0).toFixed(2)} 并开始服务？`,
-      confirmText: '确认报价',
-      confirmColor: '#d92d20',
-      success: (result) => resolve(result.confirm),
-      fail: () => resolve(false),
-    }),
-  )
-  if (!confirmed) return
-  if (store.confirmProjectQuote(id.value)) {
+  confirming.value = true
+  try {
+    const confirmed = await new Promise<boolean>((resolve) =>
+      uni.showModal({
+        title: '确认项目报价',
+        content: `确认接受报价 ¥${Number(project.value?.quotedAmount || 0).toFixed(
+          2,
+        )} 并开始服务？`,
+        confirmText: '确认报价',
+        confirmColor: '#d92d20',
+        success: (result) => resolve(result.confirm),
+        fail: () => resolve(false),
+      }),
+    )
+    if (!confirmed) return
+    const result = await confirmProjectQuoteApi(id.value)
+    // 请求封装会返回 HTTP 2xx 中的业务错误，此时不能提示确认成功。
+    if (result && result.code >= 400) {
+      if (result.code !== 400)
+        uni.showToast({ title: result.message || '确认报价失败，请重试', icon: 'none' })
+      return
+    }
     uni.showToast({ title: '报价已确认', icon: 'success' })
-  } else {
-    uni.showToast({ title: '项目状态已变化，请刷新', icon: 'none' })
+    await loadProject()
+  } catch (error) {
+    // 网络及 HTTP 错误由请求封装提示，保留详情供用户重试。
+    console.error('确认项目报价失败：', error)
+  } finally {
+    confirming.value = false
   }
 }
 
 onLoad((query) => {
   id.value = Number(query?.id) || 0
+  loadProject()
 })
 </script>
 
 <template>
   <view class="page">
-    <view v-if="project" class="content">
+    <view v-if="invalidId" class="empty">项目 ID 无效</view>
+    <view v-else-if="loading" class="empty">正在加载项目详情...</view>
+    <view v-else-if="loadFailed" class="empty">
+      <view>项目详情加载失败</view>
+      <button class="retry-button" @click="loadProject">重新加载</button>
+    </view>
+    <view v-else-if="project" class="content">
       <view class="card hero-card">
         <view class="hero-head">
           <view class="project-copy">
@@ -52,7 +98,9 @@ onLoad((query) => {
             <text class="project-no">{{ project.projectNo }}</text>
           </view>
           <text :class="['status', `status-${project.status}`]">
-            {{ projectStatusText[project.status] }}
+            {{
+              project.status === 'PENDING_CONFIRM' ? '待确认' : projectStatusText[project.status]
+            }}
           </text>
         </view>
         <view class="hero-footer">
@@ -121,7 +169,14 @@ onLoad((query) => {
 
       <view v-if="project.status === 'PENDING_CONFIRM'" class="confirm-wrap">
         <view class="confirm-tip">请核对报价清单，确认后项目将进入服务阶段</view>
-        <button class="confirm-button" @click="confirmQuote">确认报价并开始服务</button>
+        <button
+          class="confirm-button"
+          :loading="confirming"
+          :disabled="confirming"
+          @click="confirmQuote"
+        >
+          {{ confirming ? '正在确认...' : '确认报价并开始服务' }}
+        </button>
       </view>
     </view>
 
@@ -427,6 +482,15 @@ onLoad((query) => {
   color: #aaaaaa;
   font-size: 21rpx;
   line-height: 30rpx;
+}
+
+.retry-button {
+  width: 220rpx;
+  margin-top: 24rpx;
+  color: #d92d20;
+  font-size: 24rpx;
+  background: #fff2f0;
+  border-radius: 32rpx;
 }
 
 .empty {

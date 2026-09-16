@@ -12,6 +12,7 @@ import {
 } from '@/utils/project-quote'
 import ProjectQuoteSummary from '@/components/project/ProjectQuoteSummary.vue'
 import ProjectQuoteLineCard from '@/components/project/ProjectQuoteLineCard.vue'
+import ProjectQuoteLineEditor from '@/components/project/ProjectQuoteLineEditor.vue'
 
 type FeeTab = '全部' | '主材' | '人工+辅材'
 const store = useRenovationBusinessStore()
@@ -90,6 +91,17 @@ const replaceItem = (item: ProjectQuoteLine) => {
     },
   })
 }
+// 删除不再需要的报价明细。
+const removeItem = (item: ProjectQuoteLine) => {
+  if (!editable.value || !quote.value) return
+  const index = quote.value.items.findIndex(({ id }) => id === item.id)
+  if (index >= 0) quote.value.items.splice(index, 1)
+}
+// 由父页面更新报价明细，避免子组件直接修改 prop。
+const changeQuantity = (item: ProjectQuoteLine, quantity: string) => {
+  if (!editable.value) return
+  item.quantity = quantity
+}
 onLoad((query) => {
   id.value = Number(query?.id) || 0
   target.value = query?.target === 'project' ? 'project' : 'draft'
@@ -103,7 +115,7 @@ onLoad((query) => {
           <view class="section-title-row"
             ><text class="section-title">方案费用</text
             ><text class="current-detail">{{
-              editable ? '建项前可替换明细' : '项目报价已确认'
+              editable ? '可调整数量、替换或删除' : '项目报价已确认'
             }}</text></view
           >
           <view class="fee-tabs"
@@ -133,13 +145,23 @@ onLoad((query) => {
         </view>
         <view class="detail-heading">{{ activeTab === '全部' ? '全部方案' : activeTab }}明细</view>
         <view class="service-list"
-          ><ProjectQuoteLineCard
-            v-for="item in visibleItems"
-            :key="item.id"
-            :item="item"
-            :replaceable="canReplace(item)"
-            @replace="replaceItem(item)"
-          /><view v-if="!visibleItems.length" class="empty-items">该分类暂无明细</view></view
+          ><template v-if="editable"
+            ><ProjectQuoteLineEditor
+              v-for="item in visibleItems"
+              :key="item.id"
+              :item="item"
+              :replaceable="canReplace(item)"
+              @quantity-change="changeQuantity(item, $event)"
+              @replace="replaceItem(item)"
+              @remove="removeItem(item)" /></template
+          ><template v-else
+            ><ProjectQuoteLineCard
+              v-for="item in visibleItems"
+              :key="item.id"
+              :item="item"
+              :replaceable="canReplace(item)"
+              @replace="replaceItem(item)" /></template
+          ><view v-if="!visibleItems.length" class="empty-items">该分类暂无明细</view></view
         >
       </view>
       <view v-else class="page-state">项目或建项草稿不存在，请返回重新进入</view>

@@ -60,7 +60,7 @@ const buildPayload = (): CreateProjectInput => {
   if (!/^1[3-9]\d{9}$/.test(mobile)) throw new Error('请输入正确的手机号码')
   if (customerName.length > 191 || serviceAddress.length > 191 || name.length > 191)
     throw new Error('客户姓名、服务地址和项目名称不能超过191个字符')
-  if (!draft.value.planId) throw new Error('请先选择装修方案')
+  if (!draft.value.planId) throw new Error('请先选择标准方案')
   // 4. 校验报价明细和金额格式。
   const quoteError = validateQuote(draft.value.quote)
   if (quoteError) throw new Error(quoteError)
@@ -134,11 +134,19 @@ const submit = async () => {
       <view class="content">
         <template v-if="canCreate">
           <view class="page-heading">
-            <view class="title">完善项目资料</view>
-            <view class="tip">核实客户信息并重新编制装修项目实际报价</view>
+            <view class="title">编制方案与报价</view>
+            <view class="tip">根据现场勘察结果确认实施内容，编制项目实际报价</view>
             <view class="required-hint"
               ><text class="required-dot" />请完整填写项目信息并确认报价明细</view
             >
+          </view>
+
+          <view v-if="source.type === 'CASE'" class="case-reference">
+            <view class="case-reference-label">客户参考案例</view>
+            <view class="case-reference-title">{{ source.case?.title || '同款案例咨询' }}</view>
+            <view class="case-reference-tip">
+              参考案例仅用于了解客户偏好，请根据现场情况重新选择模板并调整报价明细。
+            </view>
           </view>
 
           <view v-if="source.estimatedAmount" class="estimate-reference">
@@ -189,7 +197,7 @@ const submit = async () => {
 
           <view class="section-heading">
             <view class="section-title">项目内容</view>
-            <view class="section-note">填写项目名称并关联装修方案</view>
+            <view class="section-note">选择后台已发布的标准方案</view>
           </view>
           <view class="card">
             <view class="field"
@@ -197,10 +205,10 @@ const submit = async () => {
               ><input v-model="draft.name" :maxlength="100" placeholder="请输入项目名称"
             /></view>
             <view class="row" @click="openPlan"
-              ><text>关联方案</text
-              ><text class="link">{{ draft.planName || '选择方案' }} ›</text></view
+              ><text>标准方案</text
+              ><text class="link">{{ draft.planName || '选择标准方案' }} ›</text></view
             >
-            <view class="tip">装修项目需要关联包含商品和施工服务明细的方案</view>
+            <view class="tip">方案由后台统一维护，选择后可调整数量、删除或同类替换明细</view>
           </view>
 
           <view class="section-heading">
@@ -208,10 +216,10 @@ const submit = async () => {
             <view class="section-note">创建前请确认报价明细及金额</view>
           </view>
           <view class="card">
-            <view v-if="!draft.quote.items.length" class="tip">选择方案后自动生成报价明细</view>
+            <view v-if="!draft.quote.items.length" class="tip">选择标准方案后自动生成报价明细</view>
             <ProjectQuoteSummary :quote="draft.quote" />
             <button class="secondary" :disabled="!draft.quote.items.length" @click="openQuote">
-              查看报价明细
+              调整报价明细
             </button>
           </view>
         </template>
@@ -272,6 +280,33 @@ const submit = async () => {
   background: #fff8f6;
   border: 1rpx solid rgba(217, 45, 32, 0.1);
   border-radius: 20rpx;
+}
+
+.case-reference {
+  margin-bottom: 30rpx;
+  padding: 24rpx 28rpx;
+  background: #fff;
+  border-left: 4rpx solid #d92d20;
+  border-radius: 18rpx;
+}
+
+.case-reference-label {
+  color: #99918c;
+  font-size: 21rpx;
+}
+
+.case-reference-title {
+  margin-top: 8rpx;
+  color: #302a27;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.case-reference-tip {
+  margin-top: 12rpx;
+  color: #8c827d;
+  font-size: 22rpx;
+  line-height: 34rpx;
 }
 
 .estimate-reference-head {

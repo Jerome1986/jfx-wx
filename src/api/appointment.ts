@@ -2,6 +2,7 @@ import type {
   AssignedAppointmentListParams,
   AppointmentListParams,
   CreateBudgetAppointmentInput,
+  CreateCaseAppointmentInput,
   CreatePlanAppointmentInput,
   CreatePlanAppointmentResult,
   AppointmentListResult,
@@ -10,6 +11,7 @@ import type {
   AppointmentConfirmVisitResult,
   AppointmentCompleteResult,
   CompleteAppointmentInput,
+  UpdateAppointmentRequirementInput,
 } from '@/types/appointment'
 import { request } from '@/utils/http'
 import type { Appointment } from '@/types/renovation-business'
@@ -27,6 +29,14 @@ export const createPlanAppointmentApi = (data: CreatePlanAppointmentInput) =>
   request<CreatePlanAppointmentResult>({
     method: 'POST',
     url: '/appointment/plan',
+    data,
+  })
+
+/** 提交装修案例同款报价预约 */
+export const createCaseAppointmentApi = (data: CreateCaseAppointmentInput) =>
+  request<CreatePlanAppointmentResult>({
+    method: 'POST',
+    url: '/appointment/case',
     data,
   })
 
@@ -79,6 +89,17 @@ export const appointmentConfirmVisit = (
     method: 'POST',
     url: `/appointment/${id}/confirm-visit`,
     data: { visitDate, timeSlot, visitAddress },
+  })
+
+/** 员工补录预约客户及房屋需求信息 */
+export const updateAppointmentRequirementApi = (
+  id: number,
+  data: UpdateAppointmentRequirementInput,
+) =>
+  request<Appointment>({
+    method: 'PATCH' as UniApp.RequestOptions['method'],
+    url: `/appointment/${id}/customer-requirement`,
+    data,
   })
 
 /** 完成预约；报价类预约同时提交上门测量后的预估报价 */

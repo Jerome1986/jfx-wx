@@ -34,6 +34,23 @@ export interface CreatePlanAppointmentResult {
   appointmentNo: string
 }
 
+/** 案例同款报价预约提交参数 */
+export interface CreateCaseAppointmentInput {
+  /** 需要咨询同款报价的装修案例 ID */
+  caseId: number
+}
+
+/** 员工补录的预约客户及房屋需求信息 */
+export interface UpdateAppointmentRequirementInput {
+  customerName?: string
+  houseType?: string
+  city?: string
+  area?: number
+  roomLayout?: string
+  demand?: string
+  focus?: string
+}
+
 /** 预约列表分页结果 */
 export interface AppointmentListResult {
   /** 预约列表 */

@@ -9,17 +9,14 @@ import { formatDateTime, maskMobile } from '@/utils/format'
 
 // 每页加载数量
 const PAGE_SIZE = 10
-type Group = 'all' | 'budget' | 'measure' | 'quote' | 'plan' | 'case' | 'outlet'
+type Group = 'all' | 'budget' | 'plan' | 'case'
 type AppointmentQueryType = AppointmentType | 'ALL'
 // 预约类型分组配置
 const groups: Array<{ label: string; value: Group; type: AppointmentQueryType }> = [
   { label: '全部', value: 'all', type: 'ALL' },
   { label: '装修预算', value: 'budget', type: 'BUDGET' },
-  { label: '免费量房', value: 'measure', type: 'MEASURE' },
-  { label: '房屋报价', value: 'quote', type: 'QUOTE' },
   { label: '焕新方案', value: 'plan', type: 'PLAN' },
   { label: '同款案例', value: 'case', type: 'CASE' },
-  { label: '网点咨询', value: 'outlet', type: 'OUTLET' },
 ]
 // 当前选中的预约分组
 const activeGroup = ref<Group>('all')

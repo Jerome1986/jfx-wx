@@ -1,94 +1,33 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { projectStatusText, useRenovationBusinessStore } from '@/stores/modules/renovation-business'
-import { getEmployeeProjectDetailApi } from '@/api/project'
+import { useRenovationBusinessStore } from '@/stores/modules/renovation-business'
+import { completeEmployeeProjectApi, getEmployeeProjectDetailApi } from '@/api/project'
 import ProjectQuoteSummary from '@/components/project/ProjectQuoteSummary.vue'
-import type { CreateProjectResult } from '@/types/project'
-import type { RenovationProject } from '@/types/renovation-business'
+import EmployeeProjectStatus from '@/components/project/EmployeeProjectStatus.vue'
+import { normalizeProject } from '@/utils/project'
 
 // 当前路由中的后端项目 ID。
 const id = ref(0)
 // 项目详情加载状态。
 const loading = ref(false)
+// 是否已经完成首次详情加载，避免页面初始化时误显示项目不存在。
+const loaded = ref(false)
 // 项目详情加载失败状态。
 const loadFailed = ref(false)
+// 完成项目请求提交状态。
+const completing = ref(false)
 // 装修业务 Store，暂用于状态操作和跨页面共享详情。
 const store = useRenovationBusinessStore()
 // 当前员工装修项目详情。
 const project = computed(() => store.getProject(id.value))
-// 当前项目状态对应的视觉样式。
-const statusClass = computed(() => {
-  const status = project.value?.status
-  return {
-    'status--pending': status === 'PENDING_CONFIRM',
-    'status--active': status === 'IN_SERVICE',
-    'status--completed': status === 'COMPLETED',
-    'status--cancelled': status === 'CANCELED',
-  }
-})
-
-// 将后端项目详情转换为页面使用的数据结构。
-const normalizeProject = (data: CreateProjectResult): RenovationProject => {
-  // 1. 校验详情接口必须返回的项目 ID 和状态。
-  if (!Number.isInteger(data.id) || data.id <= 0 || !data.status)
-    throw new Error('项目详情数据不完整')
-  // 2. 优先使用接口报价对象，否则转换 quoteItems 明细。
-  const quote =
-    data.quote ||
-    (data.quoteItems
-      ? {
-          discount: '0',
-          items: data.quoteItems.map((item, index) => ({
-            id: String(item.id || `project-${data.id}-${index}`),
-            source: 'api' as const,
-            productId: item.productId ?? null,
-            sourceItemId: item.id,
-            businessCategory: item.category,
-            category: item.productId === null ? ('service' as const) : ('product' as const),
-            name: item.name,
-            description: item.description || '',
-            image: item.image || '',
-            unit: item.unit,
-            unitPrice: item.unitPrice,
-            quantity: item.quantity,
-          })),
-        }
-      : undefined)
-  // 3. 规范金额和可选字段，生成页面项目对象。
-  return {
-    id: data.id,
-    projectNo: data.projectNo || `项目 ${data.id}`,
-    appointmentId: data.appointmentId ?? undefined,
-    userId: data.userId,
-    employeeId: data.employeeId,
-    employeeName: data.employeeName,
-    planId: data.planId ?? undefined,
-    planName: data.planName,
-    name: data.name || '装修项目',
-    customerName: data.customerName || '未填写',
-    mobile: data.mobile || '',
-    serviceAddress: data.serviceAddress || '未填写',
-    renovationScope: data.renovationScope,
-    remark: data.remark,
-    quotedAmount: Number(data.quotedAmount) || 0,
-    quote,
-    planSource: 'api',
-    sourceKind: data.appointmentId ? 'appointment' : undefined,
-    status: data.status,
-    quoteSubmittedAt: data.quoteSubmittedAt,
-    customerConfirmedAt: data.customerConfirmedAt,
-    completedAt: data.completedAt,
-    createdAt: data.createdAt || '',
-    updatedAt: data.updatedAt || '',
-  }
-}
-
 // 根据路由 ID 加载员工项目详情。
 const loadProject = async () => {
+  if (loading.value) return
   // 1. 校验项目 ID，避免发出无效请求。
-  if (!Number.isInteger(id.value) || id.value <= 0) {
+  if (!Number.isSafeInteger(id.value) || id.value <= 0) {
     loadFailed.value = true
+    loaded.value = true
     return
   }
   // 2. 重置加载状态并请求详情接口。
@@ -96,7 +35,9 @@ const loadProject = async () => {
   loadFailed.value = false
   try {
     const { data } = await getEmployeeProjectDetailApi(id.value)
-    console.log('员工项目详情', data)
+    console.log('项目详情', data)
+
+    if (data?.id !== id.value) throw new Error('项目详情 ID 不匹配')
 
     // 3. 转换并缓存接口详情供页面展示。
     store.cacheCreatedProject(normalizeProject(data))
@@ -106,12 +47,13 @@ const loadProject = async () => {
     loadFailed.value = true
   } finally {
     loading.value = false
+    loaded.value = true
   }
 }
 
 // 将服务中的项目标记为完成。
 const completeProject = async () => {
-  if (project.value?.status !== 'IN_SERVICE') return
+  if (project.value?.status !== 'IN_SERVICE' || completing.value) return
   const confirmed = await new Promise<boolean>((resolve) =>
     uni.showModal({
       title: '完成项目',
@@ -123,7 +65,17 @@ const completeProject = async () => {
     }),
   )
   if (!confirmed) return
-  if (store.completeProject(id.value)) uni.showToast({ title: '项目已完成', icon: 'success' })
+  completing.value = true
+  try {
+    await completeEmployeeProjectApi(id.value)
+    store.completeProject(id.value)
+    uni.showToast({ title: '项目已完成', icon: 'success' })
+  } catch (error) {
+    console.error('完成项目失败：', error)
+    uni.showToast({ title: '操作失败，请重试', icon: 'none' })
+  } finally {
+    completing.value = false
+  }
 }
 
 // 打开当前项目的只读报价明细。
@@ -141,7 +93,7 @@ onLoad((query) => {
 <template>
   <scroll-view class="project-scroll" scroll-y :show-scrollbar="false">
     <view class="page">
-      <view v-if="loading" class="empty">正在加载项目详情...</view>
+      <view v-if="loading || !loaded" class="empty">正在加载项目详情...</view>
       <view v-else-if="loadFailed" class="empty">
         <view>项目详情加载失败</view>
         <button class="retry-button" @click="loadProject">重新加载</button>
@@ -152,9 +104,7 @@ onLoad((query) => {
             <view class="title">{{ project.name }}</view>
             <view class="sub">{{ project.projectNo }}</view>
           </view>
-          <view class="status" :class="statusClass">
-            {{ projectStatusText[project.status] }}
-          </view>
+          <EmployeeProjectStatus :status="project.status" />
         </view>
 
         <view class="card detail-card">
@@ -174,18 +124,11 @@ onLoad((query) => {
             </view>
             <view class="row">
               <text>负责员工</text>
-              <text>
-                {{
-                  project.employeeName ||
-                  (project.employeeId ? `员工 ${project.employeeId}` : '未填写')
-                }}
-              </text>
+              <text>{{ project.employeeName || '未填写' }}</text>
             </view>
             <view class="row">
               <text>关联方案</text>
-              <text>{{
-                project.planName || (project.planId ? `方案 ${project.planId}` : '未关联')
-              }}</text>
+              <text>{{ project.planName || '未关联' }}</text>
             </view>
             <view v-if="project.remark" class="row">
               <text>项目备注</text>
@@ -214,8 +157,13 @@ onLoad((query) => {
         </view>
 
         <view v-if="project.status === 'IN_SERVICE'" class="action-wrap">
-          <button class="primary" hover-class="primary-hover" @click="completeProject">
-            完成项目
+          <button
+            class="primary"
+            hover-class="primary-hover"
+            :disabled="completing"
+            @click="completeProject"
+          >
+            {{ completing ? '提交中...' : '完成项目' }}
           </button>
         </view>
       </view>
@@ -273,31 +221,6 @@ onLoad((query) => {
   color: #a39b96;
   font-size: 21rpx;
   line-height: 1.4;
-}
-
-.status {
-  flex-shrink: 0;
-  padding: 7rpx 14rpx;
-  color: #9b6c21;
-  font-size: 20rpx;
-  line-height: 1.2;
-  background: #fff6e7;
-  border-radius: 999rpx;
-}
-
-.status--active {
-  color: #35679b;
-  background: #eef6ff;
-}
-
-.status--completed {
-  color: #31815a;
-  background: #edf8f1;
-}
-
-.status--cancelled {
-  color: #8d8885;
-  background: #f2f1f0;
 }
 
 .section-header {

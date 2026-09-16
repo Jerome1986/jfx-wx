@@ -11,12 +11,18 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AppointmentCaseInfo: typeof import('./src/components/appointment/AppointmentCaseInfo.vue')['default']
+    AppointmentGeneralInfo: typeof import('./src/components/appointment/AppointmentGeneralInfo.vue')['default']
+    AppointmentPlanInfo: typeof import('./src/components/appointment/AppointmentPlanInfo.vue')['default']
+    AppointmentQuoteInfo: typeof import('./src/components/appointment/AppointmentQuoteInfo.vue')['default']
     AppointmentServiceDetail: typeof import('./src/components/AppointmentServiceDetail.vue')['default']
     CustomerMy: typeof import('./src/components/my/CustomerMy.vue')['default']
     CustomNavHome: typeof import('./src/components/CustomNavHome.vue')['default']
     EmployeeMy: typeof import('./src/components/my/EmployeeMy.vue')['default']
+    EmployeeProjectStatus: typeof import('./src/components/project/EmployeeProjectStatus.vue')['default']
     ProjectPlanCard: typeof import('./src/components/project/ProjectPlanCard.vue')['default']
     ProjectQuoteLineCard: typeof import('./src/components/project/ProjectQuoteLineCard.vue')['default']
+    ProjectQuoteLineEditor: typeof import('./src/components/project/ProjectQuoteLineEditor.vue')['default']
     ProjectQuoteSummary: typeof import('./src/components/project/ProjectQuoteSummary.vue')['default']
     RenovationCalculator: typeof import('./src/components/RenovationCalculator.vue')['default']
     SectionHeader: typeof import('./src/components/SectionHeader.vue')['default']

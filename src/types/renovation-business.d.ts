@@ -45,6 +45,19 @@ export interface AppointmentSnapshot {
   items?: AppointmentSnapshotItem[]
 }
 
+/** 预约关联的装修案例信息 */
+export interface AppointmentCase {
+  id: number
+  title: string
+  beforeImage?: string | null
+  afterImage?: string | null
+  city?: string | null
+  roomType?: string | null
+  area?: string | null
+  style?: string | null
+  totalPrice?: string | null
+}
+
 /** 装修服务预约记录 */
 export interface Appointment {
   /** 预约 ID */
@@ -64,21 +77,21 @@ export interface Appointment {
   /** 预约来源 */
   source: string
   /** 客户姓名 */
-  customerName: string
+  customerName: string | null
   /** 客户手机号 */
   mobile: string
   /** 房屋类型 */
-  houseType?: string
+  houseType?: string | null
   /** 所在城市 */
-  city?: string
+  city?: string | null
   /** 房屋面积 */
-  area?: string
+  area?: string | null
   /** 房屋户型 */
-  roomLayout?: string
+  roomLayout?: string | null
   /** 客户需求说明 */
-  demand?: string
+  demand?: string | null
   /** 客户关注重点 */
-  focus?: string
+  focus?: string | null
   /** 预约上门日期 */
   visitDate?: string
   /** 预约上门时间段 */
@@ -106,7 +119,7 @@ export interface Appointment {
   /** 更新时间 */
   updatedAt: string
   /** 关联案例详情 */
-  case?: Record<string, unknown> | null
+  case?: AppointmentCase | null
   /** 关联员工及其用户资料 */
   employee?: {
     id: number

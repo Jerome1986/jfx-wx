@@ -5,13 +5,19 @@ import {
   appointmentConfirmVisit,
   appointmentFollowUp,
   getAppointmentDetailApi,
+  updateAppointmentRequirementApi,
 } from '@/api/appointment'
+import AppointmentCaseInfo from '@/components/appointment/AppointmentCaseInfo.vue'
+import AppointmentGeneralInfo from '@/components/appointment/AppointmentGeneralInfo.vue'
+import AppointmentPlanInfo from '@/components/appointment/AppointmentPlanInfo.vue'
+import AppointmentQuoteInfo from '@/components/appointment/AppointmentQuoteInfo.vue'
 import {
   appointmentStatusText,
   appointmentTypeText,
   useRenovationBusinessStore,
 } from '@/stores/modules/renovation-business'
 import type { Appointment } from '@/types/renovation-business'
+import type { UpdateAppointmentRequirementInput } from '@/types/appointment'
 import { formatDateTime } from '@/utils/format'
 // 页面传入的预约编号
 const props = defineProps<{ appointmentId: number }>()
@@ -32,6 +38,8 @@ const followSaved = ref(false)
 const visitSubmitting = ref(false)
 // 完成预约提交状态
 const completeSubmitting = ref(false)
+// 客户房屋信息补录提交状态
+const requirementSaving = ref(false)
 // 待提交的预约预估报价
 const estimatedAmount = ref('')
 // 待提交的预估报价说明
@@ -67,12 +75,31 @@ const convertedProject = computed(() =>
     ? appointment.value.project || businessStore.getConvertedProject(appointment.value.id)
     : undefined,
 )
-// 方案明细列表
-const planItems = computed(() => appointment.value?.snapshot?.items || [])
 // 当前预约是否需要在上门后提供预估报价
 const isQuoteAppointment = computed(() =>
   appointment.value ? ['BUDGET', 'QUOTE'].includes(appointment.value.type) : false,
 )
+// 当前预约是否允许补录客户房屋信息
+const requirementEditable = computed(() =>
+  appointment.value
+    ? ['PENDING_CONTACT', 'PENDING_VISIT'].includes(appointment.value.status)
+    : false,
+)
+// 案例预约确认上门所需核心资料是否完整
+const caseRequirementComplete = computed(() => {
+  const item = appointment.value
+  if (!item || item.type !== 'CASE') return true
+  return [
+    item.customerName,
+    item.houseType,
+    item.city,
+    item.area,
+    item.roomLayout,
+    item.demand,
+  ].every((value) => value !== null && value !== undefined && String(value).trim())
+})
+// 当前预约状态对应的顶部标签样式
+const statusClass = computed(() => (appointment.value ? `status--${appointment.value.status}` : ''))
 // 确认上门所需数据是否完整
 const canConfirmVisit = computed(() =>
   Boolean(visitAddress.value.trim() && visitDate.value && timeSlot.value),
@@ -171,11 +198,31 @@ const addFollow = async () => {
     followSubmitting.value = false
   }
 }
+// 保存员工沟通后补录的客户及房屋需求信息
+const saveRequirement = async (value: UpdateAppointmentRequirementInput) => {
+  const current = appointment.value
+  if (!current || requirementSaving.value || !requirementEditable.value) return
+  requirementSaving.value = true
+  try {
+    const { data } = await updateAppointmentRequirementApi(current.id, value)
+    if (props.appointmentId !== current.id) return
+    appointment.value = data
+    uni.showToast({ title: '房屋信息已保存', icon: 'success' })
+  } catch (error) {
+    console.error('保存客户房屋信息失败：', error)
+  } finally {
+    requirementSaving.value = false
+  }
+}
 // 确认预约上门安排
 const confirm = async () => {
   const currentAppointment = appointment.value
   if (!currentAppointment || visitSubmitting.value) return
   if (currentAppointment.status !== 'PENDING_CONTACT') return
+  if (!caseRequirementComplete.value) {
+    uni.showToast({ title: '请先补全客户房屋核心信息', icon: 'none' })
+    return
+  }
   if (!canConfirmVisit.value) {
     uni.showToast({ title: '请完善上门安排', icon: 'none' })
     return
@@ -285,17 +332,19 @@ const call = () => appointment.value && uni.makePhoneCall({ phoneNumber: appoint
         <view class="card hero">
           <view>
             <view class="title">{{ appointmentTypeText[appointment.type] }}</view>
-            <view class="sub"
-              >{{ appointment.appointmentNo }} · {{ appointment.source }}</view
-            > </view
-          ><text class="status">{{ appointmentStatusText[appointment.status] }}</text>
+            <view class="sub">{{ appointment.appointmentNo }} · {{ appointment.source }}</view>
+          </view>
+          <view class="status-badge" :class="statusClass">
+            <text class="status-dot" />
+            <text>{{ appointmentStatusText[appointment.status] }}</text>
+          </view>
         </view>
         <view class="card">
           <view class="section-title">客户与预约信息</view>
           <view class="row">
             <text>客户</text>
             <view class="customer-contact">
-              <text class="customer-name">{{ appointment.customerName }}</text>
+              <text class="customer-name">{{ appointment.customerName || '姓名待补充' }}</text>
               <view class="phone-action" @click="call">
                 <text class="phone-number">{{ appointment.mobile }}</text>
                 <text class="iconfont icon-dianhua phone-icon" />
@@ -306,56 +355,19 @@ const call = () => appointment.value && uni.makePhoneCall({ phoneNumber: appoint
             ><text>预约来源</text><text>{{ appointment.source }}</text></view
           >
         </view>
-        <view class="card">
-          <view class="section-title">客户预约内容</view>
-          <view class="detail-list">
-            <view class="row"
-              ><text>房屋类型</text><text>{{ appointment.houseType || '未填写' }}</text></view
-            >
-            <view class="row"
-              ><text>所在城市</text><text>{{ appointment.city || '未填写' }}</text></view
-            >
-            <view class="row"
-              ><text>房屋面积</text
-              ><text>{{ appointment.area ? `${appointment.area}㎡` : '未填写' }}</text>
-            </view>
-            <view class="row"
-              ><text>房屋户型</text><text>{{ appointment.roomLayout || '未填写' }}</text></view
-            >
-            <view class="row"
-              ><text>预约需求</text><text>{{ appointment.demand || '未填写' }}</text></view
-            >
-            <view class="row"
-              ><text>关注重点</text><text>{{ appointment.focus || '未填写' }}</text></view
-            >
-          </view>
-          <view v-if="appointment.snapshot" class="snapshot-block">
-            <view class="subsection-title">方案快照</view>
-            <view class="row"
-              ><text>方案名称</text><text>{{ appointment.snapshot.title || '未填写' }}</text></view
-            >
-            <view class="row"
-              ><text>参考金额</text
-              ><text>{{
-                appointment.snapshot.referencePrice
-                  ? `¥${appointment.snapshot.referencePrice}`
-                  : '未填写'
-              }}</text></view
-            >
-            <view v-if="planItems.length" class="plan-items">
-              <view
-                v-for="(item, index) in planItems"
-                :key="item.sourceItemId || index"
-                class="plan-item"
-              >
-                <text class="plan-item-name">{{ item.name }}</text>
-                <text class="plan-item-quantity"
-                  >{{ item.quantity || '-' }}{{ item.unit || '' }}</text
-                >
-              </view>
-            </view>
-          </view>
-        </view>
+        <AppointmentQuoteInfo
+          v-if="['BUDGET', 'QUOTE'].includes(appointment.type)"
+          :appointment="appointment"
+        />
+        <AppointmentPlanInfo v-else-if="appointment.type === 'PLAN'" :appointment="appointment" />
+        <AppointmentCaseInfo
+          v-else-if="appointment.type === 'CASE'"
+          :appointment="appointment"
+          :editable="requirementEditable"
+          :saving="requirementSaving"
+          @save="saveRequirement"
+        />
+        <AppointmentGeneralInfo v-else :appointment="appointment" />
         <view class="card">
           <view class="section-title">跟进记录</view>
           <view v-if="!records.length" class="record-empty">暂无跟进记录</view>
@@ -430,11 +442,14 @@ const call = () => appointment.value && uni.makePhoneCall({ phoneNumber: appoint
           <button
             class="primary"
             :loading="visitSubmitting"
-            :disabled="!canConfirmVisit || visitSubmitting"
+            :disabled="!canConfirmVisit || !caseRequirementComplete || visitSubmitting"
             @click="confirm"
           >
             {{ visitSubmitting ? '提交中...' : '确认预约并进入待上门' }}
           </button>
+          <view v-if="appointment.type === 'CASE' && !caseRequirementComplete" class="hint">
+            请先补全客户姓名、房屋类型、城市、面积、户型和预约需求
+          </view>
         </view>
         <view v-if="appointment.status === 'PENDING_VISIT'" class="card">
           <view class="section-title">上门安排</view>
@@ -478,6 +493,8 @@ const call = () => appointment.value && uni.makePhoneCall({ phoneNumber: appoint
                 ? '提交中...'
                 : isQuoteAppointment
                 ? '提交预估报价并完成预约'
+                : appointment.type === 'CASE'
+                ? '完成勘察'
                 : '标记服务完成'
             }}
           </button>
@@ -496,10 +513,22 @@ const call = () => appointment.value && uni.makePhoneCall({ phoneNumber: appoint
           <view v-else class="hint">该历史预约尚未记录预估报价，请联系后台补充。</view>
         </view>
         <view v-if="appointment.status === 'COMPLETED'" class="card">
-          <view class="section-title">预约转化</view>
-          <view class="hint">客户确认有装修意向后，再将预约转为装修项目并编制实际报价。</view
+          <view class="section-title">{{
+            appointment.type === 'CASE' ? '方案与报价' : '预约转化'
+          }}</view>
+          <view class="hint">{{
+            appointment.type === 'CASE'
+              ? '根据现场勘察结果编制实施方案与报价，提交后等待客户确认。'
+              : '客户确认有装修意向后，再将预约转为装修项目并编制实际报价。'
+          }}</view
           ><button class="primary" @click="convert">
-            {{ convertedProject ? '查看装修项目' : '转为装修项目' }}
+            {{
+              convertedProject
+                ? '查看装修项目'
+                : appointment.type === 'CASE'
+                ? '编制方案与报价'
+                : '转为装修项目'
+            }}
           </button>
         </view>
       </view>
@@ -549,7 +578,9 @@ const call = () => appointment.value && uni.makePhoneCall({ phoneNumber: appoint
 
 .hero {
   display: flex;
+  align-items: center;
   justify-content: space-between;
+  gap: 24rpx;
   border-left: 4rpx solid #d92d20;
 }
 
@@ -566,8 +597,45 @@ const call = () => appointment.value && uni.makePhoneCall({ phoneNumber: appoint
   font-size: 23rpx;
 }
 
-.status {
-  color: #d92d20;
+.status-badge {
+  display: inline-flex;
+  height: 46rpx;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 10rpx;
+  padding: 0 18rpx;
+  color: #b54708;
+  font-size: 21rpx;
+  line-height: 46rpx;
+  white-space: nowrap;
+  background: #fffaeb;
+  border: 1rpx solid #fedf89;
+  border-radius: 999rpx;
+}
+
+.status-dot {
+  width: 10rpx;
+  height: 10rpx;
+  background: currentColor;
+  border-radius: 50%;
+}
+
+.status--PENDING_VISIT {
+  color: #175cd3;
+  background: #eff8ff;
+  border-color: #b2ddff;
+}
+
+.status--COMPLETED {
+  color: #067647;
+  background: #ecfdf3;
+  border-color: #abefc6;
+}
+
+.status--CANCELED {
+  color: #667085;
+  background: #f2f4f7;
+  border-color: #e4e7ec;
 }
 
 .row {
