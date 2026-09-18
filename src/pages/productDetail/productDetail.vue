@@ -1,41 +1,110 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { onLoad, onUnload } from '@dcloudio/uni-app'
+import { getProductDetail } from '@/api/product'
+import type { ProductDetail } from '@/types/product'
+import { useCartStore, type CartProduct } from '@/stores/modules/cart'
+import { requireCartLogin } from '@/utils/cart-access'
+const cartStore = useCartStore()
 
 // 规格列表
-const specifications = ['L3092D拉丝', 'L3092镀洛', 'L3092H枪灰']
+const specifications = computed(() => product.value?.specifications ?? [])
 // 已选
-const selectedSpec = ref(specifications[0])
+const selectedSpec = ref('')
 
 // 商品
-const product = {
-  name: '九牧单把单孔高管面盆龙头-X32025-548/1B-Z',
-  description: '高管龙头、新水校起泡器，冷热双控防溅出水',
-  price: 623,
-  image:
-    'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/product/product-basin-faucet.png',
+const product = ref<ProductDetail | null>(null)
+const productId = ref<number | null>(null)
+const loading = ref(false)
+const errorMessage = ref('')
+let disposed = false
+const detailImages = computed(() => {
+  const item = product.value
+  return item?.detailImages?.length ? item.detailImages : item?.mainImage ? [item.mainImage] : []
+})
+
+const loadProduct = async () => {
+  if (!productId.value || loading.value) return
+  loading.value = true
+  errorMessage.value = ''
+  try {
+    const result = await getProductDetail(productId.value)
+    if (disposed) return
+    if (result.code !== 200) throw new Error(result.message || '商品加载失败')
+    product.value = result.data
+    selectedSpec.value = result.data?.specifications?.[0] ?? ''
+  } catch (error) {
+    if (disposed) return
+    errorMessage.value = '商品加载失败，请重试'
+    console.error('商品详情加载失败：', error)
+  } finally {
+    if (!disposed) loading.value = false
+  }
 }
+
+onLoad((query) => {
+  const id = Number(query?.id)
+  if (!Number.isSafeInteger(id) || id < 1) {
+    errorMessage.value = '商品链接无效'
+    return
+  }
+  productId.value = id
+  void loadProduct()
+})
+onUnload(() => {
+  disposed = true
+})
 
 // 已选标签
 const selectedLabel = computed(() => `已选: ${selectedSpec.value}`)
 
 // 显示页面提示消息
 const showMessage = (title: string) => uni.showToast({ title, icon: 'none' })
-// 将商品加入购物车
-const addToCart = () => uni.showToast({ title: '已加入购物车', icon: 'success' })
-// 立即购买当前商品
-const buyNow = () => showMessage(`已选择 ${selectedSpec.value}`)
-// 打开购物车
-const openCart = () => uni.switchTab({ url: '/pages/cart/cart' })
+const currentCartProduct = (): CartProduct | null => {
+  const item = product.value
+  if (!item) return null
+  return {
+    id: item.id,
+    name: item.name,
+    description: item.description ?? '',
+    price: Number(item.price),
+    image: item.mainImage,
+    specification: selectedSpec.value,
+    installationIncluded: item.installationIncluded,
+  }
+}
+const checkLogin = () =>
+  requireCartLogin('/pages/productDetail/productDetail?id=' + productId.value)
+const addToCart = () => {
+  if (!checkLogin()) return
+  const item = currentCartProduct()
+  if (item && cartStore.addItem(item)) uni.showToast({ title: '已加入购物车', icon: 'success' })
+}
+const buyNow = () => {
+  if (!checkLogin()) return
+  const item = currentCartProduct()
+  if (item && cartStore.prepareCheckout(item))
+    uni.navigateTo({ url: '/pages/confirmOrder/confirmOrder' })
+}
+const openCart = () => {
+  if (checkLogin()) uni.switchTab({ url: '/pages/cart/cart' })
+}
 // 分享当前商品
 const shareProduct = () => showMessage('分享功能已准备')
 </script>
 
 <template>
   <view class="detail-page">
-    <scroll-view class="detail-scroll" scroll-y :show-scrollbar="false">
+    <view v-if="loading" class="status-message">商品加载中...</view>
+    <view v-else-if="errorMessage" class="status-message">
+      <view>{{ errorMessage }}</view>
+      <button v-if="productId" @click="loadProduct">重新加载</button>
+    </view>
+    <view v-else-if="!product" class="status-message">商品不存在</view>
+    <scroll-view v-else class="detail-scroll" scroll-y :show-scrollbar="false">
       <view class="page-content">
         <view class="hero-card">
-          <image class="hero-image" :src="product.image" mode="aspectFit" />
+          <image class="hero-image" :src="product.mainImage" mode="aspectFit" />
         </view>
 
         <view class="summary-card">
@@ -43,7 +112,7 @@ const shareProduct = () => showMessage('分享功能已准备')
             <view class="price-group">
               <text class="price-symbol">¥</text
               ><text class="price-number">{{ product.price }}</text>
-              <text class="install-tag">已含基础安装</text>
+              <text v-if="product.installationIncluded" class="install-tag">已含基础安装</text>
             </view>
             <view class="share-button" @click="shareProduct">
               <text class="iconfont icon-fenxiang share-icon" />
@@ -57,7 +126,9 @@ const shareProduct = () => showMessage('分享功能已准备')
           <view class="divider" />
           <view class="section-title-row">
             <text class="section-title">服务保障</text>
-            <text class="section-note">商品价格包含基础安装服务</text>
+            <text v-if="product.installationIncluded" class="section-note"
+              >商品价格包含基础安装服务</text
+            >
           </view>
           <view class="guarantee-list">
             <view class="guarantee-item orange">
@@ -83,12 +154,12 @@ const shareProduct = () => showMessage('分享功能已准备')
             </view>
           </view>
 
-          <view class="divider specification-divider" />
-          <view class="section-title-row">
+          <view v-if="specifications.length" class="divider specification-divider" />
+          <view v-if="specifications.length" class="section-title-row">
             <text class="section-title">规格选择</text>
             <text class="selected-label">{{ selectedLabel }}</text>
           </view>
-          <view class="specification-row">
+          <view v-if="specifications.length" class="specification-row">
             <text class="specification-label">型号</text>
             <view class="specification-options">
               <button
@@ -108,25 +179,37 @@ const shareProduct = () => showMessage('分享功能已准备')
           <view class="detail-heading">商品详情</view>
           <view class="parameter-card">
             <view class="parameter-title">产品参数</view>
-            <view class="parameter-row"><text>品牌</text><text>九牧JOMOO</text></view>
-            <view class="parameter-row"><text>型号</text><text>X32025-548/1B-Z</text></view>
             <view class="parameter-row"
-              ><text>规格</text><text>{{ specifications.join('/') }}</text></view
+              ><text>品牌</text><text>{{ product.brand || '暂无' }}</text></view
+            >
+            <view class="parameter-row"
+              ><text>型号</text><text>{{ product.model || '暂无' }}</text></view
+            >
+            <view class="parameter-row"
+              ><text>规格</text><text>{{ specifications.join('/') || '暂无' }}</text></view
             >
           </view>
-          <view class="image-heading">商品图片</view>
-          <image class="detail-image" :src="product.image" mode="widthFix" />
+          <view v-if="detailImages.length" class="image-heading">商品图片</view>
+          <image
+            v-for="(src, index) in detailImages"
+            :key="index"
+            class="detail-image"
+            :src="src"
+            mode="widthFix"
+          />
         </view>
       </view>
     </scroll-view>
 
-    <view class="bottom-bar">
+    <view v-if="product && !loading && !errorMessage" class="bottom-bar">
       <view class="cart-entry" @click="openCart">
-        <image
-          class="cart-icon"
-          src="https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/tubiao/cart.png"
-          mode="aspectFit"
-        />
+        <wd-badge :value="cartStore.totalCount" :max="99" :show-zero="false">
+          <image
+            class="cart-icon"
+            src="https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/tubiao/cart.png"
+            mode="aspectFit"
+          />
+        </wd-badge>
         <text>购物车</text>
       </view>
       <view class="bottom-price">
@@ -134,7 +217,7 @@ const shareProduct = () => showMessage('分享功能已准备')
           ><text class="price-symbol">¥</text
           ><text class="price-number">{{ product.price }}</text></view
         >
-        <text class="bottom-install">已含基础安装</text>
+        <text v-if="product.installationIncluded" class="bottom-install">已含基础安装</text>
       </view>
       <view class="bottom-actions">
         <button class="action-button add-cart" @click="addToCart">加入购物车</button>
@@ -145,6 +228,14 @@ const shareProduct = () => showMessage('分享功能已准备')
 </template>
 
 <style lang="scss">
+.status-message {
+  padding: 80rpx 24rpx;
+  text-align: center;
+  color: $jfx-font-dec;
+}
+.status-message button {
+  margin-top: 24rpx;
+}
 .detail-page {
   display: flex;
   height: 100vh;
@@ -314,6 +405,7 @@ const shareProduct = () => showMessage('分享功能已准备')
 }
 .specification-options {
   display: flex;
+  flex-wrap: wrap;
   min-width: 0;
   flex: 1;
   gap: 12rpx;

@@ -18,4 +18,5 @@ export default pinia
 
 // 模块统一导出
 export * from './modules/member'
+export * from './modules/cart'
 export * from './modules/renovation-business'

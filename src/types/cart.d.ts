@@ -1,5 +1,7 @@
 /** 购物车商品项 */
 export interface CartItem {
+  specification: string
+  installationIncluded: boolean
   /** 商品 ID */
   id: number
   /** 商品名称 */

@@ -2,6 +2,31 @@
 import { wxLoginApi } from '@/api/user'
 import { useMemberStore } from '@/stores'
 import { ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
+
+const returnTo = ref('')
+onLoad((query) => {
+  let target = query?.returnTo || ''
+  try {
+    target = decodeURIComponent(target)
+  } catch {
+    return
+  }
+  if (
+    /^\/pages\/(cart\/cart|product\/product|confirmOrder\/confirmOrder|productDetail\/productDetail\?id=\d+)$/.test(
+      target,
+    )
+  ) {
+    returnTo.value = target
+  }
+})
+const returnAfterLogin = () => {
+  const url = returnTo.value
+  if (!url) return uni.switchTab({ url: '/pages/my/my' })
+  if (url === '/pages/cart/cart' || url === '/pages/product/product') return uni.switchTab({ url })
+  // 保留来源页的规格等状态；页面栈丢失时再重建来源页。
+  uni.navigateBack({ fail: () => uni.redirectTo({ url }) })
+}
 
 // 品牌 Logo 图片地址
 const brandImage = 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/tubiao/logo2-1.png'
@@ -71,7 +96,7 @@ const handlePhoneNumber = async (event: any) => {
     })
 
     uni.showToast({ title: '授权成功', icon: 'success' })
-    setTimeout(() => uni.switchTab({ url: '/pages/my/my' }), 500)
+    setTimeout(returnAfterLogin, 500)
   } catch (error) {
     console.error('微信手机号登录失败：', error)
   } finally {

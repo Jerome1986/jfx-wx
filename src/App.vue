@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import { onLaunch, onShow, onHide } from '@dcloudio/uni-app'
+import { watch } from 'vue'
+import { useCartStore } from '@/stores/modules/cart'
+import { syncCartBadge } from '@/utils/cart-access'
+
+const cartStore = useCartStore()
+watch(() => cartStore.totalCount, syncCartBadge)
 
 onLaunch(() => {
   console.log('App Launch')
 })
 onShow(() => {
+  syncCartBadge(cartStore.totalCount)
   console.log('App Show')
 })
 onHide(() => {

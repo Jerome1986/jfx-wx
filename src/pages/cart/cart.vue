@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import type { CartItem } from '@/types/cart'
+import { onShow } from '@dcloudio/uni-app'
+import { storeToRefs } from 'pinia'
+import { useCartStore, cartItemKey, formatPrice } from '@/stores/modules/cart'
+import { requireCartLogin, syncCartBadge } from '@/utils/cart-access'
 
 // 状态栏高度
 const statusBarHeight = ref(0)
@@ -12,80 +16,28 @@ onMounted(() => {
   const systemInfo = uni.getSystemInfoSync()
   statusBarHeight.value = systemInfo.statusBarHeight || 0
   // 菜单按钮
-  const menuButton = uni.getMenuButtonBoundingClientRect()
+  const menuButton = uni.getMenuButtonBoundingClientRect?.()
   if (menuButton?.height && menuButton?.top) {
     navigationHeight.value = (menuButton.top - statusBarHeight.value) * 2 + menuButton.height
   }
 })
 
-// 购物车项目列表
-const cartItems = ref<CartItem[]>([
-  {
-    id: 1,
-    name: '九牧单把单孔高管面盆龙头-X32025-548/1B-Z',
-    description: '高管龙头、新水校起泡器、冷热双控',
-    price: 623,
-    quantity: 1,
-    image:
-      'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/product/product-basin-faucet.png',
-    selected: true,
-  },
-  {
-    id: 2,
-    name: '九牧单把单孔高管面盆龙头-X32025-548/1B-Z',
-    description: '高管龙头、新水校起泡器、冷热双控',
-    price: 199,
-    quantity: 2,
-    image:
-      'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/product/product-gooseneck-faucet.png',
-    selected: true,
-  },
-  {
-    id: 3,
-    name: '九牧单把单孔高管面盆龙头-X32025-548/1B-Z',
-    description: '高管龙头、新水校起泡器、冷热双控',
-    price: 588,
-    quantity: 1,
-    image:
-      'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/product/product-basin-faucet.png',
-    selected: true,
-  },
-])
-
-// 合计数量
-const totalCount = computed(() => cartItems.value.reduce((total, item) => total + item.quantity, 0))
-// 已选数量
-const selectedCount = computed(() =>
-  cartItems.value.filter((item) => item.selected).reduce((total, item) => total + item.quantity, 0),
-)
-// 已选合计
-const selectedTotal = computed(() =>
-  cartItems.value
-    .filter((item) => item.selected)
-    .reduce((total, item) => total + item.price * item.quantity, 0),
-)
-// 购物车商品是否已全选
+const cartStore = useCartStore()
+const { items: cartItems, totalCount, selectedCount, selectedTotal } = storeToRefs(cartStore)
 const allSelected = computed({
-  get: () => cartItems.value.length > 0 && cartItems.value.every((item) => item.selected),
-  set: (value: boolean) =>
-    cartItems.value.forEach((item) => {
-      item.selected = value
-    }),
+  get: () => cartStore.allSelected,
+  set: (value: boolean) => cartStore.selectAll(value),
 })
-
-// 减少商品数量
-const decrease = (item: CartItem) => {
-  if (item.quantity > 1) item.quantity -= 1
-}
-
-// 增加商品数量
-const increase = (item: CartItem) => {
-  item.quantity += 1
-}
-
-// 提交购物车结算
+const decrease = (item: CartItem) => cartStore.setQuantity(cartItemKey(item), item.quantity - 1)
+const increase = (item: CartItem) => cartStore.setQuantity(cartItemKey(item), item.quantity + 1)
+const goShopping = () => uni.switchTab({ url: '/pages/product/product' })
+onShow(() => {
+  requireCartLogin('/pages/cart/cart')
+  syncCartBadge(cartStore.totalCount)
+})
 const checkout = () => {
-  if (!selectedCount.value) {
+  if (!requireCartLogin('/pages/cart/cart')) return
+  if (!cartStore.prepareCheckout()) {
     uni.showToast({ title: '请先选择商品', icon: 'none' })
     return
   }
@@ -106,26 +58,42 @@ const checkout = () => {
 
     <scroll-view class="cart-scroll" scroll-y :show-scrollbar="false">
       <view class="page-content">
-        <view class="product-card">
+        <view v-if="!cartItems.length" class="empty-cart">
+          <wd-empty tip="购物车暂无商品">
+            <template #bottom>
+              <button class="go-shopping" @click="goShopping">去逛逛</button>
+            </template>
+          </wd-empty>
+        </view>
+        <view v-else class="product-card">
           <view class="card-heading">
             <text class="card-title">商品清单</text>
             <text class="item-count">共{{ totalCount }}件</text>
           </view>
 
           <view class="product-list">
-            <view v-for="item in cartItems" :key="item.id" class="product-item">
+            <view v-for="item in cartItems" :key="cartItemKey(item)" class="product-item">
               <wd-checkbox
-                v-model="item.selected"
+                :model-value="item.selected"
+                @update:model-value="cartStore.setSelected(cartItemKey(item), $event)"
                 checked-color="#D92D20"
                 custom-class="item-checkbox"
               />
               <image class="product-image" :src="item.image" mode="aspectFit" />
               <view class="product-info">
                 <view class="product-name">{{ item.name }}</view>
-                <view class="product-description">{{ item.description }}</view>
+                <view class="product-description">{{
+                  item.specification || item.description
+                }}</view>
+                <view class="product-description">{{
+                  item.installationIncluded ? '已含基础安装' : '不含安装服务'
+                }}</view>
+                <text class="remove-item" @click="cartStore.removeItem(cartItemKey(item))"
+                  >删除</text
+                >
                 <view class="product-bottom">
                   <view class="product-price"
-                    ><text class="price-symbol">¥</text>{{ item.price }}</view
+                    ><text class="price-symbol">¥</text>{{ formatPrice(item.price) }}</view
                   >
                   <view class="quantity-control">
                     <view class="quantity-button" @click="decrease(item)">
@@ -142,7 +110,7 @@ const checkout = () => {
           </view>
         </view>
 
-        <view class="service-card">
+        <view v-if="cartItems.length" class="service-card">
           <view class="section-title">服务保障</view>
           <view class="service-list">
             <view class="service-item pink">
@@ -172,28 +140,44 @@ const checkout = () => {
           </view>
         </view>
 
-        <view class="instructions-card">
+        <view v-if="cartItems.length" class="instructions-card">
           <view class="section-title">购物说明</view>
-          <view class="instructions-text"
-            >商品价格以结算页为准，包上门安装，<br />一站式解决客户的后顾之忧</view
-          >
+          <view class="instructions-text">商品价格以结算页为准，安装服务以商品标注为准</view>
         </view>
       </view>
     </scroll-view>
 
-    <view class="checkout-bar">
+    <view v-if="cartItems.length" class="checkout-bar">
       <view class="select-all">
         <wd-checkbox v-model="allSelected" checked-color="#D92D20" />
         <text>全选</text>
       </view>
       <view class="total-label">合计</view>
       <view class="total-price"><text>¥</text>{{ selectedTotal }}</view>
-      <button class="checkout-button" @click="checkout">去结算</button>
+      <button class="checkout-button" @click="checkout">去结算（{{ selectedCount }}）</button>
     </view>
   </view>
 </template>
 
 <style lang="scss">
+.empty-cart {
+  padding: 80rpx 24rpx;
+  text-align: center;
+}
+.go-shopping {
+  width: 220rpx;
+  height: 72rpx;
+  margin: 32rpx auto 0;
+  color: #fff;
+  font-size: 28rpx;
+  line-height: 72rpx;
+  background: $jfx-brandColor;
+  border-radius: 36rpx;
+}
+.remove-item {
+  color: $jfx-brandColor;
+  font-size: 24rpx;
+}
 .cart-page {
   display: flex;
   height: 100vh;

@@ -3,7 +3,24 @@ import { canSubmitAppointment } from '@/utils/appointment-access'
 import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAddressStore } from '@/stores/modules/address'
-import type { OrderItem } from '@/types/confirm-order'
+import { onShow, onUnload } from '@dcloudio/uni-app'
+import { useCartStore, cartItemKey, formatPrice } from '@/stores/modules/cart'
+import { requireCartLogin } from '@/utils/cart-access'
+const cartStore = useCartStore()
+const { checkoutItems: products, checkoutTotal: payableAmount } = storeToRefs(cartStore)
+const totalCount = computed(() => products.value.reduce((sum, item) => sum + item.quantity, 0))
+const installationNote = computed(() =>
+  products.value.every((item) => item.installationIncluded)
+    ? '已含基础安装服务'
+    : products.value.some((item) => item.installationIncluded)
+    ? '部分商品包含安装服务，详见商品标注'
+    : '商品不含安装服务',
+)
+const goShopping = () => uni.switchTab({ url: '/pages/product/product' })
+onShow(() => {
+  requireCartLogin('/pages/confirmOrder/confirmOrder')
+})
+onUnload(() => cartStore.clearCheckout())
 
 // 地址状态仓库
 const addressStore = useAddressStore()
@@ -16,88 +33,12 @@ const selectedPhone = computed(() => {
   return /^1\d{10}$/.test(phone) ? `${phone.slice(0, 3)}****${phone.slice(-4)}` : phone
 })
 
-// 订单优惠、积分与备注状态
-const usePoints = ref(true)
-// 优惠券可见
-const couponVisible = ref(false)
-// 备注可见
 const remarkVisible = ref(false)
-// 已选优惠券编号
-const selectedCouponId = ref(1)
-// 待确认优惠券编号
-const pendingCouponId = ref(1)
-// 订单备注
 const orderRemark = ref('')
-// 备注草稿
 const remarkDraft = ref('')
-// 预约日期
 const appointmentDate = ref('')
-// 预约时间
 const appointmentTime = ref('')
-
-// 可用优惠券数据
-const coupons = [
-  {
-    id: 1,
-    amount: 86,
-    title: '满1000减86',
-    description: '适用于加翻新商品订单',
-    expiry: '有效期至2026.07.31',
-  },
-  {
-    id: 2,
-    amount: 30,
-    title: '满500减30',
-    description: '适用于厨房改造',
-    expiry: '有效期至2026.07.31',
-  },
-]
-
-// 已选优惠券
-const selectedCoupon = computed(
-  () => coupons.find((item) => item.id === selectedCouponId.value) || coupons[0],
-)
-// 优惠券
-const couponDiscount = computed(() => selectedCoupon.value.amount)
-// 积分
-const pointsDiscount = computed(() => (usePoints.value ? 8 : 0))
-// 应付金额
-const payableAmount = computed(() => 1894 - couponDiscount.value - pointsDiscount.value)
-// 金额
-const submitAmount = computed(() => 1894 - couponDiscount.value)
-// 备注标签
 const remarkLabel = computed(() => orderRemark.value || '选填，给商家留言')
-
-// 待确认商品数据
-const products: OrderItem[] = [
-  {
-    id: 1,
-    name: '九牧单把单孔高管面盆龙头-X32025-548/1B-Z',
-    description: '高管龙头、新水校起泡器',
-    price: 623,
-    quantity: 1,
-    image:
-      'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/product/product-basin-faucet.png',
-  },
-  {
-    id: 2,
-    name: '九牧单把单孔高管面盆龙头-X32025-548/1B-Z',
-    description: '高管龙头、新水校起泡器',
-    price: 199,
-    quantity: 1,
-    image:
-      'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/product/product-gooseneck-faucet.png',
-  },
-  {
-    id: 3,
-    name: '九牧单把单孔高管面盆龙头-X32025-548/1B-Z',
-    description: '高管龙头、新水校起泡器',
-    price: 588,
-    quantity: 1,
-    image:
-      'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/product/product-basin-faucet.png',
-  },
-]
 
 // 跳转收货地址页面
 const openAddress = () => {
@@ -118,16 +59,6 @@ const openAppointment = () => {
   })
 }
 
-// 优惠券选择逻辑
-const openCoupons = () => {
-  pendingCouponId.value = selectedCouponId.value
-  couponVisible.value = true
-}
-// 确认优惠券
-const confirmCoupon = () => {
-  selectedCouponId.value = pendingCouponId.value
-  couponVisible.value = false
-}
 // 订单备注编辑逻辑
 const openRemark = () => {
   remarkDraft.value = orderRemark.value
@@ -138,17 +69,17 @@ const confirmRemark = () => {
   orderRemark.value = remarkDraft.value.trim()
   remarkVisible.value = false
 }
-// 积分开关与订单提交逻辑
-const togglePoints = (event: any) => {
-  usePoints.value = event.detail.value
+const pay = () => {
+  console.log('这是支付')
 }
-// 提交订单
-const submitOrder = () => uni.showToast({ title: '订单提交成功', icon: 'success' })
 </script>
 
 <template>
   <view class="order-page">
-    <scroll-view class="order-scroll" scroll-y :show-scrollbar="false">
+    <view v-if="!products.length" class="empty-order">
+      <view>暂无待结算商品</view><button @click="goShopping">去逛逛</button>
+    </view>
+    <scroll-view v-else class="order-scroll" scroll-y :show-scrollbar="false">
       <view class="page-content">
         <!-- 收货地址 -->
         <view class="info-card address-card" @click="openAddress">
@@ -181,7 +112,7 @@ const submitOrder = () => uni.showToast({ title: '订单提交成功', icon: 'su
             <view class="appointment-tip">{{
               appointmentDate ? `${appointmentDate} ${appointmentTime}` : '请选择安装时间'
             }}</view>
-            <view class="appointment-note">安装服务包含在商品价格内</view>
+            <view class="appointment-note">{{ installationNote }}</view>
           </view>
           <text class="iconfont icon-youjiantou right-arrow" />
         </view>
@@ -190,37 +121,27 @@ const submitOrder = () => uni.showToast({ title: '订单提交成功', icon: 'su
         <view class="product-card">
           <view class="card-heading">
             <text class="card-title">商品确认</text>
-            <text class="item-count">共4件</text>
+            <text class="item-count">共{{ totalCount }}件</text>
           </view>
           <view class="product-list">
-            <view v-for="item in products" :key="item.id" class="product-item">
+            <view v-for="item in products" :key="cartItemKey(item)" class="product-item">
               <image class="product-image" :src="item.image" mode="aspectFit" />
               <view class="product-info">
                 <view class="product-name">{{ item.name }}</view>
-                <view class="product-description">{{ item.description }}</view>
+                <view class="product-description">{{
+                  item.specification || item.description
+                }}</view>
+                <view class="product-description">{{
+                  item.installationIncluded ? '已含基础安装' : '不含安装服务'
+                }}</view>
                 <view class="product-bottom">
-                  <view class="product-price"><text>¥</text>{{ item.price }}</view>
+                  <view class="product-price"><text>¥</text>{{ formatPrice(item.price) }}</view>
                   <text class="quantity">X{{ item.quantity }}</text>
                 </view>
               </view>
             </view>
           </view>
 
-          <view class="option-row" @click="openCoupons">
-            <text class="option-title">优惠券</text>
-            <view class="option-value red">已优惠 ¥{{ couponDiscount }}</view>
-            <text class="iconfont icon-youjiantou right-arrow" />
-          </view>
-          <view class="option-row">
-            <text class="option-title">积分抵扣</text>
-            <view class="option-value red">可用811积分，抵扣¥8</view>
-            <switch
-              :checked="usePoints"
-              class="points-switch"
-              color="#D92D20"
-              @change="togglePoints"
-            />
-          </view>
           <view class="option-row" @click="openRemark">
             <text class="option-title">订单备注</text>
             <view class="option-value muted remark-value">{{ remarkLabel }}</view>
@@ -232,14 +153,8 @@ const submitOrder = () => uni.showToast({ title: '订单提交成功', icon: 'su
         <view class="amount-card">
           <view class="card-title">金额明细</view>
           <view class="amount-row"
-            ><text>商品金额（含安装）</text><text class="amount-value">¥ 1894</text></view
+            ><text>商品金额</text><text class="amount-value">¥ {{ payableAmount }}</text></view
           >
-          <view class="amount-row"
-            ><text>优惠抵扣</text><text class="amount-value discount">-¥{{ couponDiscount }}</text>
-          </view>
-          <view class="amount-row"
-            ><text>积分抵扣</text><text class="amount-value discount">-¥{{ pointsDiscount }}</text>
-          </view>
           <view class="amount-divider" />
           <view class="amount-row payable-row"
             ><text>实付款</text
@@ -250,49 +165,16 @@ const submitOrder = () => uni.showToast({ title: '订单提交成功', icon: 'su
     </scroll-view>
 
     <!-- 固定提交订单栏 -->
-    <view class="submit-bar">
+    <view v-if="products.length" class="submit-bar">
       <view class="submit-total">
         <view
           ><text class="submit-label">实付款</text
-          ><text class="submit-price">¥ {{ submitAmount }}</text></view
+          ><text class="submit-price">¥ {{ payableAmount }}</text></view
         >
-        <view class="submit-note">已含基础安装服务</view>
+        <view class="submit-note">{{ installationNote }}</view>
       </view>
-      <button class="submit-button" @click="submitOrder">提交订单</button>
+      <button class="submit-button" @click="pay">立即支付</button>
     </view>
-
-    <!-- 优惠券选择弹层 -->
-    <wd-popup
-      v-model="couponVisible"
-      position="bottom"
-      round
-      safe-area-inset-bottom
-      custom-style="height: 880rpx;"
-    >
-      <view class="coupon-popup">
-        <view class="coupon-popup-title">选择优惠券</view>
-        <view class="coupon-section-title">可用优惠券</view>
-        <view class="coupon-description">优惠券金额将在订单金额中自动抵扣</view>
-        <view class="coupon-list">
-          <view
-            v-for="coupon in coupons"
-            :key="coupon.id"
-            class="coupon-card"
-            :class="{ selected: pendingCouponId === coupon.id }"
-            @click="pendingCouponId = coupon.id"
-          >
-            <view class="coupon-amount">¥{{ coupon.amount }}</view>
-            <view class="coupon-content">
-              <view class="coupon-title">{{ coupon.title }}</view>
-              <view class="coupon-subtitle">{{ coupon.description }}</view>
-              <view class="coupon-expiry">{{ coupon.expiry }}</view>
-            </view>
-            <wd-checkbox :model-value="pendingCouponId === coupon.id" checked-color="#D92D20" />
-          </view>
-        </view>
-        <button class="coupon-confirm" @click="confirmCoupon">确认使用</button>
-      </view>
-    </wd-popup>
 
     <!-- 订单备注弹层 -->
     <wd-popup
@@ -323,6 +205,19 @@ const submitOrder = () => uni.showToast({ title: '订单提交成功', icon: 'su
 </template>
 
 <style lang="scss">
+.empty-order {
+  padding: 80rpx 24rpx;
+  text-align: center;
+}
+
+.empty-order button {
+  margin-top: 24rpx;
+}
+
+.submit-button[disabled] {
+  opacity: 0.5;
+}
+
 /* 页面基础布局 */
 .order-page {
   display: flex;
@@ -632,106 +527,6 @@ const submitOrder = () => uni.showToast({ title: '订单提交成功', icon: 'su
   font-size: 27rpx;
   font-weight: 600;
   line-height: 62rpx;
-  background: $jfx-brandColor;
-  border-radius: 16rpx;
-}
-
-/* 优惠券选择弹层 */
-.coupon-popup {
-  box-sizing: border-box;
-  height: 100%;
-  padding: 34rpx 56rpx 30rpx;
-  background: #fff;
-}
-
-.coupon-popup-title {
-  color: $jfx-font-title;
-  font-size: 34rpx;
-  font-weight: 600;
-  line-height: 48rpx;
-  text-align: center;
-}
-
-.coupon-section-title {
-  margin-top: 44rpx;
-  color: $jfx-font-title;
-  font-size: 29rpx;
-  font-weight: 600;
-  line-height: 42rpx;
-}
-
-.coupon-description {
-  margin-top: 6rpx;
-  color: $jfx-font-dec;
-  font-size: 24rpx;
-  line-height: 34rpx;
-}
-
-.coupon-list {
-  margin-top: 24rpx;
-}
-
-.coupon-card {
-  display: flex;
-  min-height: 150rpx;
-  margin-bottom: 16rpx;
-  padding: 24rpx;
-  align-items: center;
-  gap: 28rpx;
-  background: #fff;
-  border: 2rpx solid $jfx-border2;
-  border-radius: 16rpx;
-}
-
-.coupon-card.selected {
-  border-color: $jfx-brandColor;
-}
-
-.coupon-amount {
-  display: flex;
-  width: 112rpx;
-  height: 112rpx;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  color: $jfx-brandColor;
-  font-size: 31rpx;
-  background: #fff1ef;
-  border-radius: 16rpx;
-}
-
-.coupon-content {
-  min-width: 0;
-  flex: 1;
-}
-
-.coupon-title {
-  color: $jfx-font-title;
-  font-size: 29rpx;
-  line-height: 42rpx;
-}
-
-.coupon-subtitle {
-  margin-top: 6rpx;
-  color: $jfx-font-dec;
-  font-size: 23rpx;
-  line-height: 32rpx;
-}
-
-.coupon-expiry {
-  margin-top: 4rpx;
-  color: $jfx-font-dec2;
-  font-size: 21rpx;
-  line-height: 30rpx;
-}
-
-.coupon-confirm {
-  height: 64rpx;
-  margin: 42rpx 0 0;
-  color: #fff;
-  font-size: 28rpx;
-  font-weight: 600;
-  line-height: 64rpx;
   background: $jfx-brandColor;
   border-radius: 16rpx;
 }

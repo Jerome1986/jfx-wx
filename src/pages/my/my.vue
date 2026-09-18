@@ -4,6 +4,9 @@ import { computed, ref, watch } from 'vue'
 import { getEmployeeSummary, type EmployeeSummary } from '@/api/employee'
 import { getUserSummary, userInfoFindOne } from '@/api/user'
 import { useMemberStore } from '@/stores'
+import { useCartStore } from '@/stores/modules/cart'
+import { syncCartBadge } from '@/utils/cart-access'
+onShow(() => syncCartBadge(useCartStore().totalCount))
 import CustomerMy from '@/components/my/CustomerMy.vue'
 import EmployeeMy from '@/components/my/EmployeeMy.vue'
 

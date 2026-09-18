@@ -117,6 +117,10 @@ export const request = <T>(options: UniApp.RequestOptions) => {
           // 401错误  -> 清理用户信息，跳转到登录页
           // 清理 persisted member store（pinia-plugin-persistedstate 默认 key 为 store id）
           uni.removeStorageSync('member')
+          // 同步清理内存登录态，使账号关联的购物车和角标立即隐藏。
+          void import('@/stores/modules/member').then(({ useMemberStore }) => {
+            useMemberStore().clearProfile()
+          })
           uni.navigateTo({ url: '/pages/login/login' })
           safeShowToast((res.data as Data<T>).message || '请求错误')
           reject(res)
