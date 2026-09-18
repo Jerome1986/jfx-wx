@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { canSubmitAppointment } from '@/utils/appointment-access'
 import { onLoad } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 import { createBudgetAppointmentApi } from '@/api/appointment'
@@ -104,6 +105,7 @@ const handleUseLocalPhone = () => {
 
 // 提交装修报价需求
 const submitBudget = async () => {
+  if (!canSubmitAppointment()) return
   if (!formData.value.area || !formData.value.layout) {
     uni.showToast({ title: '请完善面积和户型', icon: 'none' })
     return

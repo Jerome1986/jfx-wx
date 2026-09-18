@@ -1,15 +1,17 @@
 <script setup lang="ts">
+import { canSubmitAppointment } from '@/utils/appointment-access'
 import { computed, ref } from 'vue'
 import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
-import { useMemberStore, useRenovationBusinessStore } from '@/stores'
+import { useMemberStore } from '@/stores'
+import { createCaseAppointmentApi } from '@/api/appointment'
 import { getCaseCategoryListApi, getCasePageApi, getCasePageByCategoryApi } from '@/api/case'
 import type { CaseItem } from '@/types/case-list'
 import type { CaseCategoryItem, RenovationCaseItem } from '@/types/case-api'
 
 // 会员状态仓库
 const memberStore = useMemberStore()
-// 装修业务状态
-const renovationBusinessStore = useRenovationBusinessStore()
+// 页面内共享提交锁，避免连点不同卡片产生重复请求。
+const submittingCaseId = ref<number | null>(null)
 // 是否为员工视图
 const isEmployeeMode = ref(false)
 // 已选分享案例
@@ -123,22 +125,36 @@ onLoad(async (options) => {
 })
 
 // 获取当前案例的装修报价
-const requestQuote = (item: CaseItem) => {
-  renovationBusinessStore.createAppointment({
-    type: 'CASE',
-    source: '精选案例',
-    caseId: item.id,
-    city: item.location,
-    area: item.area.replace('㎡', ''),
-    roomLayout: item.roomType,
-    demand: '获取同款案例报价',
-    snapshot: { title: item.title, cover: item.afterCover, referencePrice: item.price },
-  })
-  uni.showToast({ title: '案例报价预约已提交', icon: 'success' })
-  setTimeout(
-    () => uni.navigateTo({ url: '/pages-sub/my/decorationOrder/decorationOrder?group=consult' }),
-    400,
-  )
+const requestQuote = async (item: CaseItem) => {
+  if (!canSubmitAppointment()) return
+  if (isEmployeeMode.value || submittingCaseId.value !== null) return
+  if (!memberStore.token || !memberStore.profile?.id) {
+    uni.showToast({ title: '请先登录后预约', icon: 'none' })
+    uni.navigateTo({ url: '/pages/login/login' })
+    return
+  }
+  if (!Number.isSafeInteger(item.id) || item.id <= 0) {
+    uni.showToast({ title: '案例信息无效', icon: 'none' })
+    return
+  }
+  submittingCaseId.value = item.id
+  try {
+    const result = await createCaseAppointmentApi({ caseId: item.id })
+    if (result.code !== 200) return
+    uni.showToast({ title: '案例报价预约已提交', icon: 'success' })
+    await new Promise<void>((resolve) =>
+      uni.navigateTo({
+        url: '/pages-sub/my/decorationOrder/decorationOrder?group=case',
+        fail: () => uni.showToast({ title: '预约已提交，请到预约列表查看', icon: 'none' }),
+        complete: () => resolve(),
+      }),
+    )
+  } catch (error) {
+    // 后端及网络错误由统一请求层提示，不创建本地预约。
+    console.error('提交案例报价预约失败：', error)
+  } finally {
+    submittingCaseId.value = null
+  }
 }
 
 // 查看案例详情
@@ -256,8 +272,14 @@ onShareAppMessage(() => {
                 >
                   分享给客户
                 </button>
-                <button v-else class="quote-button" @click.stop="requestQuote(item)">
-                  获取同款报价
+                <button
+                  v-else
+                  class="quote-button"
+                  :disabled="submittingCaseId !== null"
+                  :loading="submittingCaseId === item.id"
+                  @click.stop="requestQuote(item)"
+                >
+                  {{ submittingCaseId === item.id ? '提交中' : '获取同款报价' }}
                 </button>
               </view>
               <view class="quote-progress">

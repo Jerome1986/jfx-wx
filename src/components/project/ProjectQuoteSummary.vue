@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import type { ProjectQuote } from '@/types/project-quote'
 import { moneyText, quoteTotals } from '@/utils/project-quote'
-const props = defineProps<{ quote: ProjectQuote }>()
+const props = defineProps<{ quote: ProjectQuote; amount?: number }>()
 const totals = computed(() => quoteTotals(props.quote))
 </script>
 <template>
@@ -10,17 +10,18 @@ const totals = computed(() => quoteTotals(props.quote))
     <view class="row"
       ><text>报价明细</text><text>{{ quote.items.length }} 项</text></view
     >
-    <view class="row"
+    <view v-if="amount === undefined" class="row"
       ><text>商品小计</text><text>¥{{ moneyText(totals.product) }}</text></view
     >
-    <view class="row"
+    <view v-if="amount === undefined" class="row"
       ><text>施工服务小计</text><text>¥{{ moneyText(totals.service) }}</text></view
     >
-    <view class="row"
+    <view v-if="amount === undefined" class="row"
       ><text>优惠减免</text><text>− ¥{{ moneyText(totals.discount) }}</text></view
     >
     <view class="row total"
-      ><text>最终报价</text><text>¥{{ moneyText(totals.total) }}</text></view
+      ><text>{{ amount === undefined ? '预览报价' : '项目报价' }}</text
+      ><text>¥{{ amount === undefined ? moneyText(totals.total) : amount.toFixed(2) }}</text></view
     >
   </view>
 </template>

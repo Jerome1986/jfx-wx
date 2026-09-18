@@ -240,7 +240,6 @@ onShow(() => {
               </view>
               <view class="detail-link">
                 <text>查看详情</text>
-                <text class="arrow">›</text>
               </view>
             </view>
           </view>
@@ -608,25 +607,23 @@ onShow(() => {
 }
 
 .detail-link {
-  display: flex;
-  min-height: 72rpx;
-  padding: 0 24rpx;
-  background: #d92d20;
-  border-radius: 36rpx;
+  display: inline-flex;
+  box-sizing: border-box;
+  height: 52rpx;
+  padding: 0 20rpx;
+  background: #ffffff;
+  border: 1rpx solid #e8e4e1;
+  border-radius: 10rpx;
   flex-shrink: 0;
   align-items: center;
-  color: #ffffff;
-  font-size: 24rpx;
-  font-weight: 500;
+  justify-content: center;
+  color: #666666;
+  font-size: 22rpx;
+  line-height: 30rpx;
+  font-weight: 400;
   white-space: nowrap;
 }
 
-.arrow {
-  margin-left: 10rpx;
-  font-size: 34rpx;
-  font-weight: 400;
-  line-height: 34rpx;
-}
 .empty {
   padding: 180rpx 0;
   color: #aaaaaa;

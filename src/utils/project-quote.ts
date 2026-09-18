@@ -1,5 +1,42 @@
 import type { ProjectQuote, ProjectQuoteLine } from '@/types/project-quote'
 import type { RenewalReplacementCandidate } from '@/types/renewal-replacement'
+import type { UpdateProjectQuoteInput } from '@/types/project'
+
+// 按更新接口白名单组装完整明细，保留进入编辑时的版本。
+export const buildQuoteUpdate = (
+  planId: number,
+  quoteVersion: number,
+  quoteRemark: string,
+  items: ProjectQuoteLine[],
+): UpdateProjectQuoteInput => {
+  if (!Number.isSafeInteger(planId) || planId <= 0) throw new Error('请选择标准方案')
+  if (!Number.isSafeInteger(quoteVersion) || quoteVersion <= 0)
+    throw new Error('缺少报价版本，请重新加载')
+  if (quoteRemark.trim().length > 500) throw new Error('修改说明不能超过500字')
+  if (!items.length) throw new Error('请至少添加一条报价明细')
+  return {
+    planId,
+    quoteVersion,
+    quoteRemark: quoteRemark.trim() || null,
+    quoteItems: items.map((item) => {
+      const category = item.businessCategory?.trim() || ''
+      if (!category || !item.name.trim() || !item.unit.trim())
+        throw new Error('明细分类、名称和单位不能为空')
+      if (!(scaledValue(item.unitPrice) >= 0)) throw new Error('单价须为非负数，最多两位小数')
+      if (!(scaledValue(item.quantity) > 0)) throw new Error('数量须大于零，最多两位小数')
+      return {
+        productId: item.productId ?? null,
+        category,
+        name: item.name.trim(),
+        unit: item.unit.trim(),
+        unitPrice: item.unitPrice.trim(),
+        quantity: item.quantity.trim(),
+        description: item.description.trim() || null,
+        image: item.image.trim() || null,
+      }
+    }),
+  }
+}
 
 export const copyQuoteData = <T>(value: T): T => JSON.parse(JSON.stringify(value))
 export const newQuoteLineId = () => `line-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -23,19 +60,23 @@ export const quoteTotals = (quote: ProjectQuote) => {
   let product = 0
   let service = 0
   for (const item of quote.items) {
-    const cents = lineCents(item)
-    if (Number.isFinite(cents)) {
-      if (item.category === 'product') product += cents
-      else service += cents
+    const raw = scaledValue(item.unitPrice) * scaledValue(item.quantity)
+    if (Number.isSafeInteger(raw) && raw >= 0) {
+      if (item.category === 'product') product += raw
+      else service += raw
     }
   }
+  // 先汇总万分之一元，再统一四舍五入到分，与后端总金额规则一致。
+  const round = (value: number) =>
+    Number.isSafeInteger(value + 50) ? Math.floor((value + 50) / 100) : NaN
+  const subtotal = round(product + service)
   const discount = scaledValue(quote.discount)
   return {
-    product,
-    service,
-    subtotal: product + service,
+    product: round(product),
+    service: round(service),
+    subtotal,
     discount,
-    total: product + service - discount,
+    total: subtotal - discount,
   }
 }
 

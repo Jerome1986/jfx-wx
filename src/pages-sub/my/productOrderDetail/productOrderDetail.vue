@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { canSubmitAppointment } from '@/utils/appointment-access'
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import type {
@@ -57,7 +58,10 @@ onLoad((query) => {
 // 打开地址
 const openAddress = () => uni.navigateTo({ url: '/pages-sub/my/address/address' })
 // 打开预约
-const openAppointment = () => uni.navigateTo({ url: '/pages-sub/my/appointment/appointment' })
+const openAppointment = () => {
+  if (!canSubmitAppointment()) return
+  uni.navigateTo({ url: '/pages-sub/my/appointment/appointment' })
+}
 
 // 联系商品安装师傅
 const contactInstaller = () => {

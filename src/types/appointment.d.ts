@@ -263,6 +263,8 @@ export interface AppointmentListParams {
 
 /** 员工名下预约查询参数，userId 为当前登录用户 ID */
 export interface AssignedAppointmentListParams extends AppointmentListParams {
+  /** 预约状态，不传或 ALL 表示全部状态 */
+  status?: Appointment['status'] | 'ALL'
   /** 当前登录员工的用户 ID */
   userId: number
 }

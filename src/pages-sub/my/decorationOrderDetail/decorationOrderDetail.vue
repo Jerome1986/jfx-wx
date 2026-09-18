@@ -41,7 +41,7 @@ const displayStatusClass = computed(() => {
 // 当前预约是否允许取消
 const canCancel = computed(() =>
   appointment.value
-    ? appointment.value.type === 'PLAN' &&
+    ? ['PLAN', 'BUDGET', 'CASE'].includes(appointment.value.type) &&
       ['PENDING_CONTACT', 'PENDING_VISIT'].includes(appointment.value.status)
     : false,
 )
@@ -95,14 +95,25 @@ const estimatedTotal = computed(() =>
 
 // 提交取消预约请求
 const submitCancellation = async () => {
-  if (!appointment.value || canceling.value) return
+  if (!appointment.value || !canCancel.value || canceling.value) return
   canceling.value = true
   try {
-    const { data } = await cancelAppointmentApi(appointment.value.id)
+    const { data, code, message } = await cancelAppointmentApi(appointment.value.id)
+    if (code !== 200) {
+      if (code !== 400) uni.showToast({ title: message || '取消失败，请重试', icon: 'none' })
+      throw { statusCode: code }
+    }
+    if (data?.status !== 'CANCELED') {
+      uni.showToast({ title: '取消结果异常，请刷新后重试', icon: 'none' })
+      return
+    }
     appointment.value.status = data.status
     appointment.value.canceledAt = data.canceledAt || undefined
     uni.showToast({ title: '预约已取消', icon: 'success' })
   } catch (error) {
+    // 已完成或并发状态变化时同步最新详情，不自动再次取消。
+    const statusCode = (error as { statusCode?: number }).statusCode
+    if (statusCode === 400 || statusCode === 409) await loadAppointmentDetail()
     console.error('取消预约失败：', error)
   } finally {
     canceling.value = false
@@ -111,7 +122,7 @@ const submitCancellation = async () => {
 
 // 确认是否取消当前预约
 const cancelAppointment = () => {
-  if (canceling.value) return
+  if (!canCancel.value || canceling.value) return
   uni.showModal({
     title: '取消预约',
     content: '确定取消本次预约吗？',

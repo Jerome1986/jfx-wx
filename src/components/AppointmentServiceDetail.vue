@@ -20,7 +20,7 @@ import type { Appointment } from '@/types/renovation-business'
 import type { UpdateAppointmentRequirementInput } from '@/types/appointment'
 import { formatDateTime } from '@/utils/format'
 // 页面传入的预约编号
-const props = defineProps<{ appointmentId: number }>()
+const props = defineProps<{ appointmentId: number; refreshVersion?: number }>()
 // 当前预约详情
 const appointment = ref<Appointment>()
 const businessStore = useRenovationBusinessStore()
@@ -70,11 +70,7 @@ const records = computed(() =>
   [...(appointment.value?.followUps || [])].sort((a, b) => b.id - a.id),
 )
 // 当前预约关联的装修项目
-const convertedProject = computed(() =>
-  appointment.value
-    ? appointment.value.project || businessStore.getConvertedProject(appointment.value.id)
-    : undefined,
-)
+const convertedProject = computed(() => (appointment.value ? appointment.value.project : undefined))
 // 当前预约是否需要在上门后提供预估报价
 const isQuoteAppointment = computed(() =>
   appointment.value ? ['BUDGET', 'QUOTE'].includes(appointment.value.type) : false,
@@ -135,26 +131,34 @@ const confirmCalendarDate = ({ value }: { value: number | number[] }) => {
   visitDate.value = formatLocalDate(value)
 }
 // 加载后端预约详情
+let detailRequestVersion = 0
 const loadAppointmentDetail = async () => {
-  if (!Number.isInteger(props.appointmentId) || props.appointmentId <= 0) return
+  const appointmentId = props.appointmentId
+  const requestVersion = ++detailRequestVersion
+  if (!Number.isInteger(appointmentId) || appointmentId <= 0) {
+    appointment.value = undefined
+    loading.value = false
+    return
+  }
   loading.value = true
   loadFailed.value = false
   try {
-    const { data } = await getAppointmentDetailApi(props.appointmentId)
+    const { data } = await getAppointmentDetailApi(appointmentId)
+    if (requestVersion !== detailRequestVersion) return
+    if (data?.id !== appointmentId) throw new Error('预约详情 ID 不匹配')
     appointment.value = data
   } catch (error) {
+    if (requestVersion !== detailRequestVersion) return
     console.error('获取员工预约详情失败：', error)
     appointment.value = undefined
     loadFailed.value = true
   } finally {
-    loading.value = false
+    if (requestVersion === detailRequestVersion) loading.value = false
   }
 }
 watch(
-  () => props.appointmentId,
-  (appointmentId) => {
-    if (appointmentId > 0) loadAppointmentDetail()
-  },
+  () => [props.appointmentId, props.refreshVersion],
+  () => loadAppointmentDetail(),
   { immediate: true },
 )
 watch(appointment, (item) => {
@@ -300,6 +304,7 @@ const complete = async () => {
 }
 // 查看已转换项目，未转换时进入建项页。
 const convert = () => {
+  if (loading.value || loadFailed.value) return
   // 1. 仅允许已完成预约继续处理。
   const current = appointment.value
   if (!current || current.status !== 'COMPLETED') return

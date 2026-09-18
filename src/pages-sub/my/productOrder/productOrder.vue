@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { canSubmitAppointment } from '@/utils/appointment-access'
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import type {
@@ -118,6 +119,7 @@ const runPrimaryAction = (order: ProductOrder) => {
     return
   }
   if (order.primaryAction === '预约') {
+    if (!canSubmitAppointment()) return
     uni.navigateTo({ url: '/pages-sub/my/appointment/appointment' })
     return
   }

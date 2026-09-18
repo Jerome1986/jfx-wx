@@ -23,6 +23,19 @@ export interface CreateProjectInput {
   quoteItems: CreateProjectQuoteItemInput[]
 }
 
+export interface UpdateProjectQuoteInput {
+  planId: number
+  quoteVersion: number
+  quoteRemark?: string | null
+  quoteItems: CreateProjectQuoteItemInput[]
+}
+
+/** 取消接口：身份由 JWT 获取，状态用于并发校验。 */
+export interface CancelProjectInput {
+  reason: string
+  expectedStatus: 'PENDING_CONFIRM' | 'IN_SERVICE'
+}
+
 export interface ProjectQuoteItemResult extends CreateProjectQuoteItemInput {
   id?: number
   projectId?: number
@@ -97,5 +110,7 @@ export interface UserProjectListResult {
   totalPage: number
 }
 
-export type EmployeeProjectListParams = UserProjectListParams
+export interface EmployeeProjectListParams extends Omit<UserProjectListParams, 'status'> {
+  status: UserProjectListStatus | 'CANCELED'
+}
 export type EmployeeProjectListResult = UserProjectListResult

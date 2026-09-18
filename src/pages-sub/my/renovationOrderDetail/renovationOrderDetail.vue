@@ -7,6 +7,7 @@ import type { FollowUp } from '@/types/renovation-business'
 import { projectStatusText, useRenovationBusinessStore } from '@/stores/modules/renovation-business'
 import { formatDateTime } from '@/utils/format'
 import ProjectQuoteSummary from '@/components/project/ProjectQuoteSummary.vue'
+import ProjectCancellationInfo from '@/components/project/ProjectCancellationInfo.vue'
 
 // 当前装修项目 ID
 const id = ref(0)
@@ -27,6 +28,8 @@ const loadProject = async () => {
   loadFailed.value = false
   try {
     const { data } = await getProjectDetailApi(id.value)
+    console.log('detail', data)
+
     if (data?.id !== id.value) throw new Error('项目详情 ID 不匹配')
     store.cacheCreatedProject(normalizeProject(data))
     records.value = data.followUps || []
@@ -44,6 +47,11 @@ const openQuote = () =>
 const confirmQuote = async () => {
   if (confirming.value || loading.value || loadFailed.value || invalidId.value) return
   if (project.value?.status !== 'PENDING_CONFIRM') return
+  const quoteVersion = project.value.quoteVersion
+  if (!Number.isSafeInteger(quoteVersion) || !quoteVersion || quoteVersion < 1) {
+    uni.showToast({ title: '缺少报价版本，请刷新详情后确认', icon: 'none' })
+    return
+  }
   confirming.value = true
   try {
     const confirmed = await new Promise<boolean>((resolve) =>
@@ -59,7 +67,7 @@ const confirmQuote = async () => {
       }),
     )
     if (!confirmed) return
-    const result = await confirmProjectQuoteApi(id.value)
+    const result = await confirmProjectQuoteApi(id.value, quoteVersion)
     // 请求封装会返回 HTTP 2xx 中的业务错误，此时不能提示确认成功。
     if (result && result.code >= 400) {
       if (result.code !== 400)
@@ -69,6 +77,10 @@ const confirmQuote = async () => {
     uni.showToast({ title: '报价已确认', icon: 'success' })
     await loadProject()
   } catch (error) {
+    if ((error as { statusCode?: number }).statusCode === 409) {
+      uni.showToast({ title: '报价或项目状态已更新，请刷新后重新确认', icon: 'none' })
+      await loadProject()
+    }
     // 网络及 HTTP 错误由请求封装提示，保留详情供用户重试。
     console.error('确认项目报价失败：', error)
   } finally {
@@ -141,13 +153,27 @@ onLoad((query) => {
           <text class="section-title">项目报价</text>
           <button class="quote-link" @click="openQuote">查看明细</button>
         </view>
-        <ProjectQuoteSummary v-if="project.quote" :quote="project.quote" />
+        <view class="row"
+          ><text>关联方案</text><text>{{ project.planName || '未关联' }}</text></view
+        >
+        <view class="row"
+          ><text>更新时间</text><text>{{ formatDateTime(project.updatedAt) }}</text></view
+        >
+        <view v-if="project.quoteRemark" class="row"
+          ><text>报价说明</text><text>{{ project.quoteRemark }}</text></view
+        >
+        <ProjectQuoteSummary
+          v-if="project.quote"
+          :quote="project.quote"
+          :amount="project.quotedAmount"
+        />
         <view v-else class="legacy-quote">
           <text>项目报价</text>
           <text>¥{{ Number(project.quotedAmount).toFixed(2) }}</text>
         </view>
       </view>
 
+      <ProjectCancellationInfo v-if="project.status === 'CANCELED'" :project="project" />
       <view v-if="records.length" class="card follow-card">
         <view class="section-head">
           <text class="section-title">项目跟进</text>

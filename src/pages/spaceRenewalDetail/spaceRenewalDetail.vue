@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { canSubmitAppointment } from '@/utils/appointment-access'
 import { onLoad } from '@dcloudio/uni-app'
 import { computed, nextTick, ref } from 'vue'
 import { getRenewalPlanDetailApi } from '@/api/renewal-plan'
@@ -189,6 +190,7 @@ const replaceItem = (item: ServiceItem) => {
 
 // 提交预约
 const reserve = async () => {
+  if (!canSubmitAppointment()) return
   if (!planDetail.value || submitting.value) return
   // 当前登录用户 ID
   const userId = Number(memberStore.profile?.id)

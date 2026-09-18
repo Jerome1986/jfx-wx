@@ -3,12 +3,15 @@ import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { useRenovationBusinessStore } from '@/stores/modules/renovation-business'
 import { getRenewalPlanListApi } from '@/api/renewal-plan'
-import type { ProjectPlanCandidate } from '@/types/project-quote'
+import type { ProjectPlanCandidate, ProjectQuoteLine } from '@/types/project-quote'
 import ProjectPlanCard from '@/components/project/ProjectPlanCard.vue'
 // 装修业务 Store，用于更新建项草稿。
 const store = useRenovationBusinessStore()
 // 当前建项关联的预约 ID。
 const id = ref(0)
+const mode = ref<'draft' | 'pickItem'>('draft')
+const selectedPlanId = ref(0)
+let eventChannel: UniApp.EventChannel | undefined
 // 方案搜索关键词。
 const keyword = ref('')
 // 当前展开明细的方案 ID。
@@ -22,11 +25,15 @@ const loadFailed = ref(false)
 // 接口返回并转换后的装修方案列表。
 const projectPlans = ref<ProjectPlanCandidate[]>([])
 // 当前建项草稿是否仍然有效。
-const valid = computed(
-  () => !!store.projectDrafts[id.value] && store.projectSources[id.value]?.status === 'COMPLETED',
+const valid = computed(() =>
+  mode.value !== 'draft'
+    ? !!eventChannel
+    : !!store.projectDrafts[id.value] && store.projectSources[id.value]?.status === 'COMPLETED',
 )
 // 草稿当前关联的方案 ID。
-const currentPlanId = computed(() => store.projectDrafts[id.value]?.planId)
+const currentPlanId = computed(() =>
+  mode.value === 'draft' ? store.projectDrafts[id.value]?.planId : selectedPlanId.value,
+)
 // 根据搜索词过滤可见方案。
 const plans = computed(() =>
   projectPlans.value.filter((plan) =>
@@ -36,6 +43,12 @@ const plans = computed(() =>
 onLoad((query) => {
   // 1. 读取建项预约 ID。
   id.value = Number(query?.appointmentId) || 0
+  mode.value = query?.mode === 'pickItem' ? 'pickItem' : 'draft'
+  selectedPlanId.value = Number(query?.planId) || 0
+  const pages = getCurrentPages()
+  eventChannel = (
+    pages[pages.length - 1] as unknown as { getOpenerEventChannel?: () => UniApp.EventChannel }
+  )?.getOpenerEventChannel?.()
   // 2. 加载后端装修方案。
   loadPlans()
 })
@@ -84,10 +97,11 @@ const back = () => uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/m
 // 选择方案并用方案明细覆盖当前报价草稿。
 const select = async (plan: ProjectPlanCandidate) => {
   // 1. 拦截无效草稿、重复选择和重复点击。
-  if (!valid.value || selecting.value || currentPlanId.value === plan.id) return
+  if (mode.value !== 'draft' || !valid.value || selecting.value || currentPlanId.value === plan.id)
+    return
   selecting.value = true
   // 2. 已有明细时先确认是否覆盖当前报价。
-  if (store.projectDrafts[id.value].quote.items.length) {
+  if (store.projectDrafts[id.value]?.quote.items.length) {
     const confirmed = await new Promise<boolean>((resolve) =>
       uni.showModal({
         title: '更换方案',
@@ -108,6 +122,14 @@ const select = async (plan: ProjectPlanCandidate) => {
   // 4. 恢复方案选择状态。
   selecting.value = false
 }
+
+// 添加明细仅允许选用标准方案中的既有项目。
+const selectItem = (item: ProjectQuoteLine) => {
+  if (!valid.value || selecting.value) return
+  selecting.value = true
+  eventChannel?.emit('selectQuoteItem', item)
+  back()
+}
 </script>
 <template>
   <view class="workflow">
@@ -121,17 +143,31 @@ const select = async (plan: ProjectPlanCandidate) => {
     >
     <scroll-view class="workflow-scroll" scroll-y :show-scrollbar="false"
       ><view class="plan-list">
-        <template v-if="valid"
-          ><ProjectPlanCard
-            v-for="plan in plans"
-            :key="plan.id"
-            :plan="plan"
-            :active="currentPlanId === plan.id"
-            :expanded="expanded === plan.id"
-            :selecting="selecting"
-            @toggle="expanded = expanded === plan.id ? undefined : plan.id"
-            @select="select(plan)"
-          /><view v-if="loading" class="empty">正在加载装修方案...</view
+        <template v-if="valid">
+          <template v-if="mode === 'pickItem'">
+            <view v-for="plan in plans" :key="plan.id" class="standard-items">
+              <view>{{ plan.name }}</view>
+              <button
+                v-for="item in plan.items"
+                :key="item.id"
+                :disabled="selecting"
+                @click="selectItem(item)"
+              >
+                {{ item.name }} · ¥{{ item.unitPrice }}/{{ item.unit }} · 添加
+              </button>
+            </view>
+          </template>
+          <template v-else
+            ><ProjectPlanCard
+              v-for="plan in plans"
+              :key="plan.id"
+              :plan="plan"
+              :active="currentPlanId === plan.id"
+              :expanded="expanded === plan.id"
+              :selecting="selecting"
+              @toggle="expanded = expanded === plan.id ? undefined : plan.id"
+              @select="select(plan)" /></template
+          ><view v-if="loading" class="empty">正在加载装修方案...</view
           ><view v-else-if="loadFailed" class="empty"
             ><view>装修方案加载失败</view
             ><button class="retry" @click="loadPlans">重新加载</button></view
@@ -144,6 +180,18 @@ const select = async (plan: ProjectPlanCandidate) => {
 </template>
 <style scoped lang="scss">
 @use '@/styles/project-workflow.scss';
+.standard-items {
+  margin-bottom: 24rpx;
+  padding: 24rpx;
+  background: #fff;
+  border-radius: 18rpx;
+  font-size: 28rpx;
+}
+.standard-items button {
+  margin-top: 16rpx;
+  color: #d92d20;
+  font-size: 24rpx;
+}
 .search-area {
   flex-shrink: 0;
   padding: 20rpx 24rpx 12rpx;

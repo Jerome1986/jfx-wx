@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { canSubmitAppointment } from '@/utils/appointment-access'
 import { computed, ref } from 'vue'
 import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
 import { createCaseAppointmentApi } from '@/api/appointment'
@@ -11,7 +12,7 @@ import type { CaseDetail } from '@/types/case-detail'
 const memberStore = useMemberStore()
 
 // 案例编号
-const caseId = ref(1)
+const caseId = ref(0)
 // 是否为员工视图
 const isEmployeeMode = ref(false)
 // 详情
@@ -125,13 +126,18 @@ const toggleCaseFavorite = async () => {
 onLoad((options) => {
   // 当前数据编号
   const id = Number(options?.id)
-  if (Number.isFinite(id)) caseId.value = id
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    uni.showToast({ title: '案例 ID 无效', icon: 'none' })
+    return
+  }
+  caseId.value = id
   isEmployeeMode.value = options?.source === 'employee'
   loadCaseDetail()
 })
 
 // 获取当前案例的装修报价
 const requestQuote = async () => {
+  if (!canSubmitAppointment()) return
   if (!detail.value || submitting.value) return
   if (!Number.isSafeInteger(caseId.value) || caseId.value <= 0) {
     uni.showToast({ title: '案例信息无效', icon: 'none' })

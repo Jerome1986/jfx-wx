@@ -13,12 +13,17 @@ const store = useRenovationBusinessStore()
 const appointmentId = ref(0)
 // 创建项目接口的提交状态。
 const submitting = ref(false)
+// 成功状态独立于草稿，清理草稿后继续展示跳转状态。
+const createdProjectId = ref(0)
+const navigating = ref(false)
 // 当前预约的来源快照。
 const source = computed(() => store.projectSources[appointmentId.value])
 // 当前预约对应的建项草稿。
 const draft = computed(() => store.projectDrafts[appointmentId.value])
 // 仅允许已完成且草稿存在的预约创建项目。
-const canCreate = computed(() => source.value?.status === 'COMPLETED' && !!draft.value)
+const canCreate = computed(
+  () => !createdProjectId.value && source.value?.status === 'COMPLETED' && !!draft.value,
+)
 // 当前项目的负责员工名称。
 const employeeName = computed(
   () =>
@@ -97,6 +102,19 @@ const buildPayload = (): CreateProjectInput => {
   }
 }
 
+// 跳转失败后只重试打开已创建的项目，不重复提交创建请求。
+const openCreatedProject = () => {
+  if (!createdProjectId.value || navigating.value) return
+  navigating.value = true
+  uni.redirectTo({
+    url: `/pages-sub/my/employeeRenovationOrderDetail/employeeRenovationOrderDetail?id=${createdProjectId.value}`,
+    fail: () => {
+      navigating.value = false
+      uni.showToast({ title: '项目已创建，请点击查看项目', icon: 'none' })
+    },
+  })
+}
+
 // 调用员工创建项目接口并进入项目详情页。
 const submit = async () => {
   // 1. 阻止无效草稿或重复点击提交。
@@ -108,16 +126,11 @@ const submit = async () => {
     // 3. 请求后端创建装修项目。
     const { data } = await createEmployeeProjectApi(payload)
     if (!Number.isInteger(data?.id) || data.id <= 0) throw new Error('创建结果缺少项目ID')
-    // 4. 创建成功后清理已经提交的草稿。
+    // 4. 先记录成功状态，再清理草稿，避免触发不存在提示。
+    createdProjectId.value = data.id
     store.clearProjectDraft(appointmentId.value)
     // 5. 使用后端项目 ID 跳转员工项目详情。
-    uni.redirectTo({
-      url: `/pages-sub/my/employeeRenovationOrderDetail/employeeRenovationOrderDetail?id=${data.id}`,
-      fail: () => {
-        submitting.value = false
-        uni.showToast({ title: '项目已保存，请从原预约查看', icon: 'none' })
-      },
-    })
+    openCreatedProject()
   } catch (error) {
     // 6. 提交失败时恢复按钮并展示具体错误。
     submitting.value = false
@@ -132,7 +145,11 @@ const submit = async () => {
   <view class="workflow">
     <scroll-view class="workflow-scroll" scroll-y>
       <view class="content">
-        <template v-if="canCreate">
+        <view v-if="createdProjectId" class="empty">
+          <view>{{ navigating ? '项目已创建，正在进入详情…' : '项目已创建成功' }}</view>
+          <button v-if="!navigating" class="secondary" @click="openCreatedProject">查看项目</button>
+        </view>
+        <template v-else-if="canCreate">
           <view class="page-heading">
             <view class="title">编制方案与报价</view>
             <view class="tip">根据现场勘察结果确认实施内容，编制项目实际报价</view>

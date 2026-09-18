@@ -7,7 +7,20 @@ import type {
   EmployeeProjectListResult,
   UserProjectListParams,
   UserProjectListResult,
+  UpdateProjectQuoteInput,
+  CancelProjectInput,
 } from '@/types/project'
+
+// 后端取消接口已实现并完成本地迁移，启用真实请求。
+export const PROJECT_CANCEL_API_ENABLED = true
+
+/** 员工取消项目，传入原因及打开弹窗时的状态。 */
+export const cancelEmployeeProjectApi = (id: number, data: CancelProjectInput) =>
+  request<ProjectDetailResult>({
+    method: 'PATCH' as UniApp.RequestOptions['method'],
+    url: `/employee/projects/${id}/cancel`,
+    data,
+  })
 
 /** 员工创建装修项目并保存报价明细 */
 export const createEmployeeProjectApi = (data: CreateProjectInput) => {
@@ -53,12 +66,21 @@ export const completeEmployeeProjectApi = (id: number) => {
 }
 
 /** 客户确认项目报价并开始服务。 */
-export const confirmProjectQuoteApi = (id: number) => {
+export const confirmProjectQuoteApi = (id: number, quoteVersion: number) => {
   return request<unknown>({
     method: 'PATCH' as UniApp.RequestOptions['method'],
     url: `/renovation-project/${id}/confirm`,
+    data: { quoteVersion },
   })
 }
+
+/** 员工提交完整报价明细及进入编辑时的版本。 */
+export const updateEmployeeProjectQuoteApi = (id: number, data: UpdateProjectQuoteInput) =>
+  request<ProjectDetailResult>({
+    method: 'PATCH' as UniApp.RequestOptions['method'],
+    url: `/employee/projects/${id}/quote`,
+    data,
+  })
 
 /** 分页获取当前用户的装修项目 */
 export const getUserProjectListApi = (params: UserProjectListParams) => {

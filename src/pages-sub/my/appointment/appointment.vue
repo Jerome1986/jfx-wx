@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { canSubmitAppointment } from '@/utils/appointment-access'
 import { computed, ref } from 'vue'
 import type { AppointmentDate, CalendarConfirmEvent, TimeSlot } from '@/types/appointment'
 
@@ -87,6 +88,7 @@ const confirmCalendarDate = ({ value }: CalendarConfirmEvent) => {
 
 // 确认预约后将时间回传给确认订单页
 const confirmAppointment = () => {
+  if (!canSubmitAppointment()) return
   // 当前页面栈
   const pages = getCurrentPages()
   // 当前页面实例

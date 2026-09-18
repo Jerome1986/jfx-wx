@@ -63,7 +63,7 @@ export const getAppointmentDetailApi = (id: number) =>
     url: `/appointment/detail/${id}`,
   })
 
-/** 取消焕新方案预约 */
+/** 取消预算、案例或焕新方案预约 */
 export const cancelAppointmentApi = (id: number) =>
   request<CancelAppointmentResult>({
     method: 'PATCH' as UniApp.RequestOptions['method'],

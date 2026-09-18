@@ -23,9 +23,7 @@ useShare({
 const memberStore = useMemberStore()
 
 // 轮播图列表
-const swiperList = ref([
-  'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/banner/banner1.png',
-])
+const swiperList = ref<string[]>([])
 
 // 加载列表
 const loadBannerList = async () => {
@@ -33,7 +31,7 @@ const loadBannerList = async () => {
     const { data } = await getBannerListApi()
     // 轮播图地址列表
     const images = data.map((item) => item.image).filter(Boolean)
-    if (images.length) swiperList.value = images
+    swiperList.value = images
   } catch (error) {
     console.error('获取首页轮播图失败：', error)
   }
@@ -193,7 +191,7 @@ const goToCaseDetail = (item: SelectedCase) => {
     <custom-nav-home></custom-nav-home>
     <scroll-view class="home-content" scroll-y :show-scrollbar="false" @scroll="handleHomeScroll">
       <!-- 轮播图 -->
-      <view class="banner">
+      <view v-if="swiperList.length" class="banner">
         <wd-swiper
           radius="12"
           height="176"

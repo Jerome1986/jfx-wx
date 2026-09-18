@@ -159,9 +159,14 @@ export interface FollowUp {
 
 /** 由预约转化的装修项目 */
 export interface RenovationProject {
+  cancelReason?: string | null
+  canceledAt?: string | null
+  canceledByEmployeeId?: number | null
+  quoteVersion?: number
+  quoteRemark?: string | null
   quote?: import('./project-quote').ProjectQuote
   planSource?: import('./project-quote').QuoteSource
-  /** 本地建项来源，用于区分接口预约与演示数据 */
+  /** 项目的预约来源标记 */
   sourceKind?: 'appointment'
   renovationScope?: string
   employeeName?: string

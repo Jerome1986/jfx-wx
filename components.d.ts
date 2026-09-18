@@ -20,6 +20,8 @@ declare module 'vue' {
     CustomNavHome: typeof import('./src/components/CustomNavHome.vue')['default']
     EmployeeMy: typeof import('./src/components/my/EmployeeMy.vue')['default']
     EmployeeProjectStatus: typeof import('./src/components/project/EmployeeProjectStatus.vue')['default']
+    ProjectCancelDialog: typeof import('./src/components/project/ProjectCancelDialog.vue')['default']
+    ProjectCancellationInfo: typeof import('./src/components/project/ProjectCancellationInfo.vue')['default']
     ProjectPlanCard: typeof import('./src/components/project/ProjectPlanCard.vue')['default']
     ProjectQuoteLineCard: typeof import('./src/components/project/ProjectQuoteLineCard.vue')['default']
     ProjectQuoteLineEditor: typeof import('./src/components/project/ProjectQuoteLineEditor.vue')['default']

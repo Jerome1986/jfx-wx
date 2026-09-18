@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { canSubmitAppointment } from '@/utils/appointment-access'
 import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAddressStore } from '@/stores/modules/address'
@@ -108,6 +109,7 @@ const openAddress = () => {
 
 // 跳转预约安装并接收选择结果
 const openAppointment = () => {
+  if (!canSubmitAppointment()) return
   uni.navigateTo({
     url: '/pages-sub/my/appointment/appointment',
     events: {

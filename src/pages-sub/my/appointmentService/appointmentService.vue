@@ -27,10 +27,12 @@ const activeType = ref<AppointmentType | 'ALL'>('ALL')
 // 预约类型筛选选项
 const types: Array<{ label: string; value: AppointmentType | 'ALL' }> = [
   { label: '全部类型', value: 'ALL' },
-  ...Object.entries(appointmentTypeText).map(([value, label]) => ({
-    label,
-    value: value as AppointmentType,
-  })),
+  { label: appointmentTypeText.BUDGET, value: 'BUDGET' },
+  // { label: appointmentTypeText.MEASURE, value: 'MEASURE' }, // 免费量房
+  { label: appointmentTypeText.QUOTE, value: 'QUOTE' },
+  { label: appointmentTypeText.PLAN, value: 'PLAN' },
+  { label: appointmentTypeText.CASE, value: 'CASE' },
+  // { label: appointmentTypeText.OUTLET, value: 'OUTLET' }, // 网点咨询
 ]
 // 当前预约页码
 const pageNum = ref(0)
@@ -44,10 +46,8 @@ const loading = ref(false)
 const loadFailed = ref(false)
 // 是否还有下一页预约
 const hasMore = computed(() => pageNum.value < totalPage.value)
-// 当前筛选后的预约列表
-const list = computed(() =>
-  appointments.value.filter((item) => active.value === 'all' || item.status === active.value),
-)
+// 后端按类型和状态筛选后的分页列表。
+const list = computed(() => appointments.value)
 // 接口未提供状态统计，统计范围仅限已加载预约
 const count = (status: AppointmentStatus) =>
   appointments.value.filter((item) => item.status === status).length
@@ -79,6 +79,7 @@ const loadAppointments = async (reset = false) => {
       pageNum: nextPage,
       pageSize: 10,
       type: activeType.value,
+      status: active.value === 'all' ? 'ALL' : active.value,
     })
     appointments.value = [
       ...new Map([...appointments.value, ...data.list].map((item) => [item.id, item])).values(),
@@ -94,7 +95,13 @@ const loadAppointments = async (reset = false) => {
   }
 }
 
-// 切换预约类型筛选
+// 切换预约状态时重新请求第一页。
+const selectStatus = (status: Filter) => {
+  if (loading.value || active.value === status) return
+  active.value = status
+  return loadAppointments(true)
+}
+// 切换预约类型筛选，保留当前状态条件。
 const selectType = (type: AppointmentType | 'ALL') => {
   if (loading.value || activeType.value === type) return
   activeType.value = type
@@ -123,7 +130,7 @@ onShow(() => loadAppointments(true))
         <view class="overview"
           ><view class="title">预约线索跟进</view
           ><view class="tip">统一处理预算、量房、方案、案例和网点咨询</view
-          ><view class="tip">以下状态统计与筛选仅针对当前类型已加载的预约</view
+          ><view class="tip">以下状态数量仅统计当前筛选结果中已加载的预约</view
           ><view class="stats"
             ><view
               ><text class="stats-value">{{ count('PENDING_CONTACT') }}</text
@@ -157,15 +164,12 @@ onShow(() => loadAppointments(true))
               :key="item.value"
               class="tab"
               :class="{ active: active === item.value }"
-              @click="active = item.value"
+              @click="selectStatus(item.value)"
               >{{ item.label }}</view
             ></view
           ></scroll-view
         >
-        <view class="count"
-          >当前类型共 {{ total }} 条，已加载 {{ appointments.length }} 条，筛选显示
-          {{ list.length }} 条</view
-        >
+        <view class="count">当前筛选共 {{ total }} 条，已加载 {{ appointments.length }} 条</view>
         <view class="list"
           ><view v-for="item in list" :key="item.id" class="card" @click="openDetail(item.id)">
             <view class="heading"
@@ -190,9 +194,7 @@ onShow(() => loadAppointments(true))
           >加载失败，点击重试</view
         >
         <template v-else>
-          <view v-if="!list.length" class="load-state">{{
-            hasMore ? '已加载预约中暂无匹配记录，可继续加载' : '暂无符合条件的预约'
-          }}</view>
+          <view v-if="!list.length" class="load-state">暂无符合条件的预约</view>
           <view v-if="hasMore" class="load-state" @click="loadAppointments()">点击加载更多</view>
           <view v-else-if="list.length" class="load-state">已加载全部预约</view>
         </template>

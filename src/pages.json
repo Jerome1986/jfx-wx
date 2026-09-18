@@ -220,20 +220,6 @@
           }
         },
         {
-          "path": "quoteDetail/quoteDetail",
-          "style": {
-            "navigationBarTitleText": "报价明细",
-            "navigationBarBackgroundColor": "#F8F7F5"
-          }
-        },
-        {
-          "path": "quoteProductList/quoteProductList",
-          "style": {
-            "navigationBarTitleText": "选择替换商品",
-            "navigationBarBackgroundColor": "#F8F7F5"
-          }
-        },
-        {
           "path": "productOrder/productOrder",
           "style": {
             "navigationBarTitleText": "商品订单",

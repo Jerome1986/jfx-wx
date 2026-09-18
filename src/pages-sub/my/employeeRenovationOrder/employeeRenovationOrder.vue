@@ -13,6 +13,7 @@ const filters: Array<{ label: string; value: Filter }> = [
   { label: '待确认', value: 'PENDING_CONFIRM' },
   { label: '服务中', value: 'IN_SERVICE' },
   { label: '已完成', value: 'COMPLETED' },
+  { label: '已取消', value: 'CANCELED' },
 ]
 const active = ref<Filter>('ALL')
 const list = ref<RenovationProject[]>([])

@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import { useRenovationBusinessStore } from '@/stores/modules/renovation-business'
 import { completeEmployeeProjectApi, getEmployeeProjectDetailApi } from '@/api/project'
 import ProjectQuoteSummary from '@/components/project/ProjectQuoteSummary.vue'
 import EmployeeProjectStatus from '@/components/project/EmployeeProjectStatus.vue'
 import { normalizeProject } from '@/utils/project'
+import ProjectCancelDialog from '@/components/project/ProjectCancelDialog.vue'
+import ProjectCancellationInfo from '@/components/project/ProjectCancellationInfo.vue'
+import { cancelEmployeeProjectApi, PROJECT_CANCEL_API_ENABLED } from '@/api/project'
+import type { CancelProjectInput } from '@/types/project'
 
 // 当前路由中的后端项目 ID。
 const id = ref(0)
@@ -17,10 +21,51 @@ const loaded = ref(false)
 const loadFailed = ref(false)
 // 完成项目请求提交状态。
 const completing = ref(false)
-// 装修业务 Store，暂用于状态操作和跨页面共享详情。
+const cancelVisible = ref(false)
+const canceling = ref(false)
+const cancelStatus = ref<CancelProjectInput['expectedStatus']>('PENDING_CONFIRM')
+// 装修业务 Store，仅用于跨页面共享接口详情。
 const store = useRenovationBusinessStore()
 // 当前员工装修项目详情。
 const project = computed(() => store.getProject(id.value))
+const canCancel = computed(
+  () => project.value?.status === 'PENDING_CONFIRM' || project.value?.status === 'IN_SERVICE',
+)
+
+// 保留打开弹窗时的状态，服务中取消需线下协商确认。
+const openCancel = () => {
+  if (!canCancel.value || completing.value || canceling.value || loading.value || loadFailed.value)
+    return
+  cancelStatus.value = project.value!.status as CancelProjectInput['expectedStatus']
+  cancelVisible.value = true
+}
+
+// 提交取消后刷新真实详情，状态冲突时刷新且不自动重试。
+const submitCancel = async (input: CancelProjectInput) => {
+  if (!canCancel.value || canceling.value || completing.value || loading.value || loadFailed.value)
+    return
+  if (!input.reason.trim() || input.reason.trim().length > 500) return
+  if (!PROJECT_CANCEL_API_ENABLED) {
+    uni.showToast({ title: '取消功能暂未开放，本次未提交', icon: 'none' })
+    return
+  }
+  canceling.value = true
+  try {
+    const result = await cancelEmployeeProjectApi(id.value, input)
+    if (result.code !== 200) throw { statusCode: result.code }
+    cancelVisible.value = false
+    uni.showToast({ title: '项目已取消', icon: 'success' })
+    await loadProject()
+  } catch (error) {
+    if ((error as { statusCode?: number }).statusCode === 409) {
+      cancelVisible.value = false
+      await loadProject()
+    }
+    // 其他请求错误由统一请求层提示，保留表单供重试。
+  } finally {
+    canceling.value = false
+  }
+}
 // 根据路由 ID 加载员工项目详情。
 const loadProject = async () => {
   if (loading.value) return
@@ -53,7 +98,16 @@ const loadProject = async () => {
 
 // 将服务中的项目标记为完成。
 const completeProject = async () => {
-  if (project.value?.status !== 'IN_SERVICE' || completing.value) return
+  if (
+    project.value?.status !== 'IN_SERVICE' ||
+    loading.value ||
+    loadFailed.value ||
+    completing.value ||
+    canceling.value ||
+    cancelVisible.value
+  )
+    return
+  completing.value = true
   const confirmed = await new Promise<boolean>((resolve) =>
     uni.showModal({
       title: '完成项目',
@@ -64,12 +118,16 @@ const completeProject = async () => {
       fail: () => resolve(false),
     }),
   )
-  if (!confirmed) return
+  if (!confirmed) {
+    completing.value = false
+    return
+  }
   completing.value = true
   try {
-    await completeEmployeeProjectApi(id.value)
-    store.completeProject(id.value)
+    const result = await completeEmployeeProjectApi(id.value)
+    if (result.code !== 200) throw new Error(result.message || '完成项目失败')
     uni.showToast({ title: '项目已完成', icon: 'success' })
+    await loadProject()
   } catch (error) {
     console.error('完成项目失败：', error)
     uni.showToast({ title: '操作失败，请重试', icon: 'none' })
@@ -78,9 +136,14 @@ const completeProject = async () => {
   }
 }
 
-// 打开当前项目的只读报价明细。
-const openQuote = () =>
-  uni.navigateTo({ url: `/pages-sub/my/projectQuote/projectQuote?target=project&id=${id.value}` })
+// 统一从查看明细进入，只有待确认项目允许员工调整。
+const openQuote = () => {
+  const target = project.value?.status === 'PENDING_CONFIRM' ? 'edit' : 'project'
+  uni.navigateTo({ url: `/pages-sub/my/projectQuote/projectQuote?target=${target}&id=${id.value}` })
+}
+onShow(() => {
+  if (loaded.value) loadProject()
+})
 
 onLoad((query) => {
   // 1. 读取后端项目 ID。
@@ -144,7 +207,14 @@ onLoad((query) => {
               查看明细
             </button>
           </view>
-          <ProjectQuoteSummary v-if="project.quote" :quote="project.quote" />
+          <view v-if="project.quoteRemark" class="row"
+            ><text>报价说明</text><text>{{ project.quoteRemark }}</text></view
+          >
+          <ProjectQuoteSummary
+            v-if="project.quote"
+            :quote="project.quote"
+            :amount="project.quotedAmount"
+          />
           <view v-else class="legacy-quote">
             <text>历史报价</text>
             <text class="legacy-price">¥{{ Number(project.quotedAmount).toFixed(2) }}</text>
@@ -156,23 +226,63 @@ onLoad((query) => {
           报价已提交，等待客户确认后开始服务
         </view>
 
+        <ProjectCancellationInfo v-if="project.status === 'CANCELED'" :project="project" />
+
         <view v-if="project.status === 'IN_SERVICE'" class="action-wrap">
           <button
             class="primary"
             hover-class="primary-hover"
-            :disabled="completing"
+            :disabled="completing || canceling || cancelVisible"
             @click="completeProject"
           >
             {{ completing ? '提交中...' : '完成项目' }}
           </button>
         </view>
+        <view v-if="canCancel" class="cancel-entry">
+          <button :disabled="completing || canceling" @click="openCancel">取消项目</button>
+          <text>客户暂缓或协商终止时使用</text>
+        </view>
       </view>
       <view v-else class="empty">项目不存在</view>
     </view>
   </scroll-view>
+  <ProjectCancelDialog
+    :visible="cancelVisible"
+    :status="cancelStatus"
+    :submitting="canceling"
+    @close="cancelVisible = false"
+    @submit="submitCancel"
+  />
 </template>
 
 <style scoped lang="scss">
+.cancel-entry {
+  margin-top: 28rpx;
+  padding-top: 22rpx;
+  border-top: 1rpx solid #ece8e5;
+  text-align: center;
+}
+.cancel-entry button {
+  display: inline-block;
+  margin: 0;
+  padding: 0 24rpx;
+  height: 54rpx;
+  line-height: 54rpx;
+  color: #8b837e;
+  background: transparent;
+  border-radius: 10rpx;
+  font-size: 23rpx;
+}
+.cancel-entry button::after {
+  border: 1rpx solid #dfdad6;
+  border-radius: 20rpx;
+}
+.cancel-entry > text {
+  display: block;
+  margin-top: 12rpx;
+  color: #aaa39f;
+  font-size: 21rpx;
+}
 .project-scroll {
   height: 100%;
   background: #f8f7f5;
