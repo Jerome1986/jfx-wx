@@ -99,9 +99,6 @@ const products: OrderItem[] = [
   },
 ]
 
-// 页面通用轻提示
-const showMessage = (title: string) => uni.showToast({ title, icon: 'none' })
-
 // 跳转收货地址页面
 const openAddress = () => {
   uni.navigateTo({ url: '/pages-sub/my/address/address' })

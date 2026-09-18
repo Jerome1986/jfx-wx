@@ -44,19 +44,24 @@ const totalPage = ref(0)
 const loading = ref(false)
 // 预约加载失败状态
 const loadFailed = ref(false)
+// 刷新失败后仍需重取第一页，不能沿用旧筛选的分页追加。
+const needsReset = ref(true)
 // 是否还有下一页预约
 const hasMore = computed(() => pageNum.value < totalPage.value)
 // 后端按类型和状态筛选后的分页列表。
 const list = computed(() => appointments.value)
-// 接口未提供状态统计，统计范围仅限已加载预约
-const count = (status: AppointmentStatus) =>
-  appointments.value.filter((item) => item.status === status).length
+// 全量统计由服务端提供，不受状态筛选和分页影响。
+const statusCounts = ref<Partial<Record<AppointmentStatus, number>>>({})
+const count = (status: AppointmentStatus) => statusCounts.value[status] ?? '—'
 
 // 加载员工预约列表
 const loadAppointments = async (reset = false) => {
+  reset = reset || needsReset.value
   if (loading.value || (!reset && !hasMore.value)) return
+  if (reset) needsReset.value = true
   const userId = Number(memberStore.profile?.id)
   if (!Number.isInteger(userId) || userId <= 0) {
+    statusCounts.value = {}
     appointments.value = []
     total.value = 0
     pageNum.value = 0
@@ -67,12 +72,6 @@ const loadAppointments = async (reset = false) => {
   const nextPage = reset ? 1 : pageNum.value + 1
   loading.value = true
   loadFailed.value = false
-  if (reset) {
-    appointments.value = []
-    pageNum.value = 0
-    total.value = 0
-    totalPage.value = 0
-  }
   try {
     const { data } = await getAssignedAppointmentListApi({
       userId,
@@ -82,11 +81,15 @@ const loadAppointments = async (reset = false) => {
       status: active.value === 'all' ? 'ALL' : active.value,
     })
     appointments.value = [
-      ...new Map([...appointments.value, ...data.list].map((item) => [item.id, item])).values(),
+      ...new Map(
+        [...(reset ? [] : appointments.value), ...data.list].map((item) => [item.id, item]),
+      ).values(),
     ]
+    statusCounts.value = data.statusCounts ?? {}
     pageNum.value = nextPage
     total.value = data.total
     totalPage.value = data.totalPage
+    needsReset.value = false
   } catch (error) {
     console.error('获取员工预约列表失败：', error)
     loadFailed.value = true
@@ -125,12 +128,12 @@ onShow(() => loadAppointments(true))
 </script>
 <template>
   <view class="page"
-    ><scroll-view class="scroll" scroll-y @scrolltolower="loadAppointments()" :lower-threshold="120"
+    ><view class="scroll"
       ><view class="content">
         <view class="overview"
           ><view class="title">预约线索跟进</view
           ><view class="tip">统一处理预算、量房、方案、案例和网点咨询</view
-          ><view class="tip">以下状态数量仅统计当前筛选结果中已加载的预约</view
+          ><view class="tip">以下状态数量统计当前类型的全部预约</view
           ><view class="stats"
             ><view
               ><text class="stats-value">{{ count('PENDING_CONTACT') }}</text
@@ -169,36 +172,50 @@ onShow(() => loadAppointments(true))
             ></view
           ></scroll-view
         >
-        <view class="count">当前筛选共 {{ total }} 条，已加载 {{ appointments.length }} 条</view>
-        <view class="list"
-          ><view v-for="item in list" :key="item.id" class="card" @click="openDetail(item.id)">
-            <view class="heading"
-              ><view
-                ><view class="card-title">{{ appointmentTypeText[item.type] }}</view
-                ><view class="source">{{ item.source }} · {{ item.appointmentNo }}</view></view
-              ><view class="status" :class="`status--${item.status}`"
-                ><text>{{ appointmentStatusText[item.status] }}</text></view
-              ></view
-            >
-            <view class="line"
-              ><text>客户</text><text>{{ item.customerName }} {{ item.mobile }}</text></view
-            ><view class="line"
-              ><text>需求</text><text>{{ summary(item) }}</text></view
-            ><view class="line"
-              ><text>更新时间</text><text>{{ formatDateTime(item.updatedAt) }}</text></view
-            >
-          </view></view
-        >
-        <view v-if="loading" class="load-state">加载中...</view>
-        <view v-else-if="loadFailed" class="load-state" @click="loadAppointments(pageNum === 0)"
-          >加载失败，点击重试</view
-        >
-        <template v-else>
-          <view v-if="!list.length" class="load-state">暂无符合条件的预约</view>
-          <view v-if="hasMore" class="load-state" @click="loadAppointments()">点击加载更多</view>
-          <view v-else-if="list.length" class="load-state">已加载全部预约</view>
-        </template>
-      </view></scroll-view
+        <view class="count">
+          <template v-if="needsReset && loading">正在更新筛选结果...</template>
+          <template v-else-if="needsReset && loadFailed">更新失败，当前保留上次结果</template>
+          <template v-else>当前筛选共 {{ total }} 条，已加载 {{ appointments.length }} 条</template>
+        </view>
+        <scroll-view
+          class="list-scroll"
+          scroll-y
+          @scrolltolower="loadAppointments()"
+          :lower-threshold="120"
+          ><view class="list"
+            ><view v-for="item in list" :key="item.id" class="card" @click="openDetail(item.id)">
+              <view class="heading"
+                ><view
+                  ><view class="card-title">{{ appointmentTypeText[item.type] }}</view
+                  ><view class="source">{{ item.source }} · {{ item.appointmentNo }}</view></view
+                ><view class="status" :class="`status--${item.status}`"
+                  ><text>{{ appointmentStatusText[item.status] }}</text></view
+                ></view
+              >
+              <view class="line"
+                ><text>客户</text><text>{{ item.customerName }} {{ item.mobile }}</text></view
+              ><view class="line"
+                ><text>需求</text><text>{{ summary(item) }}</text></view
+              ><view class="line"
+                ><text>更新时间</text><text>{{ formatDateTime(item.updatedAt) }}</text></view
+              >
+            </view></view
+          >
+          <view class="load-state" @click="loadAppointments()">{{
+            loading
+              ? needsReset
+                ? '正在更新...'
+                : '加载中...'
+              : loadFailed
+              ? '加载失败，点击重试'
+              : !list.length
+              ? '暂无符合条件的预约'
+              : hasMore
+              ? '点击加载更多'
+              : '已加载全部预约'
+          }}</view>
+        </scroll-view></view
+      ></view
     ></view
   >
 </template>
@@ -208,13 +225,24 @@ onShow(() => loadAppointments(true))
   height: 100vh;
   background: #f8f7f5;
 }
+.list-scroll {
+  flex: 1;
+  height: 0;
+  min-height: 0;
+}
 .load-state {
+  min-height: 36rpx;
+  line-height: 36rpx;
   padding: 30rpx 0;
   color: #888;
   font-size: 24rpx;
   text-align: center;
 }
 .content {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   padding: 24rpx;
 }
 .overview,
@@ -223,6 +251,7 @@ onShow(() => loadAppointments(true))
   border-radius: 18rpx;
 }
 .overview {
+  flex-shrink: 0;
   padding: 28rpx;
 }
 .title {
@@ -280,6 +309,9 @@ onShow(() => loadAppointments(true))
   background: #d92d20;
 }
 .count {
+  flex-shrink: 0;
+  min-height: 36rpx;
+  line-height: 36rpx;
   margin: 22rpx 4rpx 14rpx;
   color: #888;
   font-size: 24rpx;

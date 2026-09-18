@@ -1,5 +1,6 @@
 import type {
   AssignedAppointmentListParams,
+  AssignedAppointmentListResult,
   AppointmentListParams,
   CreateBudgetAppointmentInput,
   CreateCaseAppointmentInput,
@@ -18,7 +19,7 @@ import type { Appointment } from '@/types/renovation-business'
 
 /** 分页获取分配给当前员工的预约 */
 export const getAssignedAppointmentListApi = (params: AssignedAppointmentListParams) =>
-  request<AppointmentListResult>({
+  request<AssignedAppointmentListResult>({
     method: 'GET',
     url: '/appointment/assigned',
     data: params,

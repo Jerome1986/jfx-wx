@@ -167,8 +167,8 @@ const handleTodoClick = (label: string) => {
         <view class="content-card todo-card">
           <view class="card-heading">
             <text class="card-title">今日待办</text>
-            <view class="all-link" @click="requireLogin() && showComingSoon('全部待办')">
-              <text>共有{{ todoTotal }}项待办</text><text class="iconfont icon-youjiantou arrow" />
+            <view class="all-link">
+              <text>共有{{ todoTotal }}项待办</text>
             </view>
           </view>
           <view class="data-grid">

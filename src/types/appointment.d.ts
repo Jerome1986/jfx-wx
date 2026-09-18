@@ -65,6 +65,11 @@ export interface AppointmentListResult {
   totalPage: number
 }
 
+/** 员工及当前类型的全量状态统计 */
+export interface AssignedAppointmentListResult extends AppointmentListResult {
+  statusCounts: Record<Appointment['status'], number>
+}
+
 /** 取消预约结果 */
 export interface CancelAppointmentResult {
   /** 预约 ID */
