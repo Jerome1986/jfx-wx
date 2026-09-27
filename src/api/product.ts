@@ -1,4 +1,4 @@
-import { request } from '@/utils/http'
+import { request, type Data } from '@/utils/http'
 import type {
   ProductCategoryNode,
   ProductDetail,
@@ -27,3 +27,19 @@ export const getCategoryProducts = (categoryId: number, params: ProductPageParam
     url: `/product/category/${categoryId}`,
     data: { ...params, isPublished: true },
   })
+
+/** 按名称搜索商品，分页参数按接口约定传字符串。 */
+export const searchProducts = async (params: {
+  productName: string
+  pageNum: string
+  pageSize: string
+}): Promise<Data<ProductPage>> => {
+  // 兼容接口直接返回分页对象，以及项目统一响应包装。
+  const response: Data<ProductPage> | ProductPage = await request<ProductPage>({
+    method: 'GET',
+    url: '/product/web/search',
+    data: params,
+  })
+  if ('code' in response) return response
+  return { code: 200, message: 'success', data: response }
+}

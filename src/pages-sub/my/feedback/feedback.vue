@@ -1,23 +1,88 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { request } from '@/utils/http'
 
-// 反馈
+interface FeedbackRecord {
+  id: number
+  feedbackNo: string
+  type: string
+  content: string
+  status: 'PENDING' | 'PROCESSING'
+  createdAt: string
+}
+
 const feedbackTypes = ['功能建议', '服务体验', '订单问题', '其他']
-// 已选类型
 const selectedType = ref('功能建议')
-// 反馈内容
 const feedbackContent = ref('')
-// 内容
 const contentLength = computed(() => feedbackContent.value.length)
+const queryState = ref<'loading' | 'ready' | 'error'>('loading')
+const pendingFeedback = ref<FeedbackRecord | null>(null)
+const submitting = ref(false)
+const submitDisabled = computed(
+  () => queryState.value !== 'ready' || pendingFeedback.value !== null || submitting.value,
+)
 
-// 提交反馈
-const submitFeedback = () => {
-  if (!feedbackContent.value.trim()) {
-    uni.showToast({ title: '请填写反馈内容', icon: 'none' })
+const queryFeedback = async () => {
+  queryState.value = 'loading'
+  try {
+    const res = await request<FeedbackRecord | null>({ url: '/feedback/user', method: 'GET' })
+    if (res.code !== 200 || res.data === undefined) {
+      uni.showToast({ title: res.message || '查询反馈失败，请重试', icon: 'none' })
+      queryState.value = 'error'
+      return
+    }
+    pendingFeedback.value = res.data
+    queryState.value = 'ready'
+  } catch {
+    // 请求封装统一提示错误，查询失败不能视为没有未处理反馈。
+    queryState.value = 'error'
+  }
+}
+
+onShow(() => {
+  if (!submitting.value) void queryFeedback()
+})
+
+const submitFeedback = async () => {
+  if (submitDisabled.value) return
+  const type = selectedType.value.trim()
+  const content = feedbackContent.value.trim()
+  if (!type || type.length > 191) {
+    uni.showToast({ title: '请选择反馈类型，最多191个字符', icon: 'none' })
     return
   }
-
-  uni.showToast({ title: '感谢您的反馈', icon: 'success' })
+  if (!content || content.length > 5000) {
+    uni.showToast({ title: !content ? '请填写反馈内容' : '反馈内容最多5000个字符', icon: 'none' })
+    return
+  }
+  submitting.value = true
+  try {
+    const res = await request<FeedbackRecord>({
+      url: '/feedback/submit',
+      method: 'POST',
+      header: { 'Content-Type': 'application/json' },
+      data: { type, content },
+    })
+    if (res.code !== 200 || !res.data) {
+      uni.showToast({ title: res.message || '提交失败，请重试', icon: 'none' })
+      await queryFeedback()
+      return
+    }
+    pendingFeedback.value = res.data
+    feedbackContent.value = ''
+    uni.showToast({ title: '提交成功', icon: 'success' })
+  } catch (error) {
+    // 冲突或网络失败时可能已经落库，重新查询后再开放提交。
+    const statusCode = (error as { statusCode?: number })?.statusCode
+    if (statusCode === 401 || statusCode === 403) {
+      queryState.value = 'error'
+    } else if (statusCode !== 400) {
+      await queryFeedback()
+    }
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
 
@@ -68,19 +133,35 @@ const submitFeedback = () => {
             <textarea
               v-model="feedbackContent"
               class="feedback-textarea"
-              :maxlength="300"
+              :maxlength="5000"
               placeholder="请描述你遇到的问题或建议，例如页面、操作步骤、希望如何优化等"
               placeholder-class="textarea-placeholder"
               :show-confirm-bar="false"
             />
-            <text class="content-count">{{ contentLength }}/300</text>
+            <text class="content-count">{{ contentLength }}/5000</text>
           </view>
         </view>
       </view>
     </scroll-view>
 
     <view class="submit-bar">
-      <button class="submit-button" @click="submitFeedback">预约安装</button>
+      <view v-if="queryState === 'loading'" class="feedback-status">正在查询反馈状态…</view>
+      <view v-else-if="queryState === 'error'" class="feedback-status">
+        反馈状态查询失败，请重试
+        <button class="retry-button" :disabled="submitting" @click="queryFeedback">重新查询</button>
+      </view>
+      <view v-else-if="pendingFeedback" class="feedback-status">
+        您有待处理的反馈，请耐心等候
+        <text>（{{ pendingFeedback.status === 'PROCESSING' ? '处理中' : '待处理' }}）</text>
+      </view>
+      <button
+        class="submit-button"
+        :disabled="submitDisabled"
+        :loading="submitting"
+        @click="submitFeedback"
+      >
+        提交
+      </button>
     </view>
   </view>
 </template>
@@ -282,5 +363,21 @@ const submitFeedback = () => {
 
 .submit-button::after {
   border: 0;
+}
+.submit-button[disabled] {
+  color: #ffffff;
+  background: #cccccc;
+}
+
+.feedback-status {
+  margin-bottom: 16rpx;
+  color: #777777;
+  font-size: 24rpx;
+  text-align: center;
+}
+
+.retry-button {
+  margin-top: 12rpx;
+  font-size: 24rpx;
 }
 </style>

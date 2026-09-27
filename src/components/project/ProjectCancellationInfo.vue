@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { RenovationProject } from '@/types/renovation-business'
-import { formatDateTime } from '@/utils/format'
+import { formatTimestamp } from '@/utils/format'
 defineProps<{ project: RenovationProject }>()
 </script>
 <template>
@@ -8,7 +8,7 @@ defineProps<{ project: RenovationProject }>()
     <view class="heading">取消记录</view>
     <view class="reason">{{ project.cancelReason || '暂无取消原因记录' }}</view>
     <view v-if="project.canceledAt" class="time"
-      >取消时间：{{ formatDateTime(project.canceledAt) }}</view
+      >取消时间：{{ formatTimestamp(project.canceledAt, 2) }}</view
     >
     <view class="note">项目已停止，原报价及明细保留供查看。</view>
   </view>

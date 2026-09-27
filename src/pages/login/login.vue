@@ -5,7 +5,18 @@ import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 
 const returnTo = ref('')
+const caseId = ref('')
+const shareEmployeeId = ref('')
+const caseSource = ref('')
 onLoad((query) => {
+  console.log('share', query)
+
+  const id = Number(query?.id)
+  if (Number.isSafeInteger(id) && id > 0) {
+    caseId.value = String(id)
+    shareEmployeeId.value = query?.employeeId || ''
+    caseSource.value = query?.source === 'employee' ? 'employee' : ''
+  }
   let target = query?.returnTo || ''
   try {
     target = decodeURIComponent(target)
@@ -21,6 +32,13 @@ onLoad((query) => {
   }
 })
 const returnAfterLogin = () => {
+  if (caseId.value) {
+    if (memberStore.profile?.role === 'EMPLOYEE') shareEmployeeId.value = ''
+    let url = `/pages/caseDetail/caseDetail?id=${caseId.value}`
+    if (shareEmployeeId.value) url += `&employeeId=${encodeURIComponent(shareEmployeeId.value)}`
+    if (caseSource.value) url += '&source=employee'
+    return uni.redirectTo({ url })
+  }
   const url = returnTo.value
   if (!url) return uni.switchTab({ url: '/pages/my/my' })
   if (url === '/pages/cart/cart' || url === '/pages/product/product') return uni.switchTab({ url })

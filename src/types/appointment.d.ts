@@ -38,6 +38,8 @@ export interface CreatePlanAppointmentResult {
 export interface CreateCaseAppointmentInput {
   /** 需要咨询同款报价的装修案例 ID */
   caseId: number
+  /** 当前案例分享员工编号 */
+  employeeId?: number
 }
 
 /** 员工补录的预约客户及房屋需求信息 */

@@ -6,7 +6,7 @@ import { useMemberStore } from '@/stores'
 import { appointmentStatusText, appointmentTypeText } from '@/stores/modules/renovation-business'
 import type { Appointment, AppointmentStatus, AppointmentType } from '@/types/renovation-business'
 import { getAppointmentSummary } from '@/utils/appointment'
-import { formatDateTime } from '@/utils/format'
+import { formatTimestamp } from '@/utils/format'
 type Filter = 'all' | AppointmentStatus
 // 预约状态筛选项
 const filters: Array<{ label: string; value: Filter }> = [
@@ -197,7 +197,7 @@ onShow(() => loadAppointments(true))
               ><view class="line"
                 ><text>需求</text><text>{{ summary(item) }}</text></view
               ><view class="line"
-                ><text>更新时间</text><text>{{ formatDateTime(item.updatedAt) }}</text></view
+                ><text>更新时间</text><text>{{ formatTimestamp(item.updatedAt, 2) }}</text></view
               >
             </view></view
           >

@@ -5,7 +5,7 @@ import { getAppointmentListApi } from '@/api/appointment'
 import { appointmentStatusText, appointmentTypeText } from '@/stores/modules/renovation-business'
 import type { Appointment, AppointmentType } from '@/types/renovation-business'
 import { getAppointmentSummary } from '@/utils/appointment'
-import { formatDateTime, maskMobile } from '@/utils/format'
+import { formatTimestamp, maskMobile } from '@/utils/format'
 
 // 每页加载数量
 const PAGE_SIZE = 10
@@ -182,7 +182,7 @@ onShow(() => {
               >
               <view class="line"
                 ><text>提交时间：</text
-                ><text>{{ formatDateTime(item.createdAt, '待确认') }}</text></view
+                ><text>{{ formatTimestamp(item.createdAt, 2) || '待确认' }}</text></view
               >
               <view class="line"
                 ><text>联系方式：</text><text>{{ maskMobile(item.mobile, '暂未填写') }}</text></view

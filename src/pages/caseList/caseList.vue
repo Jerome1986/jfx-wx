@@ -17,7 +17,7 @@ const isEmployeeMode = ref(false)
 // 已选分享案例
 const selectedShareCase = ref<CaseItem>()
 // 员工编号
-const employeeId = computed(() => memberStore.profile?.employeeId)
+const employeeId = computed(() => memberStore.profile?.employee?.id)
 
 // 案例列表
 const caseList = ref<CaseItem[]>([])
@@ -184,6 +184,8 @@ onShareAppMessage(() => {
       path: '/pages/caseList/caseList',
     }
   }
+  console.log('分享参数', item.id, ownerId)
+
   return {
     title: item.title,
     path: `/pages/caseDetail/caseDetail?id=${item.id}&employeeId=${encodeURIComponent(ownerId)}`,
@@ -450,6 +452,7 @@ onShareAppMessage(() => {
 .before-text {
   left: 10rpx;
 }
+
 .after-text {
   left: calc(50% + 10rpx);
 }
@@ -534,16 +537,19 @@ onShareAppMessage(() => {
 .quote-cost {
   flex-shrink: 0;
 }
+
 .quote-label {
   color: $jfx-font-dec;
   font-size: 20rpx;
   line-height: 30rpx;
 }
+
 .quote-price {
   color: $jfx-brandColor;
   font-size: 28rpx;
   line-height: 40rpx;
 }
+
 .price-symbol {
   margin-right: 3rpx;
   font-size: 20rpx;
@@ -575,6 +581,7 @@ onShareAppMessage(() => {
   display: flex;
   align-items: center;
 }
+
 .received-avatars {
   width: 56rpx;
   height: 24rpx;

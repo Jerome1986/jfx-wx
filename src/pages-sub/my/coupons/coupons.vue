@@ -1,26 +1,85 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { CouponItem } from '@/types/coupons'
+import { onShow } from '@dcloudio/uni-app'
+import { useMemberStore } from '@/stores/modules/member'
+
+const memberStore = useMemberStore()
+const now = ref(Date.now())
+onShow(() => {
+  now.value = Date.now()
+})
 
 // 当前标签页
 const activeTab = ref<'available' | 'expired'>('available')
 
 // 优惠券列表
-const coupons: CouponItem[] = [
-  { id: 1, amount: 86, threshold: 1000, expiry: '2026-06-30', status: 'available' },
-  { id: 2, amount: 200, threshold: 2000, expiry: '2026-06-30', status: 'available' },
-  { id: 3, amount: 200, threshold: 2000, expiry: '2026-06-30', status: 'expired' },
-]
+const coupons = computed<CouponItem[]>(() =>
+  (memberStore.profile?.userCoupons ?? []).map((record) => {
+    const coupon = record.coupon
+    const expiresAt = Math.min(Date.parse(record.expiresAt), Date.parse(coupon.validTo))
+    const started = Date.parse(coupon.validFrom) <= now.value
+    const expired = expiresAt <= now.value
+    const invalid =
+      record.status !== 'AVAILABLE' ||
+      coupon.status !== 'PUBLISHED' ||
+      expired ||
+      !Number.isFinite(expiresAt)
+    const statusLabel =
+      record.status === 'USED'
+        ? '已使用'
+        : record.status === 'EXPIRED' || expired
+        ? '已过期'
+        : invalid
+        ? '已失效'
+        : !started
+        ? '未生效'
+        : '去使用'
+    const date = new Date(expiresAt)
+    const expiry = Number.isFinite(expiresAt)
+      ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+          date.getDate(),
+        ).padStart(2, '0')}`
+      : '暂无'
+    return {
+      id: record.id,
+      name: coupon.name,
+      amount: Number(coupon.amount),
+      threshold: Number(coupon.threshold),
+      scopeType: coupon.scopeType,
+      scope: { ALL: '适用于平台订单', RENOVATION: '适用于装修订单', PRODUCT: '适用于商品订单' }[
+        coupon.scopeType
+      ],
+      expiry,
+      expiresAt,
+      status: invalid ? 'expired' : 'available',
+      statusLabel,
+      usable: !invalid && started,
+    }
+  }),
+)
+const availableCount = computed(() => coupons.value.filter((item) => item.usable).length)
+// 即将过期按未来 7 天内到期的可用券统计。
+const expiringCount = computed(
+  () =>
+    coupons.value.filter(
+      (item) => item.usable && item.expiresAt - now.value <= 7 * 24 * 60 * 60 * 1000,
+    ).length,
+)
 
-// 默认态按原型展示完整的三张券，失效页只展示失效记录。
+// 未生效的券保留在可用标签下展示，但不可点击使用。
 const visibleCoupons = computed(() =>
-  activeTab.value === 'available' ? coupons : coupons.filter((item) => item.status === 'expired'),
+  coupons.value.filter((item) => item.status === activeTab.value),
 )
 
 // 获取优惠券展示状态
 const useCoupon = (item: CouponItem) => {
-  if (item.status === 'expired') return
-  uni.switchTab({ url: '/pages/product/product' })
+  now.value = Date.now()
+  const current = coupons.value.find((coupon) => coupon.id === item.id)
+  if (!current?.usable) return
+  uni.switchTab({
+    url: item.scopeType === 'RENOVATION' ? '/pages/home/home' : '/pages/product/product',
+  })
 }
 </script>
 
@@ -31,11 +90,11 @@ const useCoupon = (item: CouponItem) => {
         <view class="overview-card">
           <view class="overview-left">
             <view class="overview-title">可用优惠券</view>
-            <view class="overview-count">3</view>
+            <view class="overview-count">{{ availableCount }}</view>
             <view class="overview-description">下单时可选择符合条件的优惠<br />券抵扣订单金额</view>
           </view>
           <view class="overview-right">
-            <view class="expiring-badge">即将过期1张</view>
+            <view v-if="expiringCount" class="expiring-badge">7天内到期{{ expiringCount }}张</view>
             <view class="expiring-description">过期或失效后将不再展示为<br />可用券</view>
           </view>
         </view>
@@ -56,6 +115,10 @@ const useCoupon = (item: CouponItem) => {
         </view>
 
         <view class="coupon-list">
+          <wd-empty
+            v-if="!visibleCoupons.length"
+            :tip="activeTab === 'available' ? '暂无可用优惠券' : '暂无失效优惠券'"
+          />
           <view
             v-for="item in visibleCoupons"
             :key="item.id"
@@ -66,28 +129,27 @@ const useCoupon = (item: CouponItem) => {
                 <text class="currency">¥</text>
                 <text class="amount">{{ item.amount }}</text>
               </view>
-              <view class="threshold">满¥{{ item.threshold }}可用</view>
+              <view class="threshold">{{
+                item.threshold > 0 ? `满¥${item.threshold}可用` : '无门槛'
+              }}</view>
             </view>
             <view class="coupon-divider" />
             <view class="coupon-detail">
               <view class="detail-copy">
-                <view>适用于平台可用订单</view>
+                <view>{{ item.name }}</view>
+                <view>{{ item.scope }}</view>
                 <view>有效期至 {{ item.expiry }}</view>
                 <view>最终可用范围以确认订单页为准</view>
               </view>
-              <button
-                v-if="item.status === 'available'"
-                class="coupon-action"
-                @click="useCoupon(item)"
-              >
+              <button v-if="item.usable" class="coupon-action" @click="useCoupon(item)">
                 去使用
               </button>
-              <view v-else class="expired-badge">已失效</view>
+              <view v-else class="expired-badge">{{ item.statusLabel }}</view>
             </view>
           </view>
         </view>
 
-        <view class="list-tip">继续下滑查看更多优惠券</view>
+        <view v-if="visibleCoupons.length" class="list-tip">已显示全部优惠券</view>
       </view>
     </scroll-view>
   </view>
@@ -246,6 +308,7 @@ const useCoupon = (item: CouponItem) => {
   min-width: 0;
   flex: 1;
   align-items: flex-start;
+  padding-top: 48rpx;
 }
 .detail-copy {
   min-width: 0;
@@ -253,7 +316,7 @@ const useCoupon = (item: CouponItem) => {
   font-size: 24rpx;
   font-weight: 400;
   line-height: 34rpx;
-  white-space: nowrap;
+  overflow-wrap: break-word;
 }
 .coupon-action {
   position: absolute;

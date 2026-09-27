@@ -17,6 +17,7 @@ export const useMemberStore = defineStore(
     const setProfile = (val: MemberProfile) => {
       profile.value = {
         ...val,
+        employee: val.employee ?? null,
         role: val.role || 'CUSTOMER',
         points: val.points ?? 0,
         appointmentCount: val.appointmentCount ?? 0,

@@ -2,6 +2,8 @@
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { cancelAppointmentApi, getAppointmentDetailApi } from '@/api/appointment'
+import { getCaseDetailApi } from '@/api/case'
+import { useMemberStore } from '@/stores'
 import { appointmentStatusText } from '@/stores/modules/renovation-business'
 import type { Appointment } from '@/types/renovation-business'
 
@@ -9,6 +11,59 @@ import type { Appointment } from '@/types/renovation-business'
 const appointmentId = ref(0)
 // 当前预约详情
 const appointment = ref<Appointment>()
+const memberStore = useMemberStore()
+const openingCase = ref(false)
+const caseUnavailable = ref(false)
+const caseCoverFailed = ref(false)
+const relatedCaseId = computed(() => appointment.value?.caseId || appointment.value?.case?.id)
+const canOpenCase = computed(
+  () =>
+    Number.isSafeInteger(relatedCaseId.value) &&
+    Number(relatedCaseId.value) > 0 &&
+    !caseUnavailable.value,
+)
+// 优先保留预约时的标题、封面和金额，关联案例用于补全展示。
+const caseTitle = computed(
+  () => appointment.value?.snapshot?.title || appointment.value?.case?.title || '预约案例',
+)
+const caseCover = computed(
+  () =>
+    appointment.value?.snapshot?.cover ||
+    appointment.value?.case?.afterImage ||
+    appointment.value?.case?.beforeImage,
+)
+const caseMeta = computed(() => {
+  const item = appointment.value?.case
+  return [item?.city, item?.roomType, item?.area ? `${item.area}㎡` : '', item?.style]
+    .filter(Boolean)
+    .join(' · ')
+})
+const casePrice = computed(
+  () => appointment.value?.snapshot?.referencePrice || appointment.value?.case?.totalPrice,
+)
+// 打开前确认案例仍可访问；网络失败允许重试，不判定为案例已删除。
+const openCase = async () => {
+  if (!canOpenCase.value || openingCase.value) return
+  const userId = Number(memberStore.profile?.id)
+  if (!Number.isSafeInteger(userId) || userId <= 0) {
+    uni.showToast({ title: '请先登录后查看案例', icon: 'none' })
+    return
+  }
+  openingCase.value = true
+  try {
+    const { data, code } = await getCaseDetailApi(Number(relatedCaseId.value), userId)
+    if (code === 404 || (code === 200 && !data)) {
+      caseUnavailable.value = true
+      return
+    }
+    if (code !== 200) return
+    uni.navigateTo({ url: `/pages/caseDetail/caseDetail?id=${relatedCaseId.value}` })
+  } catch (error) {
+    if ((error as { statusCode?: number }).statusCode === 404) caseUnavailable.value = true
+  } finally {
+    openingCase.value = false
+  }
+}
 // 详情加载状态
 const loading = ref(true)
 // 详情加载失败状态
@@ -169,6 +224,8 @@ const loadAppointmentDetail = async () => {
   try {
     const { data } = await getAppointmentDetailApi(appointmentId.value)
     appointment.value = data
+    caseUnavailable.value = false
+    caseCoverFailed.value = false
   } catch (error) {
     console.error('获取预约详情失败：', error)
     appointment.value = undefined
@@ -401,16 +458,34 @@ onLoad((options) => {
         <template v-else-if="appointment.type === 'CASE'">
           <view class="section-card">
             <view class="section-title">咨询案例</view>
-            <view class="snapshot-heading">{{
-              appointment.snapshot?.title || appointment.demand
-            }}</view>
-            <view class="requirement-tags"
-              ><text>同款咨询</text><text>参考报价</text
-              ><text>{{ appointment.city || '城市待确认' }}</text></view
+            <view class="related-case" @click="openCase">
+              <image
+                v-if="caseCover && !caseCoverFailed"
+                class="case-cover"
+                :src="caseCover"
+                mode="aspectFill"
+                @error="caseCoverFailed = true"
+              />
+              <view v-else class="case-cover case-cover-placeholder">暂无案例图片</view>
+              <view class="case-summary">
+                <view class="case-title">{{ caseTitle }}</view>
+                <view v-if="caseMeta" class="case-meta">{{ caseMeta }}</view>
+                <view v-if="casePrice" class="snapshot-price">
+                  {{ appointment.snapshot?.referencePrice ? '预约时参考金额' : '案例当前参考金额' }}
+                  ¥{{ casePrice }}
+                </view>
+              </view>
+            </view>
+            <button
+              v-if="canOpenCase"
+              class="case-link"
+              :loading="openingCase"
+              :disabled="openingCase"
+              @click="openCase"
             >
-            <view v-if="appointment.snapshot?.referencePrice" class="snapshot-price"
-              >案例参考金额 {{ appointment.snapshot.referencePrice }}</view
-            >
+              查看案例
+            </button>
+            <view v-else class="section-tip">案例暂不可查看，已保留预约记录中的案例信息。</view>
           </view>
           <view class="section-card">
             <view class="section-title">咨询需求</view>
@@ -727,6 +802,55 @@ onLoad((options) => {
   border: 0;
 }
 
+.related-case {
+  display: flex;
+  margin-top: 20rpx;
+  gap: 20rpx;
+}
+.case-cover {
+  width: 180rpx;
+  height: 160rpx;
+  flex-shrink: 0;
+  border-radius: 12rpx;
+}
+.case-cover-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  background: #f5f5f5;
+  font-size: 22rpx;
+}
+.case-summary {
+  min-width: 0;
+  flex: 1;
+}
+.case-title {
+  color: #222;
+  font-size: 26rpx;
+  font-weight: 600;
+  line-height: 38rpx;
+  word-break: break-all;
+}
+.case-meta {
+  margin-top: 10rpx;
+  color: #777;
+  font-size: 22rpx;
+  line-height: 34rpx;
+}
+.case-link {
+  width: fit-content;
+  margin: 20rpx 0 0 auto;
+  padding: 0 24rpx;
+  color: $jfx-brandColor;
+  background: #fff0ef;
+  font-size: 22rpx;
+  line-height: 56rpx;
+  border-radius: 28rpx;
+}
+.case-link::after {
+  border: 0;
+}
 .snapshot-heading {
   margin-top: 16rpx;
   color: #222;

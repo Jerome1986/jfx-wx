@@ -1,19 +1,21 @@
 <script setup lang="ts">
 import { canSubmitAppointment } from '@/utils/appointment-access'
 import { computed, ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
+import {
+  calendarPickerDate,
+  calendarPickerValue,
+  shanghaiCalendarDate,
+  isCalendarDate,
+  validateBooking,
+} from '@/utils/order-booking'
 import type { AppointmentDate, CalendarConfirmEvent, TimeSlot } from '@/types/appointment'
 
 // 星期文案列表
 const WEEK_LABELS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
-// 生成从今天开始的五个快捷安装日期
-const createLocalDate = (offset = 0) => {
-  // 日期
-  const date = new Date()
-  date.setHours(0, 0, 0, 0)
-  date.setDate(date.getDate() + offset)
-  return date
-}
+// 根据偏移天数生成本地日期
+const createLocalDate = (offset = 0) => new Date(calendarPickerValue(shanghaiCalendarDate(offset)))
 
 // 格式化日期
 const formatFullDate = (timestamp: number) => {
@@ -22,12 +24,12 @@ const formatFullDate = (timestamp: number) => {
   return `${date.getMonth() + 1}月${date.getDate()}日`
 }
 
-// 日期列表
+// 从明天开始的五个快捷安装日期
 const dates: AppointmentDate[] = Array.from({ length: 5 }, (_, index) => {
   // 日期
-  const date = createLocalDate(index)
+  const date = createLocalDate(index + 1)
   return {
-    label: index === 0 ? '今天' : index === 1 ? '明天' : WEEK_LABELS[date.getDay()],
+    label: index === 0 ? '明天' : WEEK_LABELS[date.getDay()],
     date: `${date.getMonth() + 1}/${date.getDate()}`,
     fullDate: formatFullDate(date.getTime()),
     timestamp: date.getTime(),
@@ -45,15 +47,15 @@ const timeSlots: TimeSlot[] = [
 // 日历
 const calendarRef = ref<any>()
 // 最小日期
-const minDate = createLocalDate().getTime()
+const minDate = createLocalDate(1).getTime()
 // 最大日期
 const maxDate = createLocalDate(60).getTime()
 // 已选日期
-const selectedDateIndex = ref(1)
+const selectedDateIndex = ref(0)
 // 已选日期
-const selectedDateTimestamp = ref(dates[1].timestamp)
+const selectedDateTimestamp = ref(dates[0].timestamp)
 // 日历值
-const calendarValue = ref(dates[1].timestamp)
+const calendarValue = ref(dates[0].timestamp)
 // 已选时间
 const selectedTimeIndex = ref(0)
 // 已选日期
@@ -81,14 +83,36 @@ const confirmCalendarDate = ({ value }: CalendarConfirmEvent) => {
   // 已选择日期
   const chosenDate = new Date(value)
   chosenDate.setHours(0, 0, 0, 0)
+  if (
+    !Number.isFinite(chosenDate.getTime()) ||
+    chosenDate.getTime() < minDate ||
+    chosenDate.getTime() > maxDate
+  )
+    return
   selectedDateTimestamp.value = chosenDate.getTime()
   calendarValue.value = chosenDate.getTime()
   selectedDateIndex.value = dates.findIndex((item) => item.timestamp === chosenDate.getTime())
 }
 
+onLoad((query) => {
+  const date = String(query?.appointmentDate || '')
+  const slot = String(query?.timeSlot || '')
+  if (isCalendarDate(date) && date >= shanghaiCalendarDate(1) && date <= shanghaiCalendarDate(60)) {
+    confirmCalendarDate({ value: calendarPickerValue(date) })
+  }
+  const index = timeSlots.findIndex((item) => item.time === slot)
+  if (index >= 0) selectedTimeIndex.value = index
+})
+
 // 确认预约后将时间回传给确认订单页
 const confirmAppointment = () => {
   if (!canSubmitAppointment()) return
+  const date = calendarPickerDate(selectedDateTimestamp.value)
+  const error = validateBooking(date, selectedTime.value.time)
+  if (error || date < shanghaiCalendarDate(1) || date > shanghaiCalendarDate(60)) {
+    uni.showToast({ title: error || '请选择明天至未来60天的日期', icon: 'none' })
+    return
+  }
   // 当前页面栈
   const pages = getCurrentPages()
   // 当前页面实例
@@ -96,8 +120,8 @@ const confirmAppointment = () => {
   // 页面间事件通道
   const eventChannel = currentPage?.getOpenerEventChannel?.()
   eventChannel?.emit('appointmentSelected', {
-    date: selectedDate.value.fullDate,
-    time: selectedTime.value.time,
+    appointmentDate: date,
+    timeSlot: selectedTime.value.time,
   })
   uni.navigateBack()
 }
@@ -167,7 +191,7 @@ const confirmAppointment = () => {
         <view class="description-card">
           <view class="description-title">预约说明</view>
           <view class="description-line">1.提交订单后，客服会按所选时间确认师傅排期</view>
-          <view class="description-line">2.如需改期，可在订单详情中联系专属客服</view>
+          <view class="description-line">2.下单后安装时间已锁定，请在提交前确认</view>
         </view>
       </view>
     </scroll-view>

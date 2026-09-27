@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { onLoad, onUnload } from '@dcloudio/uni-app'
+import { getPointRecords, getScoreSummary } from '@/api/points'
 import type { PointsRecord, PointsType } from '@/types/points'
 
 // 当前类型
@@ -11,55 +13,94 @@ const filters: Array<{ label: string; value: PointsType }> = [
   { label: '收入', value: 'income' },
   { label: '使用', value: 'expense' },
 ]
+const apiTypeMap = {
+  all: 'ALL',
+  income: 'INCOME',
+  expense: 'EXPENSE',
+} as const
+const summary = ref({
+  points: 0,
+  monthlyIncome: 0,
+  totalIncome: 0,
+  totalExpense: 0,
+})
 
-// 记录列表
-const records: PointsRecord[] = [
-  {
-    id: 1,
-    type: 'income',
-    title: '完成厨房改造订单',
-    description: '订单服务完成后获得积分',
-    date: '2026-06-17 18:24',
-    amount: 260,
-  },
-  {
-    id: 2,
-    type: 'income',
-    title: '完成厨房改造订单',
-    description: '订单服务完成后获得积分',
-    date: '2026-06-17 18:24',
-    amount: 260,
-  },
-  {
-    id: 3,
-    type: 'income',
-    title: '完成厨房改造订单',
-    description: '订单服务完成后获得积分',
-    date: '2026-06-17 18:24',
-    amount: 260,
-  },
-  {
-    id: 4,
-    type: 'income',
-    title: '完成厨房改造订单',
-    description: '订单服务完成后获得积分',
-    date: '2026-06-17 18:24',
-    amount: 260,
-  },
-  {
-    id: 5,
-    type: 'expense',
-    title: '商品购买',
-    description: '抵扣积分',
-    date: '2026-06-17 18:24',
-    amount: -300,
-  },
-]
+const loadSummary = async () => {
+  try {
+    const { data } = await getScoreSummary()
+    summary.value = {
+      points: Number(data.points ?? data.availablePoints ?? data.score ?? 0),
+      monthlyIncome: Number(data.monthlyIncome ?? data.monthlyEarned ?? data.monthIncome ?? 0),
+      totalIncome: Number(data.totalIncome ?? data.totalEarned ?? data.totalPointsEarned ?? 0),
+      totalExpense: Number(data.totalExpense ?? data.totalUsed ?? data.totalPointsUsed ?? 0),
+    }
+  } catch (error) {
+    console.error('获取积分统计失败：', error)
+  }
+}
 
-// 可见记录列表
-const visibleRecords = computed(() =>
-  activeType.value === 'all' ? records : records.filter((item) => item.type === activeType.value),
-)
+// 积分记录分页状态
+const records = ref<PointsRecord[]>([])
+const pageNum = ref(0)
+const totalPage = ref(0)
+const loading = ref(false)
+const loadFailed = ref(false)
+const hasMore = computed(() => pageNum.value < totalPage.value)
+let requestId = 0
+
+// 加载积分明细，切换筛选时从第一页重新加载
+const loadRecords = async (reset = false) => {
+  if (!reset && (loading.value || !hasMore.value)) return
+  const currentRequest = ++requestId
+  const nextPage = reset ? 1 : pageNum.value + 1
+  if (reset) {
+    pageNum.value = 0
+    totalPage.value = 0
+  }
+  loading.value = true
+  loadFailed.value = false
+  try {
+    const { data } = await getPointRecords({
+      type: apiTypeMap[activeType.value],
+      pageNum: nextPage,
+      pageSize: 20,
+    })
+    if (currentRequest !== requestId) return
+    const normalizedRecords = data.list.map(
+      (item) =>
+        ({
+          ...item,
+          type:
+            String(item.type).toUpperCase() === 'INCOME' || Number(item.amount) > 0
+              ? 'income'
+              : 'expense',
+        } as PointsRecord),
+    )
+    records.value = reset ? normalizedRecords : [...records.value, ...normalizedRecords]
+    pageNum.value = Number(data.pageNum)
+    totalPage.value = Number(data.totalPage)
+  } catch (error) {
+    if (currentRequest !== requestId) return
+    loadFailed.value = true
+    console.error('获取积分明细失败：', error)
+  } finally {
+    if (currentRequest === requestId) loading.value = false
+  }
+}
+
+const selectType = (type: PointsType) => {
+  if (activeType.value === type) return
+  activeType.value = type
+  void loadRecords(true)
+}
+
+onLoad(() => {
+  void loadSummary()
+  void loadRecords(true)
+})
+onUnload(() => {
+  requestId++
+})
 
 // 显示积分
 const showPointsHelp = () => {
@@ -75,13 +116,19 @@ const showPointsHelp = () => {
 
 <template>
   <view class="points-page">
-    <scroll-view class="points-scroll" scroll-y :show-scrollbar="false">
+    <scroll-view
+      class="points-scroll"
+      scroll-y
+      :show-scrollbar="false"
+      lower-threshold="120"
+      @scrolltolower="loadRecords()"
+    >
       <view class="page-content">
         <view class="summary-card">
           <view class="summary-top">
             <view class="balance-block">
               <view class="summary-label">可用积分</view>
-              <view class="balance-value">811</view>
+              <view class="balance-value">{{ summary.points }}</view>
               <view class="balance-caption">当前可用于订单抵扣的积分</view>
             </view>
             <view class="usable-card">
@@ -101,15 +148,15 @@ const showPointsHelp = () => {
           <view class="summary-stats">
             <view class="summary-stat">
               <text class="stat-name">本月收入</text>
-              <text class="stat-number income-number">+320</text>
+              <text class="stat-number income-number">+{{ summary.monthlyIncome }}</text>
             </view>
             <view class="summary-stat">
               <text class="stat-name">累计收入</text>
-              <text class="stat-number">1460</text>
+              <text class="stat-number">{{ summary.totalIncome }}</text>
             </view>
             <view class="summary-stat">
               <text class="stat-name">已抵扣</text>
-              <text class="stat-number">649</text>
+              <text class="stat-number">{{ summary.totalExpense }}</text>
             </view>
           </view>
         </view>
@@ -120,15 +167,15 @@ const showPointsHelp = () => {
             v-for="item in filters"
             :key="item.value"
             :class="['filter-tab', { active: activeType === item.value }]"
-            @click="activeType = item.value"
+            @click="selectType(item.value)"
           >
             {{ item.label }}
           </view>
         </view>
 
         <view class="records-card">
-          <view v-if="visibleRecords.length" class="records-list">
-            <view v-for="item in visibleRecords" :key="item.id" class="record-item">
+          <view v-if="records.length" class="records-list">
+            <view v-for="item in records" :key="item.id" class="record-item">
               <view :class="['record-icon', item.type]">
                 <image
                   class="record-symbol"
@@ -150,7 +197,12 @@ const showPointsHelp = () => {
               }}</view>
             </view>
           </view>
-          <view v-else class="empty-state">暂无积分记录</view>
+          <view v-else-if="!loading && !loadFailed" class="empty-state">暂无积分记录</view>
+          <view v-if="loading" class="list-state">正在加载...</view>
+          <view v-else-if="loadFailed" class="list-state retry" @click="loadRecords(pageNum === 0)">
+            加载失败，点击重试
+          </view>
+          <view v-else-if="records.length && !hasMore" class="list-state">没有更多记录了</view>
           <view class="history-tip">仅显示近6个月积分记录</view>
         </view>
       </view>
@@ -387,6 +439,15 @@ const showPointsHelp = () => {
   color: #aaa;
   font-size: 24rpx;
   text-align: center;
+}
+.list-state {
+  padding: 28rpx 0 8rpx;
+  color: #aaa;
+  font-size: 24rpx;
+  text-align: center;
+}
+.list-state.retry {
+  color: #d92d20;
 }
 .history-tip {
   padding: 38rpx 0 28rpx;

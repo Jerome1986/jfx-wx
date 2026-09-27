@@ -721,3 +721,43 @@ test('共用取消接口发送 PATCH 且不携带请求体', async () => {
   assert.equal(calls[0].method, 'PATCH')
   assert.equal('data' in calls[0], false)
 })
+
+for (const role of ['EMPLOYEE', 'CUSTOMER']) {
+  test('case share recipient role: ' + role, async () => {
+    let onLoad
+    let appointmentCalls = 0
+    const member = { profile: { id: 3, role } }
+    const page = load('src/pages/caseDetail/caseDetail.vue', {
+      '@dcloudio/uni-app': { onLoad(fn) { onLoad = fn }, onShareAppMessage() {} },
+      '@/stores': { useMemberStore: () => member },
+      '@/api/case': { getCaseDetailApi: async () => ({ data: null }) },
+      '@/api/favorite': {},
+      '@/api/appointment': { createCaseAppointmentApi: async () => { appointmentCalls++ } },
+    }, {
+      uni: { showToast() {}, navigateTo() {} }, setTimeout() {},
+    }, 'shareEmployeeId, requestQuote, detail, isEmployeeAccount')
+    onLoad({ id: '12', employeeId: '99' })
+    await Promise.resolve()
+    assert.equal(page.shareEmployeeId.value, role === 'EMPLOYEE' ? '' : '99')
+    assert.equal(page.isEmployeeAccount.value, role === 'EMPLOYEE')
+    page.detail.value = {}
+    await page.requestQuote()
+    assert.equal(appointmentCalls, role === 'EMPLOYEE' ? 0 : 1)
+  })
+
+  test('case share login resolves recipient role: ' + role, () => {
+    let onLoad
+    let destination
+    const member = { profile: undefined }
+    const page = load('src/pages/login/login.vue', {
+      '@dcloudio/uni-app': { onLoad(fn) { onLoad = fn } },
+      '@/stores': { useMemberStore: () => member }, '@/api/user': {},
+    }, { uni: { redirectTo({ url }) { destination = url } } }, 'returnAfterLogin, shareEmployeeId')
+    onLoad({ id: '12', employeeId: '99' })
+    assert.equal(page.shareEmployeeId.value, '99')
+    member.profile = { id: 3, role }
+    page.returnAfterLogin()
+    assert.equal(destination, '/pages/caseDetail/caseDetail?id=12' + (role === 'CUSTOMER' ? '&employeeId=99' : ''))
+    assert.equal(page.shareEmployeeId.value, role === 'EMPLOYEE' ? '' : '99')
+  })
+}

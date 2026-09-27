@@ -5,7 +5,7 @@ import { getEmployeeProjectListApi } from '@/api/project'
 import EmployeeProjectStatus from '@/components/project/EmployeeProjectStatus.vue'
 import type { RenovationProject } from '@/types/renovation-business'
 import type { EmployeeProjectListParams } from '@/types/project'
-import { formatDateTime } from '@/utils/format'
+import { formatTimestamp } from '@/utils/format'
 
 type Filter = EmployeeProjectListParams['status']
 const filters: Array<{ label: string; value: Filter }> = [
@@ -106,7 +106,7 @@ onShow(() => {
             <text>地址</text><text>{{ item.serviceAddress }}</text>
           </view>
           <view class="line">
-            <text>最近更新</text><text>{{ formatDateTime(item.updatedAt) }}</text>
+            <text>最近更新</text><text>{{ formatTimestamp(item.updatedAt, 2) }}</text>
           </view>
         </view>
         <view v-if="loading" class="list-state">正在加载项目...</view>

@@ -17,7 +17,9 @@ const isEmployeeMode = ref(false)
 // 已选分享案例
 const selectedShareCase = ref<FavoriteCase>()
 // 员工编号
-const employeeId = computed(() => memberStore.profile?.employeeId)
+const employeeId = computed(
+  () => memberStore.profile?.employee?.id ?? memberStore.profile?.employeeId,
+)
 
 // 收藏案例
 const favoriteCases = ref<FavoriteCase[]>([])

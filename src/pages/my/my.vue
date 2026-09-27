@@ -52,6 +52,8 @@ onShow(async () => {
 onShow(async () => {
   // 当前用户资料
   const currentProfile = memberStore.profile
+  console.log(currentProfile)
+
   // 用户编号
   const userId = Number(currentProfile?.id)
   if (!currentProfile || !Number.isInteger(userId) || userId <= 0 || refreshing) return

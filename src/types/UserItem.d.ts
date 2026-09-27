@@ -1,3 +1,5 @@
+import type { EmployeeProfile } from './employee'
+
 /** 用户角色 */
 export type UserRole = 'CUSTOMER' | 'EMPLOYEE'
 /** 用户性别 */
@@ -5,6 +7,8 @@ export type Gender = 'MALE' | 'FEMALE'
 
 /** 用户完整信息 */
 export type UserItem = {
+  employee?: EmployeeProfile | null
+  userCoupons?: import('./coupons').UserCoupon[]
   /** 主键 ID */
   id: number
   /** 用户编号 */

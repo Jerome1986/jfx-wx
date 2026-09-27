@@ -10,9 +10,11 @@ import type { CaseDetail } from '@/types/case-detail'
 
 // 会员状态仓库
 const memberStore = useMemberStore()
+const isEmployeeAccount = computed(() => memberStore.profile?.role === 'EMPLOYEE')
 
 // 案例编号
 const caseId = ref(0)
+const shareEmployeeId = ref('')
 // 是否为员工视图
 const isEmployeeMode = ref(false)
 // 详情
@@ -20,7 +22,9 @@ const detail = ref<CaseDetail | null>(null)
 // 案例报价预约提交状态
 const submitting = ref(false)
 // 员工编号
-const employeeId = computed(() => memberStore.profile?.employeeId)
+const employeeId = computed(
+  () => memberStore.profile?.employee?.id ?? memberStore.profile?.employeeId,
+)
 // 已收藏图标
 const favoriteIcon =
   'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/shoucang-shixin.png'
@@ -63,13 +67,20 @@ const normalizeCosts = (value: unknown) => {
     .map((item) => ({ name: item.name, value: formatPrice(item.amount) }))
 }
 
+const goToLogin = () => {
+  let url = `/pages/login/login?id=${caseId.value}`
+  if (shareEmployeeId.value) url += `&employeeId=${encodeURIComponent(shareEmployeeId.value)}`
+  if (isEmployeeMode.value) url += '&source=employee'
+  uni.redirectTo({ url })
+}
+
 // 加载案例详情
 const loadCaseDetail = async () => {
   const userId = Number(memberStore.profile?.id)
   if (!Number.isInteger(userId) || userId <= 0) {
     detail.value = null
     uni.showToast({ title: '请先登录后查看案例详情', icon: 'none' })
-    setTimeout(() => uni.navigateTo({ url: '/pages/login/login' }), 500)
+    setTimeout(goToLogin, 500)
     return
   }
 
@@ -107,7 +118,7 @@ const toggleCaseFavorite = async () => {
   const userId = Number(memberStore.profile?.id)
   if (!Number.isInteger(userId) || userId <= 0) {
     uni.showToast({ title: '请先登录后再收藏', icon: 'none' })
-    setTimeout(() => uni.navigateTo({ url: '/pages/login/login' }), 500)
+    setTimeout(goToLogin, 500)
     return
   }
 
@@ -131,6 +142,7 @@ onLoad((options) => {
     return
   }
   caseId.value = id
+  shareEmployeeId.value = isEmployeeAccount.value ? '' : options?.employeeId || ''
   isEmployeeMode.value = options?.source === 'employee'
   loadCaseDetail()
 })
@@ -146,7 +158,16 @@ const requestQuote = async () => {
 
   submitting.value = true
   try {
-    await createCaseAppointmentApi({ caseId: caseId.value })
+    const sharedId = Number(shareEmployeeId.value)
+    const validEmployeeId = Number.isInteger(sharedId) && sharedId > 0 && sharedId <= 2147483647
+    const { code, message } = await createCaseAppointmentApi({
+      caseId: caseId.value,
+      ...(validEmployeeId ? { employeeId: sharedId } : {}),
+    })
+    if (code !== 200) {
+      if (code !== 400) uni.showToast({ title: message || '预约提交失败，请重试', icon: 'none' })
+      return
+    }
     uni.showToast({ title: '案例报价预约已提交', icon: 'success' })
     setTimeout(
       () => uni.navigateTo({ url: '/pages-sub/my/decorationOrder/decorationOrder?group=case' }),
@@ -288,11 +309,11 @@ onShareAppMessage(() => {
       <button
         v-else
         class="quote-button"
-        :disabled="submitting"
+        :disabled="submitting || isEmployeeAccount"
         :loading="submitting"
         @click="requestQuote"
       >
-        {{ submitting ? '提交中' : '获取同款报价' }}
+        {{ isEmployeeAccount ? '员工账号不支持预约' : submitting ? '提交中' : '获取同款报价' }}
       </button>
     </view>
   </view>
@@ -336,15 +357,18 @@ onShareAppMessage(() => {
   display: flex;
   height: 320rpx;
 }
+
 .compare-image-wrap {
   position: relative;
   width: 50%;
   height: 100%;
   overflow: hidden;
 }
+
 .compare-image-wrap:first-child {
   border-right: 2rpx solid #ffffff;
 }
+
 .compare-image {
   width: 100%;
   height: 100%;
@@ -370,6 +394,7 @@ onShareAppMessage(() => {
   height: 48rpx;
   transform: translate(-50%, -50%);
 }
+
 .case-heading {
   padding: 24rpx;
 }
@@ -390,6 +415,7 @@ onShareAppMessage(() => {
   font-size: 32rpx;
   line-height: 46rpx;
 }
+
 .case-meta {
   display: flex;
   gap: 16rpx;
@@ -413,6 +439,7 @@ onShareAppMessage(() => {
   color: $jfx-font-dec;
   font-size: 22rpx;
 }
+
 .result-price {
   color: $jfx-brandColor;
   font-size: 34rpx;
@@ -427,37 +454,45 @@ onShareAppMessage(() => {
 .detail-card {
   padding: 24rpx;
 }
+
 .section-title {
   color: $jfx-font-title;
   font-size: 28rpx;
   line-height: 40rpx;
 }
+
 .section-heading {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
+
 .section-tip {
   color: $jfx-font-dec2;
   font-size: 20rpx;
 }
+
 .case-description {
   margin-top: 14rpx;
   color: $jfx-font-dec;
   font-size: 23rpx;
   line-height: 40rpx;
 }
+
 .highlight-list {
   margin-top: 8rpx;
 }
+
 .highlight-item {
   display: flex;
   padding: 18rpx 0;
   border-bottom: 2rpx solid $jfx-border;
 }
+
 .highlight-item:last-child {
   border-bottom: 0;
 }
+
 .highlight-index {
   width: 54rpx;
   flex-shrink: 0;
@@ -465,11 +500,13 @@ onShareAppMessage(() => {
   font-size: 24rpx;
   line-height: 36rpx;
 }
+
 .highlight-title {
   color: $jfx-font-title;
   font-size: 24rpx;
   line-height: 36rpx;
 }
+
 .highlight-description {
   margin-top: 4rpx;
   color: $jfx-font-dec2;
@@ -480,6 +517,7 @@ onShareAppMessage(() => {
 .cost-list {
   margin-top: 12rpx;
 }
+
 .cost-item,
 .cost-total {
   display: flex;
@@ -488,16 +526,20 @@ onShareAppMessage(() => {
   color: $jfx-font-dec;
   font-size: 22rpx;
 }
+
 .cost-item {
   border-bottom: 2rpx solid $jfx-border;
 }
+
 .cost-value {
   color: $jfx-font-title;
 }
+
 .cost-total {
   color: $jfx-font-title;
   font-size: 25rpx;
 }
+
 .cost-total text:last-child {
   color: $jfx-brandColor;
 }
@@ -524,16 +566,19 @@ onShareAppMessage(() => {
   min-width: 220rpx;
   flex-direction: column;
 }
+
 .action-label {
   color: $jfx-font-dec;
   font-size: 20rpx;
   line-height: 30rpx;
 }
+
 .action-value {
   color: $jfx-brandColor;
   font-size: 32rpx;
   line-height: 42rpx;
 }
+
 .quote-button {
   height: 72rpx;
   margin: 0 0 0 auto;

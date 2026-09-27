@@ -1,3 +1,5 @@
+import type { EmployeeProfile } from './employee'
+
 /** 用户角色：客户或员工 */
 export type UserRole = 'CUSTOMER' | 'EMPLOYEE'
 /** 用户性别 */
@@ -5,6 +7,8 @@ export type Gender = 'MALE' | 'FEMALE'
 
 /** 当前登录会员资料 */
 export interface MemberProfile {
+  employee?: EmployeeProfile | null
+  userCoupons?: import('./coupons').UserCoupon[]
   /** 用户角色 */
   role?: UserRole
   /** 关联员工 ID */

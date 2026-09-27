@@ -18,7 +18,7 @@ import {
 } from '@/stores/modules/renovation-business'
 import type { Appointment } from '@/types/renovation-business'
 import type { UpdateAppointmentRequirementInput } from '@/types/appointment'
-import { formatDateTime } from '@/utils/format'
+import { formatTimestamp } from '@/utils/format'
 // 页面传入的预约编号
 const props = defineProps<{ appointmentId: number; refreshVersion?: number }>()
 // 当前预约详情
@@ -379,9 +379,9 @@ const call = () => appointment.value && uni.makePhoneCall({ phoneNumber: appoint
           <view v-for="item in records" :key="item.id" class="record">
             <view>{{ item.content }}</view
             ><text
-              >{{ formatDateTime(item.createdAt)
+              >{{ formatTimestamp(item.createdAt, 2)
               }}<template v-if="item.nextFollowAt">
-                · 下次 {{ formatDateTime(item.nextFollowAt) }}</template
+                · 下次 {{ formatTimestamp(item.nextFollowAt, 2) }}</template
               ></text
             >
           </view>
@@ -512,7 +512,7 @@ const call = () => appointment.value && uni.makePhoneCall({ phoneNumber: appoint
               {{ appointment.estimateDescription }}
             </view>
             <view v-if="appointment.estimatedAt" class="estimate-time">
-              提交于 {{ formatDateTime(appointment.estimatedAt) }}
+              提交于 {{ formatTimestamp(appointment.estimatedAt, 2) }}
             </view>
           </view>
           <view v-else class="hint">该历史预约尚未记录预估报价，请联系后台补充。</view>

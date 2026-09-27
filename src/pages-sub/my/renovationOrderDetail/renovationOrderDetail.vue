@@ -5,7 +5,7 @@ import { confirmProjectQuoteApi, getProjectDetailApi } from '@/api/project'
 import { normalizeProject } from '@/utils/project'
 import type { FollowUp } from '@/types/renovation-business'
 import { projectStatusText, useRenovationBusinessStore } from '@/stores/modules/renovation-business'
-import { formatDateTime } from '@/utils/format'
+import { formatTimestamp } from '@/utils/format'
 import ProjectQuoteSummary from '@/components/project/ProjectQuoteSummary.vue'
 import ProjectCancellationInfo from '@/components/project/ProjectCancellationInfo.vue'
 
@@ -157,7 +157,7 @@ onLoad((query) => {
           ><text>关联方案</text><text>{{ project.planName || '未关联' }}</text></view
         >
         <view class="row"
-          ><text>更新时间</text><text>{{ formatDateTime(project.updatedAt) }}</text></view
+          ><text>更新时间</text><text>{{ formatTimestamp(project.updatedAt, 2) }}</text></view
         >
         <view v-if="project.quoteRemark" class="row"
           ><text>报价说明</text><text>{{ project.quoteRemark }}</text></view
@@ -187,7 +187,7 @@ onLoad((query) => {
             </view>
             <view class="record-copy">
               <text class="record-content">{{ record.content }}</text>
-              <text class="record-time">{{ formatDateTime(record.createdAt) }}</text>
+              <text class="record-time">{{ formatTimestamp(record.createdAt, 2) }}</text>
             </view>
           </view>
         </view>

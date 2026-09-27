@@ -59,7 +59,7 @@ onUnload(() => {
 const selectedLabel = computed(() => `已选: ${selectedSpec.value}`)
 
 // 显示页面提示消息
-const showMessage = (title: string) => uni.showToast({ title, icon: 'none' })
+// const showMessage = (title: string) => uni.showToast({ title, icon: 'none' })
 const currentCartProduct = (): CartProduct | null => {
   const item = product.value
   if (!item) return null
@@ -90,7 +90,7 @@ const openCart = () => {
   if (checkLogin()) uni.switchTab({ url: '/pages/cart/cart' })
 }
 // 分享当前商品
-const shareProduct = () => showMessage('分享功能已准备')
+// const shareProduct = () => showMessage('分享功能已准备')
 </script>
 
 <template>
@@ -114,10 +114,12 @@ const shareProduct = () => showMessage('分享功能已准备')
               ><text class="price-number">{{ product.price }}</text>
               <text v-if="product.installationIncluded" class="install-tag">已含基础安装</text>
             </view>
+            <!--
             <view class="share-button" @click="shareProduct">
               <text class="iconfont icon-fenxiang share-icon" />
               <text>分享</text>
             </view>
+            -->
           </view>
 
           <view class="product-name">{{ product.name }}</view>

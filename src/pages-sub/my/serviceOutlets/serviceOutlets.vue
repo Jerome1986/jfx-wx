@@ -113,8 +113,6 @@ const navigateOutlet = (outlet: ServiceOutlet) => {
     scale: 16,
   })
 }
-// 联系在线客服
-const contactService = () => uni.showToast({ title: '正在连接在线客服', icon: 'none' })
 
 onLoad(() => loadCities())
 </script>
@@ -190,7 +188,7 @@ onLoad(() => loadCities())
         <view class="customer-title">没有找到合适网点？</view>
         <view class="customer-tip">在线客服可协助安排最近服务人员</view>
       </view>
-      <button class="customer-button" @click="contactService">联系在线客服</button>
+      <button class="customer-button" open-type="contact">联系在线客服</button>
     </view>
   </view>
 </template>

@@ -67,6 +67,9 @@ export const useCartStore = defineStore(
       items.value.forEach((item) => {
         item.selected = selected
       })
+    const clearCart = (ownerId: string) => {
+      if (ownerId && ownerId === userId.value) carts.value[ownerId] = []
+    }
     const clearCheckout = () => {
       checkoutSnapshot.value = []
       checkoutOwner.value = ''
@@ -101,6 +104,7 @@ export const useCartStore = defineStore(
       selectAll,
       prepareCheckout,
       clearCheckout,
+      clearCart,
     }
   },
   { persist: { paths: ['carts'] } },
