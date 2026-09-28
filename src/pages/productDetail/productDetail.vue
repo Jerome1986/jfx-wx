@@ -5,6 +5,7 @@ import { getProductDetail } from '@/api/product'
 import type { ProductDetail } from '@/types/product'
 import { useCartStore, type CartProduct } from '@/stores/modules/cart'
 import { requireCartLogin } from '@/utils/cart-access'
+import { productIssue } from '@/utils/product-check'
 const cartStore = useCartStore()
 
 // 规格列表
@@ -32,7 +33,12 @@ const loadProduct = async () => {
     if (disposed) return
     if (result.code !== 200) throw new Error(result.message || '商品加载失败')
     product.value = result.data
-    selectedSpec.value = result.data?.specifications?.[0] ?? ''
+    if (!result.data) {
+      errorMessage.value = '商品已不存在'
+      return
+    }
+    if (!selectedSpec.value) selectedSpec.value = result.data.specifications?.[0] ?? ''
+    return true
   } catch (error) {
     if (disposed) return
     errorMessage.value = '商品加载失败，请重试'
@@ -75,13 +81,25 @@ const currentCartProduct = (): CartProduct | null => {
 }
 const checkLogin = () =>
   requireCartLogin('/pages/productDetail/productDetail?id=' + productId.value)
-const addToCart = () => {
+const checkProduct = async (quantity: number) => {
+  const owner = cartStore.userId
+  if (!(await loadProduct()) || cartStore.userId !== owner) return false
+  const issue = productIssue(product.value, selectedSpec.value, quantity)
+  if (issue) uni.showToast({ title: issue, icon: 'none' })
+  return !issue
+}
+const addToCart = async () => {
   if (!checkLogin()) return
+  const quantity =
+    cartStore.items
+      .filter((item) => item.id === productId.value)
+      .reduce((sum, item) => sum + item.quantity, 0) + 1
+  if (!(await checkProduct(quantity))) return
   const item = currentCartProduct()
   if (item && cartStore.addItem(item)) uni.showToast({ title: '已加入购物车', icon: 'success' })
 }
-const buyNow = () => {
-  if (!checkLogin()) return
+const buyNow = async () => {
+  if (!checkLogin() || !(await checkProduct(1))) return
   const item = currentCartProduct()
   if (item && cartStore.prepareCheckout(item))
     uni.navigateTo({ url: '/pages/confirmOrder/confirmOrder' })

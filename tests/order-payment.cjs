@@ -61,7 +61,20 @@ function setup() {
     }).outputText,
     { exports: booking },
   )
+  const checking = vue.ref(false)
+  let checkValid = true
+  let checkCalls = 0
   const dependencies = {
+    '@/utils/product-check': { useProductCheck: () => ({
+      checking, notice: vue.ref(''), issues: vue.ref({}),
+      refresh: async () => {
+        checking.value = true
+        checkCalls++
+        await Promise.resolve()
+        checking.value = false
+        return checkValid
+      },
+    }) },
     '@/utils/order-booking': booking,
     vue,
     pinia: { storeToRefs: vue.toRefs },
@@ -73,6 +86,7 @@ function setup() {
     '@/stores/modules/address': { useAddressStore: () => address },
     '@/utils/order-discounts': discounts,
     '@/api/order': {
+      payOrder: async () => { if (orderError) throw orderError; return { code: 200, data: params } },
       confirmOrder: async (data) => {
         calls.orders.push(data)
         if (orderError) throw orderError
@@ -126,6 +140,8 @@ function setup() {
   exports.appointmentTime.value = '09:00-12:00'
   return {
     ...exports,
+    setCheckValid: value => { checkValid = value },
+    getCheckCalls: () => checkCalls,
     params,
     setRedirectError: (value) => {
       redirectError = value
@@ -304,4 +320,45 @@ test('payment cancellation and failure preserve the cart', async () => {
     await assert.rejects(exports.requestWechatPayment({}), (error) => error.errMsg === errMsg)
     assert.equal(clears, 0)
   }
+})
+
+
+test('商品校验失败不下单，已创建订单继续支付不重新校验商品', async () => {
+  const page = setup()
+  page.setCheckValid(false)
+  await page.pay()
+  assert.equal(page.calls.orders.length, 0)
+  assert.equal(page.creationUncertain.value, false)
+  page.setCheckValid(true)
+  page.setPaymentError({ errMsg: 'requestPayment:fail cancel' })
+  await page.pay()
+  const checks = page.getCheckCalls()
+  page.setCheckValid(false)
+  page.setPaymentError(null)
+  await page.pay()
+  assert.equal(page.getCheckCalls(), checks)
+  assert.equal(page.calls.orders.length, 1)
+  assert.equal(page.paymentSucceeded.value, true)
+})
+
+test('HTTP 200 的业务失败不能当作 HTTP 400 重新建单', async () => {
+  const page = setup()
+  page.setOrderError({ statusCode: 200, code: 400, notified: true })
+  await page.pay()
+  await page.pay()
+  assert.equal(page.creationUncertain.value, true)
+  assert.equal(page.calls.orders.length, 1)
+})
+
+
+test('继续付款被服务端拒绝时不再调起旧支付参数，转到原订单核对', async () => {
+  const page = setup()
+  page.setPaymentError({ errMsg: 'requestPayment:fail cancel' })
+  await page.pay()
+  assert.equal(page.calls.payments.length, 1)
+  page.setOrderError({ statusCode: 409, message: '订单已超时' })
+  await page.pay()
+  assert.equal(page.calls.payments.length, 1)
+  assert.equal(page.calls.orders.length, 1)
+  assert.match(page.calls.redirects[0], /id=15/)
 })

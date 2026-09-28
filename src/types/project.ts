@@ -50,7 +50,12 @@ export interface CreateProjectResult extends Partial<Omit<RenovationProject, 'id
   quoteItems?: ProjectQuoteItemResult[]
 }
 
-export type UserProjectListStatus = 'ALL' | 'PENDING_CONFIRM' | 'IN_SERVICE' | 'COMPLETED'
+export type UserProjectListStatus =
+  | 'ALL'
+  | 'PENDING_CONFIRM'
+  | 'IN_SERVICE'
+  | 'COMPLETED'
+  | 'CANCELED'
 
 /** 项目详情关联的员工信息。 */
 export interface ProjectEmployeeResult {

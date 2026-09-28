@@ -29,7 +29,9 @@ function setup(confirm = true) {
     }).outputText,
     { exports: booking },
   )
+  let benefitRefreshes = 0
   const dependencies = {
+    '@/utils/order-benefits': { refreshOrderBenefits: async () => { benefitRefreshes++ } },
     vue,
     '@dcloudio/uni-app': Object.fromEntries(
       ['onLoad', 'onShow', 'onHide', 'onUnload'].map((name) => [
@@ -106,6 +108,7 @@ function setup(confirm = true) {
     setCompletionResponse: (value) => {
       completionResponse = value
     },
+    benefitRefreshes: () => benefitRefreshes,
     setResponse: (value) => {
       response = value
     },
@@ -330,4 +333,20 @@ test('declining cancellation and concurrent clicks do not submit extra actions',
   assert.deepEqual(p.actions, [])
   await Promise.all([p.handlePayOrder(), p.handlePayOrder(), p.handleCancelOrder()])
   assert.deepEqual(p.actions, [['pay', 15], ['wechat']])
+})
+
+
+test('服务端超时标记禁止付款，确认关闭后显示原因并刷新返还权益', async () => {
+  const page = setup(false)
+  page.setResponse({ code: 200, data: { status: 'PENDING_PAYMENT', paymentStatus: 'UNPAID', paymentExpired: true, items: [] } })
+  page.hooks.onShow()
+  await flush()
+  assert.equal(page.primaryAction.value, '')
+  assert.equal(page.config.value.title, '订单已超时')
+  await page.handlePayOrder()
+  page.setResponse({ code: 200, data: { status: 'CANCELED', paymentStatus: 'CLOSED', cancelReason: '支付超时，订单已关闭', items: [] } })
+  await page.loadOrder()
+  assert.equal(page.config.value.description, '支付超时，订单已关闭')
+  assert.equal(page.primaryAction.value, '')
+  assert.equal(page.benefitRefreshes(), 1)
 })

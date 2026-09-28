@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useMemberStore } from '@/stores'
-import type { EmployeeSummary } from '@/api/employee'
+import type { EmployeePerformanceSummary, EmployeeSummary } from '@/api/employee'
 
-const props = defineProps<{ summary?: EmployeeSummary }>()
+const props = defineProps<{
+  summary?: EmployeeSummary
+  performanceSummary?: EmployeePerformanceSummary
+}>()
 
 const memberStore = useMemberStore()
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
@@ -32,12 +35,12 @@ const todos = computed(() => [
   { value: props.summary?.inServiceCount ?? 0, label: '服务中' },
 ])
 const todoTotal = computed(() => todos.value.reduce((total, item) => total + item.value, 0))
-const performance = [
-  { value: '32', label: '签约客户' },
-  { value: '18', label: '签约金额' },
-  { value: '18', label: '完成项目' },
-  { value: '100', label: '公司排名' },
-]
+const performance = computed(() => [
+  { value: props.performanceSummary?.signedCustomerCount ?? '—', label: '签约客户' },
+  { value: props.performanceSummary?.signedAmount ?? '—', label: '签约金额(元)' },
+  { value: props.performanceSummary?.completedProjectCount ?? '—', label: '完成项目' },
+  { value: props.performanceSummary?.companyRank ?? '—', label: '公司排名' },
+])
 const workbench = [
   {
     label: '我的客户',

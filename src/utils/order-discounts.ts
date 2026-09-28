@@ -1,5 +1,17 @@
 import type { UserCoupon } from '@/types/coupons'
 
+// 与后端下单规则一致：停用模板不影响已领券，有效期使用领券时的 expiresAt。
+export const getCouponUnavailableReason = (record: UserCoupon, now: number): string => {
+  if (record.status === 'USED') return '已使用'
+  if (record.status === 'EXPIRED') return '已过期'
+  if (record.status !== 'AVAILABLE') return '已失效'
+  if (record.orderId !== null) return '已占用'
+  if (!(Date.parse(record.expiresAt) > now)) return '已过期'
+  if (!(Date.parse(record.coupon.validFrom) <= now)) return '未到使用时间'
+  if (record.coupon.status === 'DRAFT') return '尚未发布'
+  return ''
+}
+
 /**
  * 校验优惠券是否可用于本次商品订单，并计算可抵扣金额。
  * @param record 用户领券记录，包含使用状态、过期时间及优惠券模板信息。
@@ -11,14 +23,9 @@ export const evaluateCoupon = (record: UserCoupon, eligibleCents: number, now: n
   const coupon = record.coupon
   const amount = Math.round(Number(coupon.amount) * 100)
   const threshold = Math.round(Number(coupon.threshold) * 100)
-  let reason = ''
-  if (record.status === 'USED') reason = '已使用'
-  else if (record.status === 'EXPIRED') reason = '已过期'
-  else if (record.status !== 'AVAILABLE' || coupon.status !== 'PUBLISHED') reason = '已失效'
-  else if (!(Date.parse(coupon.validFrom) <= now)) reason = '未到使用时间'
-  else if (!(Date.parse(record.expiresAt) > now && Date.parse(coupon.validTo) > now))
-    reason = '已过期'
-  else if (coupon.scopeType !== 'ALL' && coupon.scopeType !== 'PRODUCT') reason = '仅适用于装修订单'
+  let reason = getCouponUnavailableReason(record, now)
+  if (reason) return { record, reason, discountCents: 0 }
+  if (coupon.scopeType !== 'ALL' && coupon.scopeType !== 'PRODUCT') reason = '仅适用于装修订单'
   else if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(threshold) || threshold < 0)
     reason = '优惠券信息异常'
   else if (eligibleCents <= 0) reason = '不适用于本次商品'

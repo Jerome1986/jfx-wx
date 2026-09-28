@@ -1,5 +1,5 @@
-/** 优惠券状态：可用或已过期 */
-export type CouponStatus = 'available' | 'expired'
+/** 优惠券状态：可用或不可用 */
+export type CouponStatus = 'available' | 'unavailable'
 
 /** 优惠券信息 */
 export interface CouponItem {
@@ -23,6 +23,8 @@ export interface CouponItem {
 
 /** 用户详情返回的领券记录，金额由 Decimal 序列化为字符串或数字。 */
 export interface UserCoupon {
+  /** 已占用该券的订单，未占用时为 null。 */
+  orderId: number | null
   id: number
   status: 'AVAILABLE' | 'USED' | 'EXPIRED' | 'INVALID'
   expiresAt: string

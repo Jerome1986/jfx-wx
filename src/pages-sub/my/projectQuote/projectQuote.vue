@@ -108,7 +108,9 @@ const saveQuote = async () => {
     uni.showToast({ title: '报价已更新', icon: 'success' })
     returnToDetail()
   } catch (error) {
-    if ((error as { statusCode?: number }).statusCode === 409) {
+    if (
+      ((error as { code?: number }).code ?? (error as { statusCode?: number }).statusCode) === 409
+    ) {
       conflicted.value = true
       uni.showModal({
         title: '报价已变化',

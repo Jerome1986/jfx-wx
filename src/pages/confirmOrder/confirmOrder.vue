@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useProductCheck } from '@/utils/product-check'
 import { validateBooking } from '@/utils/order-booking'
 import { canSubmitAppointment } from '@/utils/appointment-access'
 import { computed, ref, watch } from 'vue'
@@ -9,7 +10,7 @@ import { useCartStore, cartItemKey, formatPrice } from '@/stores/modules/cart'
 import { requireCartLogin } from '@/utils/cart-access'
 import { useMemberStore } from '@/stores/modules/member'
 import { calculateDiscounts, evaluateCoupon } from '@/utils/order-discounts'
-import { confirmOrder, requestWechatPayment, type WechatPaymentParams } from '@/api/order'
+import { confirmOrder, payOrder, requestWechatPayment, type WechatPaymentParams } from '@/api/order'
 import { userInfoFindOne, getUserSummary } from '@/api/user'
 // 下单或微信支付是否进行中
 const paying = ref(false)
@@ -25,7 +26,12 @@ const submittedAmount = ref('')
 // 保存提交时的抵扣明细，避免刷新积分和优惠券后改变订单展示
 const submittedDiscounts = ref<ReturnType<typeof calculateDiscounts> | null>(null)
 const orderLocked = computed(
-  () => paying.value || !!paymentParams.value || creationUncertain.value || paymentSucceeded.value,
+  () =>
+    checking.value ||
+    paying.value ||
+    !!paymentParams.value ||
+    creationUncertain.value ||
+    paymentSucceeded.value,
 )
 // 购物车和结算状态仓库
 const cartStore = useCartStore()
@@ -33,6 +39,10 @@ const cartStore = useCartStore()
 const memberStore = useMemberStore()
 // 待结算商品和抵扣前商品总额
 const { checkoutItems: products, checkoutTotal: productAmount } = storeToRefs(cartStore)
+const { checking, notice, issues, refresh } = useProductCheck(
+  () => products.value,
+  () => cartStore.userId,
+)
 // 是否启用积分抵扣
 const usePoints = ref(false)
 // 优惠券选择弹层是否显示
@@ -146,7 +156,7 @@ const goShopping = () => uni.switchTab({ url: '/pages/product/product' })
 // 页面显示时刷新时间并检查登录状态
 onShow(() => {
   now.value = Date.now()
-  requireCartLogin('/pages/confirmOrder/confirmOrder')
+  if (requireCartLogin('/pages/confirmOrder/confirmOrder') && !orderLocked.value) void refresh()
 })
 // 页面卸载时清理本次结算快照
 onUnload(() => cartStore.clearCheckout())
@@ -226,7 +236,7 @@ const openCreatedOrder = () => {
 // 创建支付订单，再调用微信支付；取消后复用本次订单参数。
 const pay = async () => {
   // 1. 防止重复下单或付款，并检查登录状态和微信支付环境。
-  if (paying.value || paymentSucceeded.value || creationUncertain.value) return
+  if (checking.value || paying.value || paymentSucceeded.value || creationUncertain.value) return
   if (!requireCartLogin('/pages/confirmOrder/confirmOrder')) return
   if (typeof wx === 'undefined' || typeof wx.requestPayment !== 'function') {
     uni.showToast({ title: '请在微信小程序中支付', icon: 'none' })
@@ -234,7 +244,9 @@ const pay = async () => {
   }
   // 保存发起支付的用户 ID，避免异步返回时更新其他账号。
   const ownerId = cartStore.userId
+  const continuingPayment = !!paymentParams.value
   if (!paymentParams.value) {
+    if (!(await refresh()) || cartStore.userId !== ownerId) return
     // 2. 首次支付前校验地址、商品、优惠券和应付金额。
     now.value = Date.now()
     const address = selectedAddress.value
@@ -325,6 +337,17 @@ const pay = async () => {
   if (!paymentParams.value || cartStore.userId !== ownerId) return
   paying.value = true
   try {
+    // 继续付款必须重新校验原订单，不能绕过服务端时限使用旧签名。
+    if (continuingPayment && createdOrderId.value) {
+      try {
+        const result = await payOrder(createdOrderId.value)
+        if (cartStore.userId !== ownerId) return
+        paymentParams.value = result.data
+      } catch {
+        if (cartStore.userId === ownerId) openCreatedOrder()
+        return
+      }
+    }
     // 6. 使用服务端签名参数调起微信支付，等待成功或失败回调。
     await requestWechatPayment(paymentParams.value)
     if (cartStore.userId !== ownerId) return
@@ -371,6 +394,10 @@ const pay = async () => {
     </view>
     <scroll-view v-else class="order-scroll" scroll-y :show-scrollbar="false">
       <view class="page-content">
+        <view v-if="checking" class="check-notice">正在核对商品...</view>
+        <view v-else-if="notice && !orderLocked" class="check-notice" @click="refresh"
+          >{{ notice }}，点击重试</view
+        >
         <!-- 收货地址 -->
         <view class="info-card address-card" @click="openAddress">
           <image
@@ -418,6 +445,11 @@ const pay = async () => {
               <image class="product-image" :src="item.image" mode="aspectFit" />
               <view class="product-info">
                 <view class="product-name">{{ item.name }}</view>
+                <view
+                  v-if="!checking && !orderLocked && issues[cartItemKey(item)]"
+                  class="check-notice"
+                  >{{ issues[cartItemKey(item)] }}</view
+                >
                 <view class="product-description">{{
                   item.specification || item.description
                 }}</view>
@@ -498,8 +530,8 @@ const pay = async () => {
       </view>
       <button
         class="submit-button"
-        :loading="paying"
-        :disabled="paying || creationUncertain"
+        :loading="paying || checking"
+        :disabled="checking || paying || creationUncertain"
         @click="paymentSucceeded ? openCreatedOrder() : pay()"
       >
         {{
@@ -590,6 +622,12 @@ const pay = async () => {
 </template>
 
 <style lang="scss">
+.check-notice {
+  padding: 12rpx 0;
+  color: $jfx-brandColor;
+  font-size: 24rpx;
+}
+
 .points-rule {
   padding-bottom: 16rpx;
   color: $jfx-font-dec2;

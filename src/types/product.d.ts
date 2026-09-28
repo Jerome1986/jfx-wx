@@ -22,6 +22,8 @@ export interface ProductPageParams {
 
 /** 商品详情接口数据。 */
 export interface ProductDetail extends ProductResponseItem {
+  isPublished: boolean
+  stock: number
   brand: string | null
   model: string | null
   specifications: string[] | null

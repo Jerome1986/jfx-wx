@@ -15,6 +15,7 @@ import {
   payOrder,
   requestWechatPayment,
 } from '@/api/order'
+import { refreshOrderBenefits } from '@/utils/order-benefits'
 import { maskMobile } from '@/utils/format'
 import type { ProductOrderDetail } from '@/types/product-order-detail'
 import type { ProductOrderApiStatus } from '@/types/product-order'
@@ -63,7 +64,13 @@ const config = computed(() => {
     }
   if (!order.value) return null
   if (order.value.paymentStatus === 'CLOSED')
-    return { title: '订单已关闭', description: '订单支付已关闭', tone: 'gray' }
+    return {
+      title: '订单已关闭',
+      description: order.value.cancelReason || '订单支付已关闭',
+      tone: 'gray',
+    }
+  if (order.value.paymentExpired)
+    return { title: '订单已超时', description: '正在关闭订单，请稍后刷新', tone: 'gray' }
   const current = configs[order.value.status] ?? {
     title: '订单详情',
     description: '',
@@ -73,6 +80,11 @@ const config = computed(() => {
     ? { ...current, description: orderInstallationText(order.value) }
     : current
 })
+const paymentDeadlineText = computed(() =>
+  order.value?.status === 'PENDING_PAYMENT' && order.value.paymentExpiresAt
+    ? '付款截止：' + formatBeijingTimestamp(order.value.paymentExpiresAt, 2)
+    : '',
+)
 const totalQuantity = computed(
   () => order.value?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0,
 )
@@ -80,6 +92,7 @@ const displayStatus = computed(() => {
   const text =
     order.value?.status === 'PENDING_INSTALLATION' &&
     !confirmingPayment.value &&
+    !order.value.paymentExpired &&
     order.value.paymentStatus !== 'CLOSED'
       ? orderInstallationText(order.value)
       : config.value?.title
@@ -90,7 +103,12 @@ const requiresInstall = computed(
 )
 const installation = computed(() => order.value?.installation)
 const primaryAction = computed(() => {
-  if (confirmingPayment.value || order.value?.paymentStatus === 'CLOSED') return ''
+  if (
+    confirmingPayment.value ||
+    order.value?.paymentStatus === 'CLOSED' ||
+    order.value?.paymentExpired
+  )
+    return ''
   if (order.value?.status === 'PENDING_PAYMENT') return '立即付款'
   if (canConfirmCompletion.value) return '确认完成'
   if (order.value?.status === 'IN_SERVICE') return '意见反馈'
@@ -115,6 +133,7 @@ const loadOrder = async () => {
     if (result.code !== 200) throw { statusCode: result.code }
     if (!result.data) throw { statusCode: 404 }
     order.value = result.data
+    if (result.data.paymentStatus === 'CLOSED') void refreshOrderBenefits()
     if (confirmingPayment.value) {
       if (['PAID', 'REFUNDING', 'REFUNDED', 'CLOSED'].includes(result.data.paymentStatus)) {
         confirmingPayment.value = false
@@ -188,6 +207,7 @@ const canActOnPendingOrder = () =>
   !confirmingPayment.value &&
   memberStore.profile?.id === ownerId &&
   order.value?.status === 'PENDING_PAYMENT' &&
+  !order.value.paymentExpired &&
   order.value.paymentStatus !== 'CLOSED'
 
 const handleCancelOrder = async () => {
@@ -330,6 +350,15 @@ const copyOrderNo = () => {
             <text class="section-title">商品信息</text>
             <text :class="['order-status', 'tone-' + config.tone]">{{ displayStatus }}</text>
           </view>
+          <view
+            v-if="order.paymentStatus === 'CLOSED' || order.paymentExpired"
+            class="confirmation-note"
+            @click="refreshPayment"
+            >{{ config.description }}<text v-if="order.paymentExpired">，点击刷新</text></view
+          >
+          <view v-if="paymentDeadlineText" class="confirmation-note">{{
+            paymentDeadlineText
+          }}</view>
           <view v-if="confirmingPayment" class="confirmation-note">
             <text>服务端结果暂未确认，请勿重复下单</text>
             <text v-if="confirmationPaused" class="text-action" @click="refreshPayment"

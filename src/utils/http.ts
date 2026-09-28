@@ -1,8 +1,6 @@
 // 注意：这里不要静态依赖 Pinia store（会导致 chunk 循环依赖告警）
 // token 从 persistedstate 的存储中读取即可。
 
-import { isArray } from '@wot-ui/ui/common/util'
-
 /**
  * 添加拦截器:
  *   拦截 request 请求
@@ -16,8 +14,8 @@ import { isArray } from '@wot-ui/ui/common/util'
  */
 
 // 基地址
-// const baseUrl = 'http://localhost:3000/api'
-const baseUrl = 'https://38e66a34.r29.cpolar.top/api'
+const baseUrl = 'http://localhost:3000/api'
+// const baseUrl = 'https://3fd5cb3c.r29.cpolar.top/api'
 
 /**
  * 从 pinia-plugin-persistedstate 读取 member store token
@@ -97,38 +95,26 @@ export const request = <T>(options: UniApp.RequestOptions) => {
       ...options,
       // 响应成功
       success(res) {
-        let message = (res.data as Data<T>).message
-        // 状态码 2xx， axios 就是这样设计的
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          // 2.根据后端状态码来提示报错
-          if ((res.data as Data<T>).code === 400) {
-            safeShowToast((res.data as Data<T>).message || '请求错误')
-          }
-          // 抛出服务器返回的结果
+        const body = res.data as Data<T> | null
+        const code = body?.code
+        const httpSuccess = res.statusCode >= 200 && res.statusCode < 300
+        // 搜索接口允许直接返回分页对象；带业务码时必须明确成功。
+        if (httpSuccess && (code === undefined || code === 200)) {
           resolve(res.data as Data<T>)
-        } else if (res.statusCode === 400) {
-          // 针对服务器的参数错误处理
-          if (isArray(message)) message = message.join(',')
-
-          safeShowToast(message)
-          // 抛出错误
-          reject(res)
-        } else if (res.statusCode === 401) {
-          // 401错误  -> 清理用户信息，跳转到登录页
-          // 清理 persisted member store（pinia-plugin-persistedstate 默认 key 为 store id）
+          return
+        }
+        const rawMessage = body?.message
+        const message = Array.isArray(rawMessage) ? rawMessage.join(',') : rawMessage || '请求失败'
+        if (res.statusCode === 401 || code === 401) {
           uni.removeStorageSync('member')
-          // 同步清理内存登录态，使账号关联的购物车和角标立即隐藏。
           void import('@/stores/modules/member').then(({ useMemberStore }) => {
             useMemberStore().clearProfile()
           })
           uni.navigateTo({ url: '/pages/login/login' })
-          safeShowToast((res.data as Data<T>).message || '请求错误')
-          reject(res)
-        } else {
-          // 其他错误 -> 根据后端错误信息轻提示
-          safeShowToast((res.data as Data<T>).message || '请求错误')
-          reject(res)
         }
+        safeShowToast(message)
+        // HTTP 状态与业务码分开保存，避免业务失败被误判为可以重新下单。
+        reject({ ...res, code, message, notified: true })
       },
       // 响应失败
       fail(err) {
@@ -136,7 +122,7 @@ export const request = <T>(options: UniApp.RequestOptions) => {
           icon: 'none',
           title: '网络错误，换个网络试试',
         })
-        reject(err)
+        reject({ ...err, notified: true })
       },
     })
   })

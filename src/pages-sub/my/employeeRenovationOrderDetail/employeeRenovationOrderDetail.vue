@@ -57,7 +57,9 @@ const submitCancel = async (input: CancelProjectInput) => {
     uni.showToast({ title: '项目已取消', icon: 'success' })
     await loadProject()
   } catch (error) {
-    if ((error as { statusCode?: number }).statusCode === 409) {
+    if (
+      ((error as { code?: number }).code ?? (error as { statusCode?: number }).statusCode) === 409
+    ) {
       cancelVisible.value = false
       await loadProject()
     }
@@ -130,7 +132,8 @@ const completeProject = async () => {
     await loadProject()
   } catch (error) {
     console.error('完成项目失败：', error)
-    uni.showToast({ title: '操作失败，请重试', icon: 'none' })
+    if (!(error as { notified?: boolean })?.notified)
+      uni.showToast({ title: '操作失败，请重试', icon: 'none' })
   } finally {
     completing.value = false
   }

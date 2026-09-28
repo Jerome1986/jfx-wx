@@ -666,6 +666,8 @@ for (const type of ['PLAN', 'BUDGET', 'CASE']) {
   test(`${type} 待处理预约共用取消接口，已完成禁止取消`, async () => {
     let writes = 0
     const page = load('src/pages-sub/my/decorationOrderDetail/decorationOrderDetail.vue', {
+      '@/api/case': {},
+      '@/stores': { useMemberStore: () => ({ profile: { id: 7 } }) },
       '@dcloudio/uni-app': { onLoad() {} },
       '@/stores/modules/renovation-business': { appointmentStatusText: {} },
       '@/api/appointment': { cancelAppointmentApi: async (id) => {
@@ -693,6 +695,8 @@ for (const statusCode of [400, 409, 500]) {
     let reads = 0
     const notices = []
     const page = load('src/pages-sub/my/decorationOrderDetail/decorationOrderDetail.vue', {
+      '@/api/case': {},
+      '@/stores': { useMemberStore: () => ({ profile: { id: 7 } }) },
       '@dcloudio/uni-app': { onLoad() {} },
       '@/stores/modules/renovation-business': { appointmentStatusText: {} },
       '@/api/appointment': {

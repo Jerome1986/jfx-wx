@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { onLoad, onShow } from '@dcloudio/uni-app'
+import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
 import { getUserProjectListApi } from '@/api/project'
 import { projectStatusText } from '@/stores/modules/renovation-business'
 import type { RenovationProject } from '@/types/renovation-business'
@@ -14,6 +14,7 @@ const filters: Array<{ label: string; value: UserProjectListStatus }> = [
   { label: '待确认', value: 'PENDING_CONFIRM' },
   { label: '服务中', value: 'IN_SERVICE' },
   { label: '已完成', value: 'COMPLETED' },
+  { label: '已取消', value: 'CANCELED' },
 ]
 // 当前选中的项目状态。
 const active = ref<UserProjectListStatus>('ALL')
@@ -31,6 +32,10 @@ const loading = ref(false)
 const loadFailed = ref(false)
 // 是否已经完成首次页面加载。
 const loaded = ref(false)
+let requestVersion = 0
+onUnload(() => {
+  requestVersion++
+})
 // 当前筛选是否还有下一页。
 const hasMore = computed(() => pageNum.value < totalPage.value)
 
@@ -100,7 +105,14 @@ const open = (id: number) =>
 // 分页加载当前状态的用户装修项目。
 const loadProjects = async (reset = false) => {
   // 1. 阻止重复请求或无更多数据时继续翻页。
-  if (loading.value || (!reset && !hasMore.value)) return
+  if (!reset && (loading.value || !hasMore.value)) return
+  const version = ++requestVersion
+  if (reset) {
+    list.value = []
+    pageNum.value = 0
+    totalPage.value = 0
+    total.value = 0
+  }
   // 2. 计算请求页码并重置请求状态。
   const nextPage = reset ? 1 : pageNum.value + 1
   loading.value = true
@@ -112,7 +124,7 @@ const loadProjects = async (reset = false) => {
       pageNum: nextPage,
       pageSize: PAGE_SIZE,
     })
-    console.log('装修订单', data)
+    if (version !== requestVersion) return
 
     // 4. 首次加载替换列表，翻页时追加列表。
     list.value = reset ? data.list : [...list.value, ...data.list]
@@ -122,16 +134,16 @@ const loadProjects = async (reset = false) => {
   } catch (error) {
     // 5. 请求失败时保留已有列表并显示重试入口。
     console.error('获取用户装修项目列表失败：', error)
-    loadFailed.value = true
+    if (version === requestVersion) loadFailed.value = true
   } finally {
-    loading.value = false
+    if (version === requestVersion) loading.value = false
   }
 }
 
 // 切换项目状态并重新请求第一页。
 const selectStatus = (status: UserProjectListStatus) => {
-  // 1. 忽略当前状态和加载过程中的重复操作。
-  if (active.value === status || loading.value) return
+  // 1. 忽略当前状态，切换后使旧请求失效。
+  if (active.value === status) return
   // 2. 更新状态并重新加载项目列表。
   active.value = status
   loadProjects(true)

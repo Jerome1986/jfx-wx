@@ -52,6 +52,10 @@ export interface OrderInstallation {
   completedAt: string | null
 }
 export interface UserProductOrder {
+  /** 由服务端返回，前端不按本机时间修改订单状态。 */
+  paymentExpiresAt?: string
+  paymentExpired?: boolean
+  cancelReason?: string | null
   confirmationDeadlineAt: string | null
   completionType: 'CUSTOMER_CONFIRMED' | 'AUTO_TIMEOUT' | null
   autoCompletionPaused: boolean

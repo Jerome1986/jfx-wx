@@ -134,10 +134,11 @@ const submit = async () => {
   } catch (error) {
     // 6. 提交失败时恢复按钮并展示具体错误。
     submitting.value = false
-    uni.showToast({
-      title: error instanceof Error ? error.message : '创建失败，请重试',
-      icon: 'none',
-    })
+    if (!(error as { notified?: boolean })?.notified)
+      uni.showToast({
+        title: error instanceof Error ? error.message : '创建失败，请重试',
+        icon: 'none',
+      })
   }
 }
 </script>

@@ -130,7 +130,8 @@ const toggleCaseFavorite = async () => {
     uni.showToast({ title: detail.value.isFavorite ? '收藏成功' : '已取消收藏', icon: 'none' })
   } catch (error) {
     console.error(nextFavorite ? '收藏案例失败：' : '取消收藏失败：', error)
-    uni.showToast({ title: nextFavorite ? '收藏失败' : '取消收藏失败', icon: 'none' })
+    if (!(error as { notified?: boolean })?.notified)
+      uni.showToast({ title: nextFavorite ? '收藏失败' : '取消收藏失败', icon: 'none' })
   }
 }
 

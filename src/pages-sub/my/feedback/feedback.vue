@@ -8,8 +8,82 @@ interface FeedbackRecord {
   feedbackNo: string
   type: string
   content: string
-  status: 'PENDING' | 'PROCESSING'
+  status: 'PENDING' | 'PROCESSING' | 'REPLIED' | 'CLOSED'
+  reply: string | null
+  completedAt: string | null
   createdAt: string
+}
+
+interface FeedbackPage {
+  list: FeedbackRecord[]
+  total: number
+  pageNum: number
+  pageSize: number
+  totalPage: number
+}
+
+const statusLabels: Record<FeedbackRecord['status'], string> = {
+  PENDING: '待处理',
+  PROCESSING: '处理中',
+  REPLIED: '已回复',
+  CLOSED: '已关闭',
+}
+const records = ref<FeedbackRecord[]>([])
+const recordsLoading = ref(false)
+const recordsError = ref(false)
+const recordsPage = ref(0)
+const recordsTotalPage = ref(0)
+let recordsRequestId = 0
+
+// 刷新从第一页开始；忽略过期请求，避免旧分页结果覆盖新记录。
+const queryRecords = async (reset = true) => {
+  if (!reset && (recordsLoading.value || recordsPage.value >= recordsTotalPage.value)) return
+  const requestId = ++recordsRequestId
+  const pageNum = reset ? 1 : recordsPage.value + 1
+  recordsLoading.value = true
+  recordsError.value = false
+  try {
+    const res = await request<FeedbackPage>({
+      url: '/feedback/mine',
+      method: 'GET',
+      data: { pageNum, pageSize: 10 },
+    })
+    if (requestId !== recordsRequestId) return
+    if (res.code !== 200 || !res.data || !Array.isArray(res.data.list)) {
+      uni.showToast({ title: res.message || '查询反馈记录失败', icon: 'none' })
+      recordsError.value = true
+      return
+    }
+    records.value = reset
+      ? res.data.list
+      : [
+          ...records.value,
+          ...res.data.list.filter((item) => !records.value.some((record) => record.id === item.id)),
+        ]
+    recordsPage.value = res.data.pageNum
+    recordsTotalPage.value = res.data.totalPage
+  } catch {
+    if (requestId === recordsRequestId) recordsError.value = true
+  } finally {
+    if (requestId === recordsRequestId) recordsLoading.value = false
+  }
+}
+
+const formatTime = (value: string) => {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return (
+    date.getFullYear() +
+    '-' +
+    pad(date.getMonth() + 1) +
+    '-' +
+    pad(date.getDate()) +
+    ' ' +
+    pad(date.getHours()) +
+    ':' +
+    pad(date.getMinutes())
+  )
 }
 
 const feedbackTypes = ['功能建议', '服务体验', '订单问题', '其他']
@@ -40,8 +114,13 @@ const queryFeedback = async () => {
   }
 }
 
+// 进入页面及手动刷新时，同时更新提交资格与反馈记录。
+const refreshFeedback = async () => {
+  await Promise.all([queryFeedback(), queryRecords()])
+}
+
 onShow(() => {
-  if (!submitting.value) void queryFeedback()
+  if (!submitting.value) void refreshFeedback()
 })
 
 const submitFeedback = async () => {
@@ -72,6 +151,7 @@ const submitFeedback = async () => {
     pendingFeedback.value = res.data
     feedbackContent.value = ''
     uni.showToast({ title: '提交成功', icon: 'success' })
+    await queryRecords()
   } catch (error) {
     // 冲突或网络失败时可能已经落库，重新查询后再开放提交。
     const statusCode = (error as { statusCode?: number })?.statusCode
@@ -140,6 +220,52 @@ const submitFeedback = async () => {
             />
             <text class="content-count">{{ contentLength }}/5000</text>
           </view>
+        </view>
+        <view class="history-card">
+          <view class="section-heading history-heading">
+            <text class="section-title">我的反馈</text>
+            <button
+              class="history-action"
+              :disabled="recordsLoading || submitting"
+              @click="refreshFeedback"
+            >
+              刷新
+            </button>
+          </view>
+          <view v-for="item in records" :key="item.id" class="history-item">
+            <view class="history-heading">
+              <text class="history-type">{{ item.type }}</text>
+              <text class="history-status" :class="{ replied: item.status === 'REPLIED' }">{{
+                statusLabels[item.status]
+              }}</text>
+            </view>
+            <text class="history-time">提交时间：{{ formatTime(item.createdAt) }}</text>
+            <view class="history-content">{{ item.content }}</view>
+            <view v-if="item.reply" class="history-reply">
+              <text class="history-type">管理员回复</text>
+              <view class="history-content">{{ item.reply }}</view>
+            </view>
+            <text v-if="item.completedAt" class="history-time"
+              >完成时间：{{ formatTime(item.completedAt) }}</text
+            >
+          </view>
+          <view v-if="recordsLoading" class="history-hint">正在加载反馈记录…</view>
+          <view v-else-if="recordsError" class="history-hint">
+            反馈记录加载失败
+            <button class="history-action" :disabled="submitting" @click="refreshFeedback">
+              重新加载
+            </button>
+          </view>
+          <view v-else-if="!records.length" class="history-hint">暂无反馈记录</view>
+          <button
+            v-else-if="recordsPage < recordsTotalPage"
+            class="history-action"
+            :disabled="submitting"
+            @click="queryRecords(false)"
+          >
+            加载更多
+          </button>
+          <view v-else class="history-hint">已显示全部反馈</view>
         </view>
       </view>
     </scroll-view>
@@ -378,6 +504,75 @@ const submitFeedback = async () => {
 
 .retry-button {
   margin-top: 12rpx;
+  font-size: 24rpx;
+}
+.history-card {
+  margin-top: 24rpx;
+  padding: 24rpx;
+  background: #ffffff;
+  border-radius: 18rpx;
+}
+
+.history-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.history-item {
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #eeeeee;
+}
+
+.history-type {
+  font-size: 25rpx;
+  font-weight: 600;
+}
+
+.history-status {
+  flex-shrink: 0;
+  color: #777777;
+  font-size: 23rpx;
+}
+
+.history-status.replied {
+  color: #258354;
+}
+
+.history-time {
+  display: block;
+  margin-top: 12rpx;
+  color: #999999;
+  font-size: 22rpx;
+}
+
+.history-content {
+  margin-top: 12rpx;
+  font-size: 25rpx;
+  line-height: 38rpx;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.history-reply {
+  margin-top: 16rpx;
+  padding: 20rpx;
+  background: #f8f7f5;
+  border-radius: 12rpx;
+}
+
+.history-hint {
+  padding: 20rpx 0;
+  color: #999999;
+  font-size: 24rpx;
+  text-align: center;
+}
+
+.history-action {
+  margin: 12rpx 0;
+  color: #e42b22;
+  background: #fff5f4;
   font-size: 24rpx;
 }
 </style>

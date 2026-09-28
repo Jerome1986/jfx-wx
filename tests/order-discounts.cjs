@@ -15,6 +15,7 @@ const now = Date.parse('2026-09-19T00:00:00Z')
 const coupon = {
   id: 1,
   status: 'AVAILABLE',
+  orderId: null,
   expiresAt: '2026-10-01T00:00:00Z',
   coupon: {
     amount: '20.01',
@@ -51,15 +52,11 @@ test('points use one yuan each after coupon; toggling off restores the amount', 
   assert.equal(api.calculateDiscounts(199, 0, 2, true).pointsDiscount, 100)
   assert.equal(api.calculateDiscounts(1000, 0, 0, true).payableCents, 1000)
 })
-test('used, invalid, expired, unpublished and future coupons cannot discount', () => {
+test('used, invalid, expired, draft and future coupons cannot discount', () => {
   for (const status of ['USED', 'INVALID', 'EXPIRED']) {
     assert.equal(api.evaluateCoupon({ ...coupon, status }, 10000, now).discountCents, 0)
   }
-  for (const patch of [
-    { status: 'DISABLED' },
-    { validFrom: '2026-10-01' },
-    { validTo: '2026-09-19T00:00:00Z' },
-  ]) {
+  for (const patch of [{ status: 'DRAFT' }, { validFrom: '2026-10-01' }]) {
     assert.equal(
       api.evaluateCoupon({ ...coupon, coupon: { ...coupon.coupon, ...patch } }, 10000, now)
         .discountCents,
@@ -70,4 +67,22 @@ test('used, invalid, expired, unpublished and future coupons cannot discount', (
     api.evaluateCoupon({ ...coupon, expiresAt: '2026-09-19T00:00:00Z' }, 10000, now).discountCents,
     0,
   )
+})
+
+test('停用已领券仍可抵扣，模板截止时间不改变领券有效期', () => {
+  for (const validTo of ['2026-09-01', '2027-01-01']) {
+    const record = { ...coupon, coupon: { ...coupon.coupon, status: 'DISABLED', validTo } }
+    assert.equal(api.getCouponUnavailableReason(record, now), '')
+    assert.equal(api.evaluateCoupon(record, 10000, now).discountCents, 2001)
+    assert.equal(
+      api.evaluateCoupon({ ...record, expiresAt: new Date(now).toISOString() }, 10000, now)
+        .discountCents,
+      0,
+    )
+  }
+})
+test('订单占用券不可重复使用，解除占用后恢复', () => {
+  assert.equal(api.getCouponUnavailableReason({ ...coupon, orderId: 15 }, now), '已占用')
+  assert.equal(api.evaluateCoupon({ ...coupon, orderId: 15 }, 10000, now).discountCents, 0)
+  assert.equal(api.evaluateCoupon(coupon, 10000, now).discountCents, 2001)
 })

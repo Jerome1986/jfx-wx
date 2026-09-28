@@ -1,40 +1,77 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { CouponItem } from '@/types/coupons'
-import { onShow } from '@dcloudio/uni-app'
+import { onShow, onUnload } from '@dcloudio/uni-app'
 import { useMemberStore } from '@/stores/modules/member'
+import { userInfoFindOne, getUserSummary } from '@/api/user'
+import { getCouponUnavailableReason } from '@/utils/order-discounts'
 
 const memberStore = useMemberStore()
 const now = ref(Date.now())
-onShow(() => {
+const refreshing = ref(false)
+const refreshFailed = ref(false)
+let requestVersion = 0
+const refreshCoupons = async () => {
+  const version = ++requestVersion
+  const userId = Number(memberStore.profile?.id)
+  const token = memberStore.token
   now.value = Date.now()
+  if (!Number.isSafeInteger(userId) || userId <= 0 || !token) {
+    refreshing.value = false
+    refreshFailed.value = true
+    return
+  }
+  refreshing.value = true
+  refreshFailed.value = false
+  try {
+    const [info, summary] = await Promise.all([userInfoFindOne(userId), getUserSummary(userId)])
+    if (
+      version !== requestVersion ||
+      Number(memberStore.profile?.id) !== userId ||
+      memberStore.token !== token
+    )
+      return
+    if (info.code !== 200 || summary.code !== 200 || !Array.isArray(info.data?.userCoupons)) {
+      throw new Error('优惠券加载失败')
+    }
+    memberStore.setProfile({
+      ...memberStore.profile,
+      ...info.data,
+      ...summary.data,
+      name: info.data.realName,
+    })
+  } catch {
+    if (version === requestVersion) refreshFailed.value = true
+  } finally {
+    if (version === requestVersion) refreshing.value = false
+  }
+}
+watch(
+  [() => memberStore.profile?.id, () => memberStore.token],
+  () => {
+    requestVersion++
+    refreshing.value = false
+    refreshFailed.value = true
+  },
+  { flush: 'sync' },
+)
+onShow(refreshCoupons)
+onUnload(() => {
+  requestVersion++
 })
 
 // 当前标签页
-const activeTab = ref<'available' | 'expired'>('available')
+const activeTab = ref<'available' | 'unavailable'>('available')
 
 // 优惠券列表
 const coupons = computed<CouponItem[]>(() =>
   (memberStore.profile?.userCoupons ?? []).map((record) => {
     const coupon = record.coupon
-    const expiresAt = Math.min(Date.parse(record.expiresAt), Date.parse(coupon.validTo))
-    const started = Date.parse(coupon.validFrom) <= now.value
-    const expired = expiresAt <= now.value
-    const invalid =
-      record.status !== 'AVAILABLE' ||
-      coupon.status !== 'PUBLISHED' ||
-      expired ||
-      !Number.isFinite(expiresAt)
-    const statusLabel =
-      record.status === 'USED'
-        ? '已使用'
-        : record.status === 'EXPIRED' || expired
-        ? '已过期'
-        : invalid
-        ? '已失效'
-        : !started
-        ? '未生效'
-        : '去使用'
+    const expiresAt = Date.parse(record.expiresAt)
+    const reason = getCouponUnavailableReason(record, now.value)
+    // 不可用分组包括占用、未生效、已使用和过期，保留具体原因。
+    const invalid = !!reason
+    const statusLabel = reason === '未到使用时间' ? '未生效' : reason || '去使用'
     const date = new Date(expiresAt)
     const expiry = Number.isFinite(expiresAt)
       ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
@@ -52,9 +89,9 @@ const coupons = computed<CouponItem[]>(() =>
       ],
       expiry,
       expiresAt,
-      status: invalid ? 'expired' : 'available',
+      status: invalid ? 'unavailable' : 'available',
       statusLabel,
-      usable: !invalid && started,
+      usable: !reason,
     }
   }),
 )
@@ -67,13 +104,14 @@ const expiringCount = computed(
     ).length,
 )
 
-// 未生效的券保留在可用标签下展示，但不可点击使用。
+// 分组与顶部可用数量使用同一判断。
 const visibleCoupons = computed(() =>
   coupons.value.filter((item) => item.status === activeTab.value),
 )
 
 // 获取优惠券展示状态
 const useCoupon = (item: CouponItem) => {
+  if (refreshing.value || refreshFailed.value) return
   now.value = Date.now()
   const current = coupons.value.find((coupon) => coupon.id === item.id)
   if (!current?.usable) return
@@ -95,7 +133,7 @@ const useCoupon = (item: CouponItem) => {
           </view>
           <view class="overview-right">
             <view v-if="expiringCount" class="expiring-badge">7天内到期{{ expiringCount }}张</view>
-            <view class="expiring-description">过期或失效后将不再展示为<br />可用券</view>
+            <view class="expiring-description">占用、未生效或过期的券不计入<br />可用券</view>
           </view>
         </view>
 
@@ -107,22 +145,26 @@ const useCoupon = (item: CouponItem) => {
             可用
           </view>
           <view
-            :class="['coupon-tab', { active: activeTab === 'expired' }]"
-            @click="activeTab = 'expired'"
+            :class="['coupon-tab', { active: activeTab === 'unavailable' }]"
+            @click="activeTab = 'unavailable'"
           >
-            已失效
+            不可用
           </view>
         </view>
 
+        <view v-if="refreshing" class="refresh-state">正在更新优惠券...</view>
+        <view v-else-if="refreshFailed" class="refresh-state" @click="refreshCoupons"
+          >刷新失败，点击重试</view
+        >
         <view class="coupon-list">
           <wd-empty
-            v-if="!visibleCoupons.length"
-            :tip="activeTab === 'available' ? '暂无可用优惠券' : '暂无失效优惠券'"
+            v-if="!refreshing && !refreshFailed && !visibleCoupons.length"
+            :tip="activeTab === 'available' ? '暂无可用优惠券' : '暂无不可用优惠券'"
           />
           <view
             v-for="item in visibleCoupons"
             :key="item.id"
-            :class="['coupon-card', { expired: item.status === 'expired' }]"
+            :class="['coupon-card', { unavailable: item.status === 'unavailable' }]"
           >
             <view class="coupon-value">
               <view class="amount-line">
@@ -141,7 +183,12 @@ const useCoupon = (item: CouponItem) => {
                 <view>有效期至 {{ item.expiry }}</view>
                 <view>最终可用范围以确认订单页为准</view>
               </view>
-              <button v-if="item.usable" class="coupon-action" @click="useCoupon(item)">
+              <button
+                v-if="item.usable"
+                :disabled="refreshing || refreshFailed"
+                class="coupon-action"
+                @click="useCoupon(item)"
+              >
                 去使用
               </button>
               <view v-else class="expired-badge">{{ item.statusLabel }}</view>
@@ -156,6 +203,12 @@ const useCoupon = (item: CouponItem) => {
 </template>
 
 <style lang="scss">
+.refresh-state {
+  padding: 24rpx;
+  color: #888;
+  text-align: center;
+}
+
 .coupons-page {
   display: flex;
   height: 100vh;
@@ -336,11 +389,11 @@ const useCoupon = (item: CouponItem) => {
 .coupon-action::after {
   border: 0;
 }
-.coupon-card.expired .coupon-value {
+.coupon-card.unavailable .coupon-value {
   color: #777;
   background: #f5f2ee;
 }
-.coupon-card.expired .detail-copy {
+.coupon-card.unavailable .detail-copy {
   color: #999;
 }
 .expired-badge {

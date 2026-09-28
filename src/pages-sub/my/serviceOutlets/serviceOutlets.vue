@@ -37,7 +37,8 @@ const loadCities = async () => {
     if (currentCityId.value !== null) await loadOutlets()
   } catch (error) {
     console.error('获取服务城市失败：', error)
-    uni.showToast({ title: '获取服务城市失败', icon: 'none' })
+    if (!(error as { notified?: boolean })?.notified)
+      uni.showToast({ title: '获取服务城市失败', icon: 'none' })
   }
 }
 

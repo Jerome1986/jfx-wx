@@ -167,7 +167,8 @@ const submitCancellation = async () => {
     uni.showToast({ title: '预约已取消', icon: 'success' })
   } catch (error) {
     // 已完成或并发状态变化时同步最新详情，不自动再次取消。
-    const statusCode = (error as { statusCode?: number }).statusCode
+    const statusCode =
+      (error as { code?: number }).code ?? (error as { statusCode?: number }).statusCode
     if (statusCode === 400 || statusCode === 409) await loadAppointmentDetail()
     console.error('取消预约失败：', error)
   } finally {

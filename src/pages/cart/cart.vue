@@ -5,6 +5,7 @@ import { onShow } from '@dcloudio/uni-app'
 import { storeToRefs } from 'pinia'
 import { useCartStore, cartItemKey, formatPrice } from '@/stores/modules/cart'
 import { requireCartLogin, syncCartBadge } from '@/utils/cart-access'
+import { useProductCheck } from '@/utils/product-check'
 
 // 状态栏高度
 const statusBarHeight = ref(0)
@@ -24,6 +25,10 @@ onMounted(() => {
 
 const cartStore = useCartStore()
 const { items: cartItems, totalCount, selectedCount, selectedTotal } = storeToRefs(cartStore)
+const { checking, notice, issues, refresh } = useProductCheck(
+  () => cartStore.items,
+  () => cartStore.userId,
+)
 const allSelected = computed({
   get: () => cartStore.allSelected,
   set: (value: boolean) => cartStore.selectAll(value),
@@ -32,11 +37,12 @@ const decrease = (item: CartItem) => cartStore.setQuantity(cartItemKey(item), it
 const increase = (item: CartItem) => cartStore.setQuantity(cartItemKey(item), item.quantity + 1)
 const goShopping = () => uni.switchTab({ url: '/pages/product/product' })
 onShow(() => {
-  requireCartLogin('/pages/cart/cart')
+  if (requireCartLogin('/pages/cart/cart')) void refresh()
   syncCartBadge(cartStore.totalCount)
 })
-const checkout = () => {
-  if (!requireCartLogin('/pages/cart/cart')) return
+const checkout = async () => {
+  if (checking.value || !requireCartLogin('/pages/cart/cart')) return
+  if (!(await refresh())) return
   if (!cartStore.prepareCheckout()) {
     uni.showToast({ title: '请先选择商品', icon: 'none' })
     return
@@ -71,6 +77,10 @@ const checkout = () => {
             <text class="item-count">共{{ totalCount }}件</text>
           </view>
 
+          <view v-if="checking" class="check-notice">正在核对商品...</view>
+          <view v-else-if="notice" class="check-notice" @click="refresh"
+            >{{ notice }}，点击重试</view
+          >
           <view class="product-list">
             <view v-for="item in cartItems" :key="cartItemKey(item)" class="product-item">
               <wd-checkbox
@@ -87,6 +97,9 @@ const checkout = () => {
                 }}</view>
                 <view class="product-description">{{
                   item.installationIncluded ? '已含基础安装' : '不含安装服务'
+                }}</view>
+                <view v-if="!checking && issues[cartItemKey(item)]" class="check-notice">{{
+                  issues[cartItemKey(item)]
                 }}</view>
                 <text class="remove-item" @click="cartStore.removeItem(cartItemKey(item))"
                   >删除</text
@@ -154,12 +167,20 @@ const checkout = () => {
       </view>
       <view class="total-label">合计</view>
       <view class="total-price"><text>¥</text>{{ selectedTotal }}</view>
-      <button class="checkout-button" @click="checkout">去结算（{{ selectedCount }}）</button>
+      <button :disabled="checking" class="checkout-button" @click="checkout">
+        去结算（{{ selectedCount }}）
+      </button>
     </view>
   </view>
 </template>
 
 <style lang="scss">
+.check-notice {
+  padding: 12rpx 0;
+  color: $jfx-brandColor;
+  font-size: 24rpx;
+}
+
 .empty-cart {
   padding: 80rpx 24rpx;
   text-align: center;

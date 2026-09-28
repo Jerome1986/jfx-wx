@@ -1,62 +1,132 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { onShow, onUnload } from '@dcloudio/uni-app'
+import {
+  getEmployeePerformanceCenter,
+  type EmployeePerformanceCenter,
+  type EmployeePerformanceProject,
+} from '@/api/employee'
+import { useMemberStore } from '@/stores'
 
-type Period = '2026年07月' | '06月' | '05月' | '累计'
-
-// 状态栏高度
+const memberStore = useMemberStore()
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
-// 当前周期
-const activePeriod = ref<Period>('2026年07月')
-// 周期选项
-const periods: Period[] = ['2026年07月', '06月', '05月', '累计']
-// 排行列表
-const rankings = [
-  { rank: 1, name: '刘经理', amount: '¥15.2万' },
-  { rank: 2, name: '王经理', amount: '¥12.2万' },
-  { rank: 3, name: '陈经理', amount: '¥10.6万' },
-  { rank: 4, name: '黄经理', amount: '¥9.2万' },
-  { rank: 5, name: '吴经理', amount: '¥8.9万' },
-]
-// 业绩项目列表
-const projects = [
-  {
-    id: 1,
-    title: '68m²老房翻新焕新颜',
-    customer: '李律师 137****6819',
-    amount: '¥28600',
-    content: '老房翻新/厨卫改造',
-    date: '06月18日 完成验收',
-  },
-  {
-    id: 2,
-    title: '68m²老房翻新焕新颜',
-    customer: '李律师 137****6819',
-    amount: '¥18680',
-    content: '老房翻新/厨卫改造',
-    date: '06月18日 完成验收',
-  },
-]
+const periods = ref<{ value: string; label: string }[]>([])
+const activePeriod = ref('')
+const result = ref<EmployeePerformanceCenter>()
+const projects = ref<EmployeePerformanceProject[]>([])
+const loading = ref(false)
+const error = ref(false)
+const pageNum = ref(0)
+const totalPage = ref(0)
+let requestId = 0
+let currentMonth = ''
 
-// 月份
-const displayMonth = computed(() =>
-  activePeriod.value === '累计'
-    ? '累计数据'
-    : activePeriod.value.includes('年')
-    ? activePeriod.value
-    : `2026年${activePeriod.value}`,
+const updatePeriods = () => {
+  const date = new Date(Date.now() + 8 * 60 * 60 * 1000)
+  const months = Array.from({ length: 3 }, (_, index) => {
+    const month = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - index, 1))
+    const value = month.toISOString().slice(0, 7)
+    return { value, label: value.replace('-', '年') + '月' }
+  })
+  if (!activePeriod.value || activePeriod.value === currentMonth)
+    activePeriod.value = months[0].value
+  currentMonth = months[0].value
+  if (activePeriod.value !== 'all' && !months.some((item) => item.value === activePeriod.value)) {
+    activePeriod.value = currentMonth
+  }
+  periods.value = [...months, { value: 'all', label: '累计' }]
+}
+const clearData = () => {
+  requestId++
+  result.value = undefined
+  projects.value = []
+  pageNum.value = 0
+  totalPage.value = 0
+  loading.value = false
+  error.value = false
+}
+watch([() => memberStore.profile?.id, () => memberStore.profile?.role], clearData, {
+  flush: 'sync',
+})
+const fetchData = async (append = false) => {
+  if (append && (loading.value || pageNum.value >= totalPage.value)) return
+  // 保留已展示内容，避免刷新时卡片卸载、页面高度塌陷。
+  if (!append) {
+    pageNum.value = 0
+    totalPage.value = 0
+  }
+  if (memberStore.profile?.role !== 'EMPLOYEE') {
+    clearData()
+    return
+  }
+  const id = ++requestId
+  const nextPage = append ? pageNum.value + 1 : 1
+  loading.value = true
+  error.value = false
+  try {
+    const { data } = await getEmployeePerformanceCenter({
+      month: activePeriod.value,
+      pageNum: nextPage,
+      pageSize: 10,
+    })
+    if (id !== requestId) return
+    result.value = data
+    const existing = append ? projects.value : []
+    projects.value = [
+      ...new Map([...existing, ...data.projects.list].map((item) => [item.id, item])).values(),
+    ]
+    pageNum.value = data.projects.pageNum
+    totalPage.value = data.projects.totalPage
+  } catch {
+    if (id === requestId) error.value = true
+  } finally {
+    if (id === requestId) loading.value = false
+  }
+}
+const selectPeriod = (value: string) => {
+  if (activePeriod.value === value) return
+  activePeriod.value = value
+  void fetchData()
+}
+const loadMore = () => {
+  if (!error.value) void fetchData(true)
+}
+const retry = () => void fetchData(pageNum.value > 0)
+onShow(() => {
+  updatePeriods()
+  void fetchData()
+})
+onUnload(clearData)
+
+const displayMonth = computed(() => {
+  const month = result.value?.month ?? activePeriod.value
+  return month === 'all' ? '累计' : month.replace('-', '年') + '月'
+})
+const currentEmployee = computed(() => result.value?.currentEmployee)
+const rankings = computed(() => result.value?.rankings ?? [])
+const showCurrentEmployee = computed(
+  () =>
+    currentEmployee.value &&
+    !rankings.value.some((item) => item.employeeId === currentEmployee.value?.employeeId),
 )
-// 返回上一页
+const formatAmount = (value?: string) => (value == null ? '—' : '¥' + value)
+const formatRank = (value?: number | null) => (value == null ? '—' : '第' + value + '名')
+const formatDate = (value: string | null) => {
+  if (!value) return '—'
+  const timestamp = new Date(value).getTime()
+  if (!Number.isFinite(timestamp)) return '—'
+  return new Date(timestamp + 8 * 60 * 60 * 1000).toISOString().slice(0, 10) + ' 已完工'
+}
 const goBack = () => uni.navigateBack()
-// 打开项目
 const openProject = (id: number) =>
   uni.navigateTo({
-    url: `/pages-sub/my/employeeRenovationOrderDetail/employeeRenovationOrderDetail?status=completed&id=${id}`,
+    url: '/pages-sub/my/employeeRenovationOrderDetail/employeeRenovationOrderDetail?id=' + id,
   })
 </script>
 
 <template>
   <view class="performance-page">
-    <view class="safe-area" :style="{ height: `${statusBarHeight}px` }" />
+    <view class="safe-area" :style="{ height: statusBarHeight + 'px' }" />
     <view class="custom-navigation">
       <view class="back-button" @click="goBack"
         ><text class="iconfont icon-youjiantou back-icon"
@@ -64,94 +134,141 @@ const openProject = (id: number) =>
       <text class="navigation-title">业绩中心</text>
       <view class="nav-placeholder" />
     </view>
-
-    <scroll-view class="page-scroll" scroll-y :show-scrollbar="false">
+    <scroll-view class="page-scroll" scroll-y :show-scrollbar="false" @scrolltolower="loadMore">
       <view class="page-content">
         <view class="card filter-card">
           <view class="section-title">月份筛选</view>
+          <view v-if="result && pageNum === 0" class="refresh-status">
+            <text v-if="loading">更新中…</text>
+            <text v-else-if="error" @click="retry">更新失败，点击重试</text>
+          </view>
           <view class="period-row">
             <view
               v-for="period in periods"
-              :key="period"
-              :class="['period-pill', { active: activePeriod === period }]"
-              @click="activePeriod = period"
-              >{{ period }}</view
+              :key="period.value"
+              :class="['period-pill', { active: activePeriod === period.value }]"
+              @click="selectPeriod(period.value)"
+              >{{ period.label }}</view
             >
           </view>
         </view>
-
-        <view class="card summary-card">
-          <view class="section-heading"
-            ><text class="section-title">本月业绩</text
-            ><text class="section-note">{{ displayMonth }}</text></view
-          >
-          <view class="metric-grid">
-            <view class="metric"
-              ><text class="metric-value red">¥8.43万</text
-              ><text class="metric-label">业绩金额</text></view
-            >
-            <view class="metric"
-              ><text class="metric-value">3</text><text class="metric-label">完成项目</text></view
-            >
-            <view class="metric"
-              ><text class="metric-value">¥2.81万</text
-              ><text class="metric-label">平均单值</text></view
-            >
-            <view class="metric"
-              ><text class="metric-value red">第100名</text
-              ><text class="metric-label">公司排名</text></view
-            >
-          </view>
-          <view class="total-row"
-            ><text>合计总业绩</text><text class="total-value">¥42.8万</text
-            ><text class="total-projects">累计完成18个项目</text></view
-          >
-        </view>
-
-        <view class="card ranking-card">
-          <view class="section-heading"
-            ><text class="section-title">公司业绩排名</text
-            ><text class="ranking-note">当前员工第100名</text></view
-          >
-          <view v-for="item in rankings" :key="item.rank" class="rank-row"
-            ><text class="rank-number">{{ item.rank }}</text
-            ><text class="rank-name">{{ item.name }}</text
-            ><text class="rank-amount">{{ item.amount }}</text></view
-          >
-          <view class="ranking-ellipsis">省略中间排名</view>
-          <view class="rank-row current"
-            ><text class="rank-number">100</text><text class="rank-name">张先生</text
-            ><text class="rank-amount">¥8.9万</text></view
-          >
-        </view>
-
-        <view class="project-heading"
-          ><text class="section-title">完成项目</text
-          ><text class="section-note">按完成时间排序</text></view
+        <view v-if="memberStore.profile?.role !== 'EMPLOYEE'" class="state-text"
+          >请使用员工账号登录后查看</view
         >
-        <view v-for="project in projects" :key="project.id" class="card project-card">
-          <view class="project-top"
-            ><view
-              ><view class="project-title">{{ project.title }}</view
-              ><view class="customer">{{ project.customer }}</view></view
-            ><button class="view-button" @click="openProject(project.id)">查看</button></view
+        <view v-else-if="loading && !result" class="state-text">加载中…</view>
+        <view v-else-if="error && !result" class="state-text" @click="retry"
+          >加载失败，点击重试</view
+        >
+        <view v-if="result" :class="['result-content', { refreshing: pageNum === 0 }]">
+          <view class="card summary-card">
+            <view class="section-heading">
+              <text class="section-title">{{
+                result.month === 'all' ? '累计签约' : '签约概览'
+              }}</text>
+              <text class="section-note">{{ displayMonth }}</text>
+            </view>
+            <view class="metric-grid">
+              <view class="metric"
+                ><text class="metric-value red">{{
+                  formatAmount(result.summary.signedAmount)
+                }}</text
+                ><text class="metric-label">签约金额</text></view
+              >
+              <view class="metric"
+                ><text class="metric-value">{{ result.summary.completedProjectCount }}</text
+                ><text class="metric-label">完成项目</text></view
+              >
+              <view class="metric"
+                ><text class="metric-value">{{
+                  formatAmount(result.summary.averageSignedAmount)
+                }}</text
+                ><text class="metric-label">平均单值</text></view
+              >
+              <view class="metric"
+                ><text class="metric-value red">{{ formatRank(result.summary.companyRank) }}</text
+                ><text class="metric-label">公司排名</text></view
+              >
+            </view>
+            <view class="total-row"
+              ><text>累计签约金额</text
+              ><text class="total-value">{{ formatAmount(result.totals.signedAmount) }}</text
+              ><text class="total-projects"
+                >累计完成{{ result.totals.completedProjectCount }}个项目</text
+              ></view
+            >
+          </view>
+          <view class="card ranking-card">
+            <view class="section-heading"
+              ><text class="section-title">公司签约排名</text
+              ><text class="ranking-note">{{
+                currentEmployee?.rank == null
+                  ? '当前员工暂未上榜'
+                  : '当前员工' + formatRank(currentEmployee.rank)
+              }}</text></view
+            >
+            <view v-if="!rankings.length" class="state-text">暂无签约排名</view>
+            <view
+              v-for="item in rankings"
+              :key="item.employeeId"
+              :class="['rank-row', { current: item.employeeId === currentEmployee?.employeeId }]"
+            >
+              <text class="rank-number">{{ item.rank ?? '—' }}</text
+              ><text class="rank-name">{{ item.name }}</text
+              ><text class="rank-amount">{{ formatAmount(item.signedAmount) }}</text>
+            </view>
+            <template v-if="showCurrentEmployee && currentEmployee">
+              <view
+                v-if="currentEmployee.rank != null && currentEmployee.rank > rankings.length + 1"
+                class="ranking-ellipsis"
+                >省略中间排名</view
+              >
+              <view class="rank-row current"
+                ><text class="rank-number">{{ currentEmployee.rank ?? '—' }}</text
+                ><text class="rank-name">{{ currentEmployee.name }}</text
+                ><text class="rank-amount">{{
+                  formatAmount(currentEmployee.signedAmount)
+                }}</text></view
+              >
+            </template>
+          </view>
+          <view class="project-heading"
+            ><text class="section-title">完成项目</text
+            ><text class="section-note">按完成时间排序</text></view
           >
-          <view class="detail-row"
-            ><text class="detail-label">业绩金额</text
-            ><text class="red">{{ project.amount }}</text></view
+          <view v-for="project in projects" :key="project.id" class="card project-card">
+            <view class="project-top"
+              ><view
+                ><view class="project-title">{{ project.name }}</view
+                ><view class="customer">{{ project.customerName }} {{ project.mobile }}</view></view
+              ><button class="view-button" @click="openProject(project.id)">查看</button></view
+            >
+            <view class="detail-row"
+              ><text class="detail-label">签约金额</text
+              ><text class="red">{{ formatAmount(project.signedAmount) }}</text></view
+            >
+            <view class="detail-row"
+              ><text class="detail-label">装修方案</text
+              ><text>{{ project.planName || '—' }}</text></view
+            >
+            <view class="detail-row"
+              ><text class="detail-label">完成时间</text
+              ><text>{{ formatDate(project.completedAt) }}</text></view
+            >
+          </view>
+          <view v-if="loading" class="state-text">加载中…</view>
+          <view v-else-if="error" class="state-text" @click="retry">加载失败，点击重试</view>
+          <view v-else-if="!projects.length" class="state-text">暂无完成项目</view>
+          <view v-else-if="pageNum < totalPage" class="state-text" @click="loadMore"
+            >点击加载更多</view
           >
-          <view class="detail-row"
-            ><text class="detail-label">项目内容</text><text>{{ project.content }}</text></view
-          >
-          <view class="detail-row"
-            ><text class="detail-label">完成时间</text><text>{{ project.date }}</text></view
-          >
+          <view v-else class="state-text">已全部加载</view>
         </view>
-
         <view class="card statistics-card">
           <view class="section-title">统计口径</view>
-          <view class="statistics-copy">小程序只展示业绩汇总与排名，不发放佣金</view>
-          <view class="statistics-copy">业绩按已完成的项目金额统计</view>
+          <view class="statistics-copy"
+            >签约金额按已完工项目的合同金额统计，月份以完成时间为准</view
+          >
+          <view class="statistics-copy">平均单值 = 签约金额 ÷ 完成项目数</view>
         </view>
         <view class="bottom-space" />
       </view>
@@ -419,5 +536,77 @@ const openProject = (id: number) =>
 }
 .bottom-space {
   height: calc(38rpx + env(safe-area-inset-bottom));
+}
+
+.period-row {
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+.metric {
+  min-width: 0;
+}
+.metric-value {
+  max-width: 100%;
+  font-size: 24rpx;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+.total-row {
+  height: auto;
+  min-height: 52rpx;
+  padding: 8rpx;
+  flex-wrap: wrap;
+  gap: 8rpx 16rpx;
+}
+.total-value {
+  margin-left: 0;
+  overflow-wrap: anywhere;
+}
+.rank-row {
+  height: auto;
+  min-height: 40rpx;
+  gap: 8rpx;
+}
+.rank-number {
+  width: auto;
+  min-width: 30rpx;
+  flex-shrink: 0;
+}
+.rank-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.rank-amount {
+  flex-shrink: 0;
+}
+.detail-label {
+  flex-shrink: 0;
+}
+.project-top > view,
+.detail-row > text:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.state-text {
+  padding: 28rpx 0;
+  color: #888;
+  font-size: 24rpx;
+  text-align: center;
+}
+
+.filter-card {
+  position: relative;
+}
+.refresh-status {
+  position: absolute;
+  top: 30rpx;
+  right: 24rpx;
+  color: #888;
+  font-size: 23rpx;
+  line-height: 34rpx;
+}
+.result-content.refreshing {
+  pointer-events: none;
 }
 </style>

@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
 import { computed, ref, watch } from 'vue'
-import { getEmployeeSummary, type EmployeeSummary } from '@/api/employee'
+import {
+  getEmployeeSummary,
+  getEmployeePerformanceSummary,
+  type EmployeeSummary,
+  type EmployeePerformanceSummary,
+} from '@/api/employee'
 import { getUserSummary, userInfoFindOne } from '@/api/user'
 import { useMemberStore } from '@/stores'
 import { useCartStore } from '@/stores/modules/cart'
@@ -24,14 +29,18 @@ const isEmployee = computed(() => memberStore.profile?.role === 'EMPLOYEE')
 let refreshing = false
 
 const employeeSummary = ref<EmployeeSummary>()
+const employeePerformance = ref<EmployeePerformanceSummary>()
 let summaryRequestId = 0
+let performanceRequestId = 0
 
 // 账号或角色变化时清空统计，并使旧请求失效。
 watch(
   [() => memberStore.profile?.id, () => memberStore.profile?.role],
   () => {
     employeeSummary.value = undefined
+    employeePerformance.value = undefined
     summaryRequestId++
+    performanceRequestId++
   },
   { flush: 'sync' },
 )
@@ -45,6 +54,19 @@ onShow(async () => {
     employeeSummary.value = data
   } catch (error) {
     console.error('刷新员工待办统计失败：', error)
+  }
+})
+
+onShow(async () => {
+  if (!isEmployee.value) return
+  const requestId = ++performanceRequestId
+  employeePerformance.value = undefined
+  try {
+    const { data } = await getEmployeePerformanceSummary()
+    if (requestId !== performanceRequestId) return
+    employeePerformance.value = data
+  } catch (error) {
+    console.error('刷新员工业绩概览失败：', error)
   }
 })
 
@@ -84,7 +106,11 @@ onShow(async () => {
 </script>
 
 <template>
-  <EmployeeMy v-if="isEmployee" :summary="employeeSummary" />
+  <EmployeeMy
+    v-if="isEmployee"
+    :summary="employeeSummary"
+    :performance-summary="employeePerformance"
+  />
   <CustomerMy v-else />
   <view v-if="isDevelopment" class="dev-debug-entry">
     <button class="dev-debug-button" @click="openDevDebug">开发调试</button>

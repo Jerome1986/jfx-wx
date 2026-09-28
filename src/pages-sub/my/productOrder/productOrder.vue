@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
+import { refreshOrderBenefits } from '@/utils/order-benefits'
 import { cancelOrder, getUserOrders, payOrder, requestWechatPayment } from '@/api/order'
 import { formatBeijingTimestamp, orderInstallationText } from '@/utils/order-booking'
 import { formatTimestamp } from '@/utils/format'
@@ -97,6 +98,7 @@ const loadOrders = async (reset = false) => {
     // 忽略切换标签前的旧请求，避免覆盖当前列表。
     if (currentRequest !== requestId) return
     orders.value = reset ? data.list : [...orders.value, ...data.list]
+    if (reset) void refreshOrderBenefits()
     total.value = data.total
     pageNum.value = Number(data.pageNum)
     totalPage.value = data.totalPage
@@ -132,7 +134,9 @@ const handleCancelOrder = async (order: UserProductOrder) => {
   if (
     cancelingOrderId.value !== null ||
     payingOrderId.value !== null ||
-    order.status !== 'PENDING_PAYMENT'
+    order.status !== 'PENDING_PAYMENT' ||
+    order.paymentExpired ||
+    order.paymentStatus === 'CLOSED'
   )
     return
   cancelingOrderId.value = order.id
@@ -157,6 +161,7 @@ const handleCancelOrder = async (order: UserProductOrder) => {
     console.error('取消订单失败：', error)
   } finally {
     cancelingOrderId.value = null
+    await loadOrders(true)
   }
 }
 
@@ -164,7 +169,9 @@ const handlePayOrder = async (order: UserProductOrder) => {
   if (
     payingOrderId.value !== null ||
     cancelingOrderId.value !== null ||
-    order.status !== 'PENDING_PAYMENT'
+    order.status !== 'PENDING_PAYMENT' ||
+    order.paymentExpired ||
+    order.paymentStatus === 'CLOSED'
   )
     return
   payingOrderId.value = order.id
@@ -219,7 +226,11 @@ const handlePayOrder = async (order: UserProductOrder) => {
                 >下单时间：{{ formatBeijingTimestamp(order.createdAt, 2) }}
               </text>
               <text :class="['status-badge', 'status-' + statusClass(order.status)]">{{
-                order.status === 'PENDING_INSTALLATION'
+                order.paymentStatus === 'CLOSED'
+                  ? '订单已关闭'
+                  : order.paymentExpired
+                  ? '订单已超时'
+                  : order.status === 'PENDING_INSTALLATION'
                   ? installationText(order)
                   : statusText[order.status] || order.status
               }}</text>
@@ -251,6 +262,14 @@ const handlePayOrder = async (order: UserProductOrder) => {
               <view class="product-summary">{{ productSummary(order) }}</view>
               <text v-if="requiresInstallation(order)" class="installation-tag">需安装</text>
             </view>
+            <view v-if="order.cancelReason || order.paymentExpired" class="booking-copy">{{
+              order.cancelReason || '正在关闭订单，请稍后刷新'
+            }}</view>
+            <view
+              v-if="order.status === 'PENDING_PAYMENT' && order.paymentExpiresAt"
+              class="booking-copy"
+              >付款截止：{{ formatBeijingTimestamp(order.paymentExpiresAt, 2) }}</view
+            >
             <view class="booking-copy">安装时间：{{ installationBookingText(order) }}</view>
             <view v-if="order.status === 'PENDING_CONFIRMATION'" class="booking-copy">
               <view v-if="order.confirmationDeadlineAt"
@@ -288,7 +307,13 @@ const handlePayOrder = async (order: UserProductOrder) => {
               class="order-footer"
             >
               <view class="order-actions">
-                <template v-if="order.status === 'PENDING_PAYMENT'">
+                <template
+                  v-if="
+                    order.status === 'PENDING_PAYMENT' &&
+                    !order.paymentExpired &&
+                    order.paymentStatus !== 'CLOSED'
+                  "
+                >
                   <button
                     class="secondary-button"
                     :disabled="cancelingOrderId !== null || payingOrderId !== null"

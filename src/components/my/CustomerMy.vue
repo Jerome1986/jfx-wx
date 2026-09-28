@@ -42,7 +42,7 @@ const accountStats = computed(() => [
   },
   {
     value: memberStore.profile?.couponCount ?? 0,
-    label: '优惠券',
+    label: '可用优惠券',
     path: '/pages-sub/my/coupons/coupons',
   },
 ])

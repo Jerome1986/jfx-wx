@@ -77,8 +77,11 @@ const confirmQuote = async () => {
     uni.showToast({ title: '报价已确认', icon: 'success' })
     await loadProject()
   } catch (error) {
-    if ((error as { statusCode?: number }).statusCode === 409) {
-      uni.showToast({ title: '报价或项目状态已更新，请刷新后重新确认', icon: 'none' })
+    if (
+      ((error as { code?: number }).code ?? (error as { statusCode?: number }).statusCode) === 409
+    ) {
+      if (!(error as { notified?: boolean })?.notified)
+        uni.showToast({ title: '报价或项目状态已更新，请刷新后重新确认', icon: 'none' })
       await loadProject()
     }
     // 网络及 HTTP 错误由请求封装提示，保留详情供用户重试。
