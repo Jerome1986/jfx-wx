@@ -1,4 +1,5 @@
 {
+  "typescript.tsdk": "node_modules/typescript/lib",
   // 设置工作台图标主题为 vscode-icons
   "workbench.iconTheme": "vscode-icons",
   // 在保存时格式化文件

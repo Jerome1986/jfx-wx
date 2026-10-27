@@ -58,6 +58,20 @@
       }
     },
     {
+      "path": "pages/userAgreement/userAgreement",
+      "style": {
+        "navigationBarTitleText": "用户协议",
+        "navigationBarBackgroundColor": "#F8F7F5"
+      }
+    },
+    {
+      "path": "pages/privacyPolicy/privacyPolicy",
+      "style": {
+        "navigationBarTitleText": "隐私政策",
+        "navigationBarBackgroundColor": "#F8F7F5"
+      }
+    },
+    {
       "path": "pages/spaceRenewal/spaceRenewal",
       "style": {
         "navigationBarTitleText": "空间焕新",

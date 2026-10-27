@@ -10,7 +10,7 @@ export interface ConfirmOrderInput {
   contactPhone: string
   serviceAddress: string
   remark?: string
-  items: { productId: number; quantity: number; skuDescription?: string }[]
+  items: { productId: number; skuId: number; quantity: number }[]
   userCouponId?: number
   pointsUsed?: number
 }

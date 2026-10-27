@@ -88,7 +88,7 @@ const loadCandidates = async (append = false) => {
         unit: currentUnit.value,
         unitPrice: product.price,
         quantity: currentQuantity.value,
-        image: product.mainImage,
+        image: product.mainImage?.[0] ?? '',
       }))
       const existingIds = new Set(candidates.value.map((item) => item.id))
       candidates.value = append

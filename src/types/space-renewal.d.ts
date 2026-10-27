@@ -85,7 +85,7 @@ export interface RenewalPlanProduct {
   /** 库存数量 */
   stock: number
   /** 商品主图地址 */
-  mainImage: string
+  mainImage: string[]
   /** 商品详情图片列表 */
   detailImages: string[]
   /** 是否包含安装服务 */

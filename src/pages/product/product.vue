@@ -5,6 +5,7 @@ import type { ProductCategoryNode, ProductItem } from '@/types/product'
 import { getCategoryProducts, productCategory } from '@/api/product'
 import { syncCartBadge } from '@/utils/cart-access'
 import { useCartStore } from '@/stores/modules/cart'
+import { toProductItem } from '@/utils/product-display'
 
 type CategoryGroup = ProductCategoryNode & { children: ProductCategoryNode[] }
 const categoryGroups = ref<CategoryGroup[]>([])
@@ -35,13 +36,7 @@ const loadProducts = async () => {
     const result = await getCategoryProducts(categoryId, { pageNum: nextPage, pageSize: 20 })
     if (version !== requestVersion || disposed) return
     if (result.code !== 200) throw new Error(result.message || '商品加载失败')
-    const items = result.data.list.map((item) => ({
-      id: item.id,
-      name: item.name,
-      description: item.description ?? '',
-      price: Number(item.price),
-      image: item.mainImage,
-    }))
+    const items = result.data.list.map(toProductItem)
     products.value = [
       ...new Map([...products.value, ...items].map((item) => [item.id, item])).values(),
     ]
@@ -197,14 +192,13 @@ onUnload(() => {
             class="product-item"
             @click="openDetail(item)"
           >
-            <image class="product-image" :src="item.image" mode="aspectFit" />
+            <image v-if="item.image" class="catalog-cover" :src="item.image" mode="aspectFit" />
+            <view v-else class="catalog-cover catalog-cover-placeholder">暂无图片</view>
             <view class="product-info">
               <view class="product-name">{{ item.name }}</view>
               <view class="product-description">{{ item.description }}</view>
               <view class="product-footer">
-                <view class="product-price"
-                  ><text class="price-symbol">¥</text>{{ item.price }}</view
-                >
+                <view class="product-price">{{ item.priceText }}</view>
                 <view class="add-button" @click.stop="openDetail(item)">
                   <image
                     class="add-icon"
@@ -228,7 +222,7 @@ onUnload(() => {
   </view>
 </template>
 
-<style lang="scss">
+<style scoped lang="scss">
 .list-state {
   padding: 32rpx 20rpx;
   color: #999;
@@ -385,10 +379,24 @@ onUnload(() => {
   padding: 20rpx 18rpx 18rpx 14rpx;
 }
 
-.product-image {
-  width: 150rpx;
+.catalog-cover {
+  display: block;
+  box-sizing: border-box;
+  width: 170rpx;
   height: 170rpx;
-  flex-shrink: 0;
+  flex: 0 0 170rpx;
+  margin: 0;
+  padding: 8rpx;
+  background: #faf9f7;
+  border-radius: 12rpx;
+}
+
+.catalog-cover-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  font-size: 22rpx;
 }
 
 .product-info {

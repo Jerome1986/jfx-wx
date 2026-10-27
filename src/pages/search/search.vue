@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { onLoad, onReachBottom, onUnload } from '@dcloudio/uni-app'
 import { searchProducts } from '@/api/product'
 import type { ProductResponseItem } from '@/types/product'
+import { productPriceText } from '@/utils/product-display'
 
 // 搜索历史的本地存储键名
 const historyKey = 'jfx-search-history'
@@ -118,11 +119,6 @@ onUnload(() => {
 const openDetail = (id: number) =>
   uni.navigateTo({ url: `/pages/productDetail/productDetail?id=${id}` })
 // 将价格格式化为两位小数，无效值显示占位符
-const formatPrice = (price: string | number) => {
-  // 转换为数值后的价格
-  const value = Number(price)
-  return Number.isFinite(value) ? value.toFixed(2) : '--'
-}
 // 校验关键词、更新搜索历史并发起搜索
 const search = (value = keyword.value) => {
   // 去除首尾空白后的搜索关键词
@@ -202,20 +198,18 @@ const clearHistory = () => {
             @click="openDetail(item.id)"
           >
             <image
-              v-if="item.mainImage"
-              class="product-image"
-              :src="item.mainImage"
+              v-if="item.mainImage?.length"
+              class="search-product-image"
+              :src="item.mainImage[0]"
               mode="aspectFit"
             />
-            <view v-else class="product-image image-placeholder">暂无图片</view>
+            <view v-else class="search-product-image image-placeholder">暂无图片</view>
             <view class="product-info">
               <view class="product-name">{{ item.name }}</view>
               <view class="product-description">{{
                 item.description || '品质好物，安心焕新'
               }}</view>
-              <view class="product-price"
-                ><text class="price-symbol">¥</text>{{ formatPrice(item.price) }}</view
-              >
+              <view class="product-price">{{ productPriceText(item) }}</view>
             </view>
           </view>
         </view>
@@ -507,10 +501,13 @@ button {
   border-radius: 20rpx;
 }
 
-.product-image {
+.search-product-image {
   display: block;
+  box-sizing: border-box;
   width: 100%;
   height: 280rpx;
+  margin: 0;
+  padding: 12rpx;
   background: #ffffff;
 }
 

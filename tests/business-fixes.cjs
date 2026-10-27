@@ -121,16 +121,21 @@ test('HTTP 参数错误合并消息，失败写入不执行成功分支并释放
 const product = (id = 1, extra = {}) => ({
   id,
   name: '商品' + id,
-  price: '10',
   mainImage: '/image',
-  specifications: ['A', 'B'],
-  stock: 5,
   isPublished: true,
   installationIncluded: true,
   ...extra,
+  skus: ['A', 'B'].map((name, index) => ({
+    id: id * 10 + index,
+    name,
+    isEnabled: true,
+    price: extra.price ?? '10',
+    stock: 'stock' in extra ? extra.stock : 5,
+  })),
 })
 const item = (id = 1, extra = {}) => ({
   id,
+  skuId: id * 10,
   name: '商品' + id,
   price: 10,
   image: '/image',
@@ -150,6 +155,7 @@ function productSetup(items, getDetail) {
       },
     },
     '@/api/product': { getProductDetail: getDetail },
+    '@/utils/product-display': require('./load-product-display.cjs'),
     '@/stores/modules/cart': { cartItemKey: key },
   })
   return {
@@ -164,25 +170,27 @@ function productSetup(items, getDetail) {
 }
 test('商品检查区分不存在、下架、缺货、规格失效和字段缺失', () => {
   const app = productSetup([], async () => {})
-  assert.match(app.productIssue(null, 'A', 1), /不存在/)
-  assert.match(app.productIssue(undefined, 'A', 1), /校验失败/)
-  assert.match(app.productIssue(product(1, { isPublished: false }), 'A', 1), /下架/)
-  assert.match(app.productIssue(product(), 'A', 6), /库存不足/)
-  assert.match(app.productIssue(product(), 'C', 1), /规格/)
-  assert.match(app.productIssue(product(1, { stock: undefined }), 'A', 1), /信息不完整/)
-  assert.equal(app.productIssue(product(), 'A', 5), '')
+  assert.match(app.productIssue(null, 10, 1), /不存在/)
+  assert.match(app.productIssue(undefined, 10, 1), /校验失败/)
+  assert.match(app.productIssue(product(1, { isPublished: false }), 10, 1), /下架/)
+  assert.match(app.productIssue(product(), 10, 6), /库存不足/)
+  assert.match(app.productIssue(product(), 99, 1), /规格/)
+  assert.match(app.productIssue(product(1, { stock: undefined }), 10, 1), /信息不完整/)
+  assert.equal(app.productIssue(product(), 10, 5), '')
 })
-test('同商品多规格去重查询并合计所选数量，失败不删除或减少商品', async () => {
+test('同商品只查询一次，库存按 SKU 分别计算并合计相同 SKU 数量', async () => {
   const calls = []
   const app = productSetup(
-    [item(1, { quantity: 3 }), item(1, { specification: 'B', quantity: 3 })],
+    [item(1, { quantity: 3 }), item(1, { skuId: 11, specification: 'B', quantity: 3 })],
     async (id) => {
       calls.push(id)
       return { code: 200, data: product(id) }
     },
   )
-  assert.equal(await app.refresh(), false)
+  assert.equal(await app.refresh(), true)
   assert.deepEqual(calls, [1])
+  app.state.items[1].skuId = 10
+  assert.equal(await app.refresh(), false)
   assert.match(app.issues.value['1:A'], /库存不足/)
   assert.equal(app.state.items.length, 2)
   assert.equal(app.state.items[0].quantity, 3)

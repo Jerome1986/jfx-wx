@@ -3,7 +3,6 @@
   "compilerOptions": {
     "allowJs": true,
     "sourceMap": true,
-    "baseUrl": ".",
     "paths": {
       "@/*": [
         "./src/*"
@@ -21,12 +20,13 @@
     ]
   },
   "vueCompilerOptions": {
-    // experimentalRuntimeMode 已废弃，请升级 Vue - Official 插件至最新版本
-    "plugins": [
-      "@uni-helper/uni-app-types/volar-plugin"
-    ]
+    // uni-app 的 view、text、image 使用组件类型，避免被识别成同名 SVG 元素。
+    // nativeTags 兼容 vue-tsc 1.x，插件为新版 Vue - Official 配置标签识别。
+    "nativeTags": ["block", "component", "template", "slot"],
+    "plugins": ["./tools/uni-template-plugin.cjs"]
   },
   "include": [
+    "components.d.ts",
     "src/**/*.ts",
     "src/**/*.d.ts",
     "src/**/*.tsx",

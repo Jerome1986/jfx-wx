@@ -66,7 +66,7 @@ const loadPlanDetail = async (id: number) => {
       quantity: Number(item.quantity) || 0,
       category: item.category,
       unit: item.unit,
-      image: item.image || item.product?.mainImage || '',
+      image: item.image || item.product?.mainImage?.[0] || '',
       selected: true,
     }))
     captureServiceListHeight()

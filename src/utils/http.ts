@@ -15,7 +15,7 @@
 
 // 基地址
 const baseUrl = 'http://localhost:3000/api'
-// const baseUrl = 'https://3fd5cb3c.r29.cpolar.top/api'
+// const baseUrl = 'https://service.jiafanxin3388.com/api'
 
 /**
  * 从 pinia-plugin-persistedstate 读取 member store token

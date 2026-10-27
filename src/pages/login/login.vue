@@ -74,9 +74,10 @@ const toggleAgreement = () => {
   agreed.value = !agreed.value
 }
 
-// 展示协议内容提示
-const showAgreement = (name: string) => {
-  uni.showToast({ title: `${name}内容待配置`, icon: 'none' })
+// 阅读协议不改变勾选状态，返回后保留登录来源信息。
+const showAgreement = (name: '用户协议' | '隐私政策') => {
+  const page = name === '用户协议' ? 'userAgreement' : 'privacyPolicy'
+  uni.navigateTo({ url: `/pages/${page}/${page}` })
 }
 
 // 校验登录前是否已同意协议

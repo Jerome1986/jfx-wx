@@ -24,7 +24,9 @@ function setup() {
   const cart = vue.reactive({
     userId: '1',
     checkoutTotal: '20.50',
-    checkoutItems: [{ id: 2, quantity: 3, specification: 'A', installationIncluded: true }],
+    checkoutItems: [
+      { id: 2, skuId: 21, quantity: 3, specification: 'A', installationIncluded: true },
+    ],
     clearCheckout() {},
   })
   const address = vue.reactive({
@@ -65,16 +67,20 @@ function setup() {
   let checkValid = true
   let checkCalls = 0
   const dependencies = {
-    '@/utils/product-check': { useProductCheck: () => ({
-      checking, notice: vue.ref(''), issues: vue.ref({}),
-      refresh: async () => {
-        checking.value = true
-        checkCalls++
-        await Promise.resolve()
-        checking.value = false
-        return checkValid
-      },
-    }) },
+    '@/utils/product-check': {
+      useProductCheck: () => ({
+        checking,
+        notice: vue.ref(''),
+        issues: vue.ref({}),
+        refresh: async () => {
+          checking.value = true
+          checkCalls++
+          await Promise.resolve()
+          checking.value = false
+          return checkValid
+        },
+      }),
+    },
     '@/utils/order-booking': booking,
     vue,
     pinia: { storeToRefs: vue.toRefs },
@@ -86,7 +92,10 @@ function setup() {
     '@/stores/modules/address': { useAddressStore: () => address },
     '@/utils/order-discounts': discounts,
     '@/api/order': {
-      payOrder: async () => { if (orderError) throw orderError; return { code: 200, data: params } },
+      payOrder: async () => {
+        if (orderError) throw orderError
+        return { code: 200, data: params }
+      },
       confirmOrder: async (data) => {
         calls.orders.push(data)
         if (orderError) throw orderError
@@ -140,7 +149,9 @@ function setup() {
   exports.appointmentTime.value = '09:00-12:00'
   return {
     ...exports,
-    setCheckValid: value => { checkValid = value },
+    setCheckValid: (value) => {
+      checkValid = value
+    },
     getCheckCalls: () => checkCalls,
     params,
     setRedirectError: (value) => {
@@ -170,7 +181,8 @@ test('creates DTO then pays, blocks duplicate clicks and refreshes server user d
   const body = page.calls.orders[0]
   assert.equal(body.pointsUsed, 5)
   assert.equal(body.items[0].productId, 2)
-  assert.equal(body.items[0].skuDescription, 'A')
+  assert.equal(body.items[0].skuId, 21)
+  assert.equal('skuDescription' in body.items[0], false)
   assert.equal(body.serviceAddress, '上海市测试路 101')
   assert.equal('price' in body.items[0], false)
   assert.equal(page.calls.payments.length, 1)
@@ -322,7 +334,6 @@ test('payment cancellation and failure preserve the cart', async () => {
   }
 })
 
-
 test('商品校验失败不下单，已创建订单继续支付不重新校验商品', async () => {
   const page = setup()
   page.setCheckValid(false)
@@ -349,7 +360,6 @@ test('HTTP 200 的业务失败不能当作 HTTP 400 重新建单', async () => {
   assert.equal(page.creationUncertain.value, true)
   assert.equal(page.calls.orders.length, 1)
 })
-
 
 test('继续付款被服务端拒绝时不再调起旧支付参数，转到原订单核对', async () => {
   const page = setup()

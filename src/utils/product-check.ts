@@ -4,32 +4,26 @@ import { getProductDetail } from '@/api/product'
 import type { ProductDetail } from '@/types/product'
 import type { CartItem } from '@/types/cart'
 import { cartItemKey } from '@/stores/modules/cart'
+import { enabledSkus, validSkuPrice } from '@/utils/product-display'
 
 // undefined 表示校验失败，null 表示商品已不存在，两者不能混为下架。
 export const productIssue = (
   product: ProductDetail | null | undefined,
-  specification: string,
+  skuId: number | undefined,
   quantity: number,
 ): string => {
   if (product === undefined) return '商品校验失败，请重试'
   if (product === null) return '商品已不存在'
-  if (
-    typeof product.isPublished !== 'boolean' ||
-    !Number.isInteger(product.stock) ||
-    product.stock < 0 ||
-    !['string', 'number'].includes(typeof product.price) ||
-    String(product.price).trim() === '' ||
-    !Number.isFinite(Number(product.price)) ||
-    Number(product.price) < 0 ||
-    !(product.specifications === null || Array.isArray(product.specifications))
-  ) {
+  if (typeof product.isPublished !== 'boolean' || !Array.isArray(product.skus)) {
     return '商品信息不完整，请重试'
   }
   if (!product.isPublished) return '商品已下架'
-  const specifications = product.specifications ?? []
-  if (specifications.length ? !specifications.includes(specification) : !!specification)
-    return '商品规格已失效，请重新选择'
-  if (quantity > product.stock) return '库存不足，请调整数量'
+  if (!skuId) return '请进入商品详情重新选择规格'
+  const sku = enabledSkus(product).find((item) => item.id === skuId)
+  if (!sku) return '商品规格已失效，请重新选择'
+  if (!validSkuPrice(sku.price) || !Number.isInteger(sku.stock) || sku.stock < 0)
+    return '商品信息不完整，请重试'
+  if (quantity > sku.stock) return '库存不足，请调整数量'
   return ''
 }
 
@@ -45,13 +39,12 @@ export const useProductCheck = (getItems: () => CartItem[], getOwner: () => stri
       items.map((item) => {
         const quantity = item.selected
           ? items
-              .filter((other) => other.id === item.id && other.selected)
+              .filter(
+                (other) => other.id === item.id && other.skuId === item.skuId && other.selected,
+              )
               .reduce((sum, other) => sum + other.quantity, 0)
           : item.quantity
-        return [
-          cartItemKey(item),
-          productIssue(details.value[item.id], item.specification, quantity),
-        ]
+        return [cartItemKey(item), productIssue(details.value[item.id], item.skuId, quantity)]
       }),
     )
   })
@@ -96,12 +89,13 @@ export const useProductCheck = (getItems: () => CartItem[], getOwner: () => stri
     let priceChanged = false
     for (const item of getItems()) {
       const product = latest[item.id]
-      if (!product || productIssue(product, item.specification, 0)) continue
-      if (Math.round(item.price * 100) !== Math.round(Number(product.price) * 100))
-        priceChanged = true
-      item.price = Number(product.price)
+      if (!product || productIssue(product, item.skuId, 0)) continue
+      const sku = enabledSkus(product).find((sku) => sku.id === item.skuId)!
+      if (Math.round(item.price * 100) !== Math.round(Number(sku.price) * 100)) priceChanged = true
+      item.price = Number(sku.price)
+      item.specification = sku.name
       item.name = product.name
-      item.image = product.mainImage
+      item.image = product.mainImage?.[0] ?? ''
       item.installationIncluded = product.installationIncluded
     }
     const invalid = getItems().find((item) => item.selected && issues.value[cartItemKey(item)])

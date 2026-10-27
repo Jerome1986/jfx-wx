@@ -6,12 +6,30 @@ import type { ProductDetail } from '@/types/product'
 import { useCartStore, type CartProduct } from '@/stores/modules/cart'
 import { requireCartLogin } from '@/utils/cart-access'
 import { productIssue } from '@/utils/product-check'
+import { enabledSkus, productPriceText, validSkuPrice } from '@/utils/product-display'
 const cartStore = useCartStore()
 
 // 规格列表
-const specifications = computed(() => product.value?.specifications ?? [])
+const specifications = computed(() => (product.value ? enabledSkus(product.value) : []))
 // 已选
-const selectedSpec = ref('')
+const selectedSkuId = ref<number>()
+const selectedSku = computed(() =>
+  specifications.value.find((sku) => sku.id === selectedSkuId.value),
+)
+const priceText = computed(() =>
+  selectedSku.value && validSkuPrice(selectedSku.value.price)
+    ? `¥${Number(selectedSku.value.price).toFixed(2)}`
+    : product.value
+    ? productPriceText(product.value)
+    : '暂无报价',
+)
+const canBuy = computed(
+  () =>
+    !!product.value?.isPublished &&
+    !!selectedSku.value &&
+    validSkuPrice(selectedSku.value.price) &&
+    selectedSku.value.stock > 0,
+)
 
 // 商品
 const product = ref<ProductDetail | null>(null)
@@ -19,10 +37,15 @@ const productId = ref<number | null>(null)
 const loading = ref(false)
 const errorMessage = ref('')
 let disposed = false
+const mainImages = computed(() => product.value?.mainImage ?? [])
 const detailImages = computed(() => {
   const item = product.value
-  return item?.detailImages?.length ? item.detailImages : item?.mainImage ? [item.mainImage] : []
+  return item?.detailImages?.length ? item.detailImages : mainImages.value
 })
+
+const previewMainImage = (index: number) => {
+  if (mainImages.value[index]) uni.previewImage({ current: index, urls: mainImages.value })
+}
 
 const loadProduct = async () => {
   if (!productId.value || loading.value) return
@@ -37,7 +60,12 @@ const loadProduct = async () => {
       errorMessage.value = '商品已不存在'
       return
     }
-    if (!selectedSpec.value) selectedSpec.value = result.data.specifications?.[0] ?? ''
+    if (selectedSkuId.value === undefined) {
+      const skus = enabledSkus(result.data)
+      selectedSkuId.value = (
+        skus.find((sku) => sku.stock > 0 && validSkuPrice(sku.price)) ?? skus[0]
+      )?.id
+    }
     return true
   } catch (error) {
     if (disposed) return
@@ -62,20 +90,24 @@ onUnload(() => {
 })
 
 // 已选标签
-const selectedLabel = computed(() => `已选: ${selectedSpec.value}`)
+const selectedLabel = computed(() =>
+  selectedSku.value ? `已选: ${selectedSku.value.name}` : '请选择规格',
+)
 
 // 显示页面提示消息
 // const showMessage = (title: string) => uni.showToast({ title, icon: 'none' })
 const currentCartProduct = (): CartProduct | null => {
   const item = product.value
-  if (!item) return null
+  const sku = selectedSku.value
+  if (!item || !sku || !validSkuPrice(sku.price)) return null
   return {
     id: item.id,
     name: item.name,
     description: item.description ?? '',
-    price: Number(item.price),
-    image: item.mainImage,
-    specification: selectedSpec.value,
+    price: Number(sku.price),
+    skuId: sku.id,
+    image: item.mainImage?.[0] ?? '',
+    specification: sku.name,
     installationIncluded: item.installationIncluded,
   }
 }
@@ -84,7 +116,7 @@ const checkLogin = () =>
 const checkProduct = async (quantity: number) => {
   const owner = cartStore.userId
   if (!(await loadProduct()) || cartStore.userId !== owner) return false
-  const issue = productIssue(product.value, selectedSpec.value, quantity)
+  const issue = productIssue(product.value, selectedSkuId.value, quantity)
   if (issue) uni.showToast({ title: issue, icon: 'none' })
   return !issue
 }
@@ -92,7 +124,7 @@ const addToCart = async () => {
   if (!checkLogin()) return
   const quantity =
     cartStore.items
-      .filter((item) => item.id === productId.value)
+      .filter((item) => item.id === productId.value && item.skuId === selectedSkuId.value)
       .reduce((sum, item) => sum + item.quantity, 0) + 1
   if (!(await checkProduct(quantity))) return
   const item = currentCartProduct()
@@ -121,15 +153,27 @@ const openCart = () => {
     <view v-else-if="!product" class="status-message">商品不存在</view>
     <scroll-view v-else class="detail-scroll" scroll-y :show-scrollbar="false">
       <view class="page-content">
-        <view class="hero-card">
-          <image class="hero-image" :src="product.mainImage" mode="aspectFit" />
+        <view v-if="mainImages.length" class="hero-card">
+          <swiper
+            class="hero-banner"
+            :indicator-dots="mainImages.length > 1"
+            :circular="mainImages.length > 1"
+          >
+            <swiper-item v-for="(src, index) in mainImages" :key="index">
+              <image
+                class="hero-image"
+                :src="src"
+                mode="aspectFit"
+                @click="previewMainImage(index)"
+              />
+            </swiper-item>
+          </swiper>
         </view>
 
         <view class="summary-card">
           <view class="price-share-row">
             <view class="price-group">
-              <text class="price-symbol">¥</text
-              ><text class="price-number">{{ product.price }}</text>
+              <text class="price-number">{{ priceText }}</text>
               <text v-if="product.installationIncluded" class="install-tag">已含基础安装</text>
             </view>
             <!--
@@ -184,12 +228,12 @@ const openCart = () => {
             <view class="specification-options">
               <button
                 v-for="spec in specifications"
-                :key="spec"
+                :key="spec.id"
                 class="specification-button"
-                :class="{ active: selectedSpec === spec }"
-                @click="selectedSpec = spec"
+                :class="{ active: selectedSkuId === spec.id }"
+                @click="selectedSkuId = spec.id"
               >
-                {{ spec }}
+                {{ spec.name }}{{ spec.stock <= 0 ? '（缺货）' : '' }}
               </button>
             </view>
           </view>
@@ -206,7 +250,8 @@ const openCart = () => {
               ><text>型号</text><text>{{ product.model || '暂无' }}</text></view
             >
             <view class="parameter-row"
-              ><text>规格</text><text>{{ specifications.join('/') || '暂无' }}</text></view
+              ><text>规格</text
+              ><text>{{ specifications.map((sku) => sku.name).join('/') || '暂无' }}</text></view
             >
           </view>
           <view v-if="detailImages.length" class="image-heading">商品图片</view>
@@ -234,14 +279,15 @@ const openCart = () => {
       </view>
       <view class="bottom-price">
         <view
-          ><text class="price-symbol">¥</text
-          ><text class="price-number">{{ product.price }}</text></view
+          ><text class="price-number">{{ priceText }}</text></view
         >
         <text v-if="product.installationIncluded" class="bottom-install">已含基础安装</text>
       </view>
       <view class="bottom-actions">
-        <button class="action-button add-cart" @click="addToCart">加入购物车</button>
-        <button class="action-button buy-now" @click="buyNow">立即购买</button>
+        <button class="action-button add-cart" :disabled="!canBuy" @click="addToCart">
+          加入购物车
+        </button>
+        <button class="action-button buy-now" :disabled="!canBuy" @click="buyNow">立即购买</button>
       </view>
     </view>
   </view>
@@ -279,15 +325,16 @@ const openCart = () => {
 }
 
 .hero-card {
-  display: flex;
-  height: 365rpx;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
 }
+.hero-banner {
+  width: 100%;
+  height: 702rpx;
+}
 .hero-image {
-  width: 330rpx;
-  height: 330rpx;
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 .summary-card {
   margin-top: 24rpx;

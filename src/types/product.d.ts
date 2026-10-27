@@ -7,12 +7,22 @@ export interface ProductCategoryNode {
 }
 
 /** 分类商品接口条目，Decimal 价格可能序列化为字符串。 */
+export interface ProductSku {
+  id: number
+  name: string
+  price: string | number
+  stock: number
+  isEnabled: boolean
+  deletedAt?: string | null
+  sort: number
+}
+
 export interface ProductResponseItem {
   id: number
   name: string
   description: string | null
-  price: string | number
-  mainImage: string
+  skus: ProductSku[]
+  mainImage: string[]
 }
 
 export interface ProductPageParams {
@@ -23,10 +33,8 @@ export interface ProductPageParams {
 /** 商品详情接口数据。 */
 export interface ProductDetail extends ProductResponseItem {
   isPublished: boolean
-  stock: number
   brand: string | null
   model: string | null
-  specifications: string[] | null
   detailImages: string[] | null
   installationIncluded: boolean
 }
@@ -46,7 +54,8 @@ export interface ProductItem {
   /** 商品描述 */
   description: string
   /** 商品价格 */
-  price: number
+  price: number | null
+  priceText: string
   /** 商品图片地址 */
   image: string
 }

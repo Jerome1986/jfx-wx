@@ -4,8 +4,8 @@ import { useMemberStore } from './member'
 import type { CartItem } from '@/types/cart'
 
 export type CartProduct = Omit<CartItem, 'quantity' | 'selected'>
-export const cartItemKey = (item: Pick<CartItem, 'id' | 'specification'>) =>
-  JSON.stringify([item.id, item.specification])
+export const cartItemKey = (item: Pick<CartItem, 'id' | 'specification' | 'skuId'>) =>
+  JSON.stringify([item.id, item.skuId ?? item.specification])
 export const priceInCents = (price: number) => Math.round((price + Number.EPSILON) * 100)
 export const formatPrice = (price: number) => (priceInCents(price) / 100).toFixed(2)
 const sumCents = (items: CartItem[]) =>
@@ -39,7 +39,12 @@ export const useCartStore = defineStore(
     )
     const checkoutTotal = computed(() => (sumCents(checkoutItems.value) / 100).toFixed(2))
     const validProduct = (item: CartProduct) =>
-      Number.isSafeInteger(item.id) && item.id > 0 && Number.isFinite(item.price) && item.price >= 0
+      Number.isSafeInteger(item.id) &&
+      item.id > 0 &&
+      Number.isSafeInteger(item.skuId) &&
+      (item.skuId ?? 0) > 0 &&
+      Number.isFinite(item.price) &&
+      item.price >= 0
 
     const addItem = (product: CartProduct) => {
       if (!userId.value || !validProduct(product)) return false

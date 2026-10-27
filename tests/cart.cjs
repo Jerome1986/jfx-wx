@@ -40,6 +40,7 @@ function setup(storage = new Map()) {
   return { cart, member, login, storage, ...api }
 }
 const product = {
+  skuId: 11,
   id: 1,
   name: '龙头',
   description: '',
@@ -97,7 +98,7 @@ test('guest cannot add; matching specifications merge and different specificatio
   login(1)
   cart.addItem(product)
   cart.addItem(product)
-  cart.addItem({ ...product, specification: 'B' })
+  cart.addItem({ ...product, skuId: 12, specification: 'B' })
   assert.equal(cart.items.length, 2)
   assert.equal(cart.items[0].quantity, 2)
   assert.equal(cart.totalCount, 3)

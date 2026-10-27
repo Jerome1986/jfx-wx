@@ -296,7 +296,7 @@ const pay = async () => {
         items: products.value.map((item) => ({
           productId: item.id,
           quantity: item.quantity,
-          ...(item.specification ? { skuDescription: item.specification } : {}),
+          skuId: item.skuId!,
         })),
         ...(selectedCoupon.value ? { userCouponId: selectedCoupon.value.record.id } : {}),
         pointsUsed: amounts.value.pointsDiscount / 100,

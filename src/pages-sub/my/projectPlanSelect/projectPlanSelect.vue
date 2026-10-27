@@ -78,7 +78,7 @@ const loadPlans = async () => {
           businessCategory: item.category,
           name: item.name,
           description: item.description || '',
-          image: item.image || item.product?.mainImage || '',
+          image: item.image || item.product?.mainImage?.[0] || '',
           unit: item.unit,
           unitPrice: item.unitPrice,
           quantity: item.quantity,

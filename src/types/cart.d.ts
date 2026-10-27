@@ -1,5 +1,7 @@
 /** 购物车商品项 */
 export interface CartItem {
+  /** 旧缓存可能没有 SKU，需重新选择规格。 */
+  skuId?: number
   specification: string
   installationIncluded: boolean
   /** 商品 ID */

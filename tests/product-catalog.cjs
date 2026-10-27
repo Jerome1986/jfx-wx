@@ -37,6 +37,7 @@ function setup(categories = []) {
       require: (name) => {
         if (name === 'vue') return vue
         if (name === '@/api/product') return api
+        if (name === '@/utils/product-display') return require('./load-product-display.cjs')
         if (name === '@/utils/cart-access')
           return { requireCartLogin: () => true, syncCartBadge() {} }
         if (name === '@/stores/modules/cart') return { useCartStore: () => ({ totalCount: 0 }) }
@@ -69,8 +70,8 @@ const item = (id) => ({
   id,
   name: `商品${id}`,
   description: null,
-  price: '12.50',
-  mainImage: '/product.png',
+  skus: [{ id, name: '默认', price: '12.50', stock: 10, isEnabled: true }],
+  mainImage: ['/product.png'],
 })
 const page = (items, totalPage = 1) => ({ code: 200, data: { list: items, totalPage } })
 
@@ -149,7 +150,9 @@ test('分页失败保留数据并重试原页，防重复触底、去重与末�
   assert.equal(app.calls.length, 2)
   app.loadProducts()
   assert.equal(app.calls[2].pageNum, 2)
-  app.calls[2].resolve(page([item(1), { ...item(2), price: 20 }], 2))
+  app.calls[2].resolve(
+    page([item(1), { ...item(2), skus: [{ id: 2, price: 20, stock: 10, isEnabled: true }] }], 2),
+  )
   await flush()
   assert.equal(app.products.value.length, 2)
   assert.equal(app.products.value[1].price, 20)
