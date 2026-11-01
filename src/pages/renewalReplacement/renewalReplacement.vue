@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
+import { replacementCandidateKey, toReplacementCandidates } from '@/utils/renewal-replacement'
 import {
   getConstructionServiceListApi,
   getRenewalReplacementProductsApi,
@@ -14,8 +15,6 @@ import type {
 const type = ref<RenewalReplacementType>('PRODUCT')
 // 分类
 const category = ref('')
-// 当前单位
-const currentUnit = ref('')
 // 当前数量
 const currentQuantity = ref('1')
 // 搜索关键词
@@ -79,20 +78,15 @@ const loadCandidates = async (append = false) => {
         ...(appliedKeyword.value ? { keyword: appliedKeyword.value } : {}),
       })
       if (version !== requestVersion) return
-      const items = data.list.map((product) => ({
-        id: product.id,
-        productId: product.id,
-        category: category.value,
-        name: product.name,
-        description: product.description,
-        unit: currentUnit.value,
-        unitPrice: product.price,
-        quantity: currentQuantity.value,
-        image: product.mainImage?.[0] ?? '',
-      }))
-      const existingIds = new Set(candidates.value.map((item) => item.id))
+      const items = data.list.flatMap((product) =>
+        toReplacementCandidates(product, category.value, currentQuantity.value),
+      )
+      const existingIds = new Set(candidates.value.map(replacementCandidateKey))
       candidates.value = append
-        ? [...candidates.value, ...items.filter((item) => !existingIds.has(item.id))]
+        ? [
+            ...candidates.value,
+            ...items.filter((item) => !existingIds.has(replacementCandidateKey(item))),
+          ]
         : items
       pageNum.value = data.pageNum
       total.value = data.total
@@ -137,7 +131,6 @@ onLoad((options) => {
   // 路由参数决定替换类型：只有明确传入 SERVICE 才进入服务分支，其余均按商品处理
   type.value = options?.type === 'SERVICE' ? 'SERVICE' : 'PRODUCT'
   category.value = options?.category ? decodeURIComponent(options.category) : ''
-  currentUnit.value = options?.unit ? decodeURIComponent(options.unit) : ''
   currentQuantity.value = options?.quantity || '1'
   uni.setNavigationBarTitle({ title: pageTitle.value })
 
@@ -211,7 +204,7 @@ const selectCandidate = (candidate: RenewalReplacementCandidate) => {
       <view v-else-if="candidates.length" class="candidate-list">
         <view
           v-for="candidate in candidates"
-          :key="candidate.id"
+          :key="replacementCandidateKey(candidate)"
           class="candidate-card"
           @click="selectCandidate(candidate)"
         >

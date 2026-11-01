@@ -1,4 +1,4 @@
-import type { RenewalPlanProduct } from '@/types/space-renewal'
+import type { ProductResponseItem } from '@/types/product'
 
 /** 焕新替换项类型：商品或服务 */
 export type RenewalReplacementType = 'PRODUCT' | 'SERVICE'
@@ -20,7 +20,7 @@ export interface ProductReplacementQuery {
 /** 商品替换分页结果 */
 export interface ProductReplacementPage {
   /** 当前页商品 */
-  list: RenewalPlanProduct[]
+  list: (ProductResponseItem & { unit: string })[]
   /** 商品总数 */
   total: number
   /** 当前页码 */
@@ -85,6 +85,8 @@ export interface ConstructionServicePage {
 export interface RenewalReplacementCandidate {
   /** 候选项 ID */
   id: number
+  /** 商品候选对应的具体规格；服务候选无此字段 */
+  skuId?: number
   /** 关联商品 ID，服务项为 null */
   productId: number | null
   /** 项目分类 */

@@ -22,6 +22,7 @@ declare module 'vue' {
     EmployeeProjectStatus: typeof import('./src/components/project/EmployeeProjectStatus.vue')['default']
     ProjectCancelDialog: typeof import('./src/components/project/ProjectCancelDialog.vue')['default']
     ProjectCancellationInfo: typeof import('./src/components/project/ProjectCancellationInfo.vue')['default']
+    ProjectCouponSummary: typeof import('./src/components/project/ProjectCouponSummary.vue')['default']
     ProjectPlanCard: typeof import('./src/components/project/ProjectPlanCard.vue')['default']
     ProjectQuoteLineCard: typeof import('./src/components/project/ProjectQuoteLineCard.vue')['default']
     ProjectQuoteLineEditor: typeof import('./src/components/project/ProjectQuoteLineEditor.vue')['default']

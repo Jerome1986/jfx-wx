@@ -1,4 +1,15 @@
-/** 空间焕新方案 */
+/** 后端允许为空的方案字段；页面使用归一化后的 RenewalPlan。 */
+export type RenewalPlanResponse = Omit<
+  RenewalPlan,
+  'summary' | 'tags' | 'shareTitle' | 'shareImage'
+> & {
+  summary: string | null
+  tags: string[] | null
+  shareTitle: string | null
+  shareImage: string | null
+}
+
+/** 空间焕新方案（接口层已处理可空展示字段） */
 export interface RenewalPlan {
   /** 方案 ID */
   id: number
@@ -11,11 +22,9 @@ export interface RenewalPlan {
   /** 起步价格 */
   startingPrice: string
   /** 封面图片地址 */
-  cover: string
-  /** 方案图片列表 */
-  images: string[]
+  cover: string[]
   /** 方案详情 */
-  detail: string
+  detail: string[]
   /** 分享标题 */
   shareTitle: string
   /** 分享图片地址 */

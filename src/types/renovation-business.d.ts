@@ -159,6 +159,10 @@ export interface FollowUp {
 
 /** 由预约转化的装修项目 */
 export interface RenovationProject {
+  contractAmount?: number | null
+  couponDiscount?: number
+  couponReturnedAt?: string | null
+  couponSnapshot?: { userCouponId: number; name: string; amount: string; threshold: string } | null
   cancelReason?: string | null
   canceledAt?: string | null
   canceledByEmployeeId?: number | null

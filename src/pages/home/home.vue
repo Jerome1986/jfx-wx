@@ -22,6 +22,17 @@ useShare({
   imageUrl: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/banner/banner1.png',
 })
 
+// 使用绑定传入 URL，避免 Vue 语言服务将静态属性中的 // 错误生成为注释。
+const homeImages = {
+  renewalArrow:
+    'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/tubiao/jiantou-you.png',
+  caseCompare: 'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/jiantou.png',
+  receivedAvatars:
+    'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/avatar/touxiang-group.png',
+  consultantAvatar:
+    'https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/avatar/kefutouxiang.png',
+}
+
 // 会员状态仓库
 const memberStore = useMemberStore()
 
@@ -91,7 +102,7 @@ const goToRenewalDetail = (item: RenewalPlan) => {
     `id=${item.id}`,
     `title=${encodeURIComponent(item.name)}`,
     `description=${encodeURIComponent(item.summary || '')}`,
-    `cover=${encodeURIComponent(item.cover || '')}`,
+    `cover=${encodeURIComponent(item.cover[0] || '')}`,
   ].join('&')
   uni.navigateTo({ url: `/pages/spaceRenewalDetail/spaceRenewalDetail?${query}` })
 }
@@ -212,27 +223,20 @@ const goToCaseDetail = (item: SelectedCase) => {
         @more="goToSpaceRenewal"
       />
       <view class="list">
-        <view
-          v-for="item in spaceRenewalList"
-          :key="item.id"
-          class="card"
-          @click="goToRenewalDetail(item)"
-        >
-          <view class="card-header">
-            <text class="card-title">{{ item.name }}</text>
-            <text class="card-description">{{
-              item.tags.slice(0, 2).join('/') || item.summary
-            }}</text>
+        <template v-for="item in spaceRenewalList" :key="item.id">
+          <view class="card" @click="goToRenewalDetail(item)">
+            <view class="card-header">
+              <text class="card-title">{{ item.name }}</text>
+              <text v-if="item.tags.length || item.summary" class="card-description">{{
+                item.tags.slice(0, 2).join('/') || item.summary
+              }}</text>
+            </view>
+            <view class="card-body">
+              <wd-img width="100%" height="100%" mode="aspectFill" :src="item.cover[0] || ''" />
+              <image class="card-arrow" :src="homeImages.renewalArrow" mode="aspectFit" />
+            </view>
           </view>
-          <view class="card-body">
-            <wd-img width="100%" height="100%" mode="aspectFill" :src="item.cover" />
-            <image
-              class="card-arrow"
-              src="https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/tubiao/jiantou-you.png"
-              mode="aspectFit"
-            />
-          </view>
-        </view>
+        </template>
       </view>
       <!-- 装修计算器 -->
       <renovation-calculator />
@@ -244,75 +248,64 @@ const goToCaseDetail = (item: SelectedCase) => {
           @more="goToCaseList"
         />
         <view class="case-list">
-          <view
-            v-for="item in selectedCaseList"
-            :key="item.id"
-            class="case-card"
-            @click="goToCaseDetail(item)"
-          >
-            <view class="case-cover">
-              <image class="cover-before" :src="item.beforeCover" mode="aspectFill" />
-              <image class="cover-after" :src="item.afterCover" mode="aspectFill" />
-              <text v-if="item.label" class="case-cover-label">{{ item.label }}</text>
-              <image
-                class="case-favorite-icon"
-                :src="item.isFavorite ? favoriteIcon : unfavoriteIcon"
-                mode="aspectFit"
-                @click.stop="toggleCaseFavorite(item)"
-              />
-              <image
-                class="case-compare-icon"
-                src="https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/anli/jiantou.png"
-                mode="aspectFit"
-              />
-            </view>
-            <view class="case-content">
-              <view class="case-summary">
-                <view class="case-title">{{ item.title }}</view>
-                <view class="case-meta">
-                  <text>{{ item.location }}</text>
-                  <text>{{ item.roomType }}</text>
-                  <text>{{ item.area }}</text>
-                </view>
-                <view class="case-tags">
-                  <text v-for="tag in item.tags" :key="tag" class="case-tag">{{ tag }}</text>
-                </view>
+          <template v-for="item in selectedCaseList" :key="item.id">
+            <view class="case-card" @click="goToCaseDetail(item)">
+              <view class="case-cover">
+                <image class="cover-before" :src="item.beforeCover" mode="aspectFill" />
+                <image class="cover-after" :src="item.afterCover" mode="aspectFill" />
+                <text v-if="item.label" class="case-cover-label">{{ item.label }}</text>
+                <image
+                  class="case-favorite-icon"
+                  :src="item.isFavorite ? favoriteIcon : unfavoriteIcon"
+                  mode="aspectFit"
+                  @click.stop="toggleCaseFavorite(item)"
+                />
+                <image class="case-compare-icon" :src="homeImages.caseCompare" mode="aspectFit" />
               </view>
-              <view class="case-quote">
-                <view class="quote-main">
-                  <view class="quote-cost">
-                    <view class="quote-label">总花费</view>
-                    <view class="quote-price"
-                      ><text class="price-symbol">¥</text>{{ item.price }}</view
-                    >
+              <view class="case-content">
+                <view class="case-summary">
+                  <view class="case-title">{{ item.title }}</view>
+                  <view class="case-meta">
+                    <text>{{ item.location }}</text>
+                    <text>{{ item.roomType }}</text>
+                    <text>{{ item.area }}</text>
                   </view>
-                  <button class="quote-button">获取同款报价</button>
+                  <view class="case-tags">
+                    <text v-for="tag in item.tags" :key="tag" class="case-tag">{{ tag }}</text>
+                  </view>
                 </view>
-                <view class="quote-progress">
-                  <text>工期 {{ item.duration }}</text>
-                  <view class="received-info">
-                    <image
-                      class="received-avatars"
-                      src="https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/avatar/touxiang-group.png"
-                      mode="aspectFit"
-                    />
-                    <text>{{ item.receivedCount }}人已获取</text>
+                <view class="case-quote">
+                  <view class="quote-main">
+                    <view class="quote-cost">
+                      <view class="quote-label">总花费</view>
+                      <view class="quote-price"
+                        ><text class="price-symbol">¥</text>{{ item.price }}</view
+                      >
+                    </view>
+                    <button class="quote-button">获取同款报价</button>
+                  </view>
+                  <view class="quote-progress">
+                    <text>工期 {{ item.duration }}</text>
+                    <view class="received-info">
+                      <image
+                        class="received-avatars"
+                        :src="homeImages.receivedAvatars"
+                        mode="aspectFit"
+                      />
+                      <text>{{ item.receivedCount }}人已获取</text>
+                    </view>
                   </view>
                 </view>
               </view>
             </view>
-          </view>
+          </template>
         </view>
       </view>
     </scroll-view>
     <!-- 底部悬浮咨询入口 -->
     <view v-if="showConsultFloat" class="consult-float">
       <view class="consult-main">
-        <image
-          class="consult-avatar"
-          src="https://objectstorageapi.hzh.sealos.run/pyaqb5pe-jfx/images/avatar/kefutouxiang.png"
-          mode="aspectFill"
-        />
+        <image class="consult-avatar" :src="homeImages.consultantAvatar" mode="aspectFill" />
         <view class="consult-copy">
           <view class="consult-title">免费咨询装修方案</view>
           <view class="consult-subtitle">专业顾问1对1服务</view>

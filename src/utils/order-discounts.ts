@@ -5,7 +5,7 @@ export const getCouponUnavailableReason = (record: UserCoupon, now: number): str
   if (record.status === 'USED') return '已使用'
   if (record.status === 'EXPIRED') return '已过期'
   if (record.status !== 'AVAILABLE') return '已失效'
-  if (record.orderId !== null) return '已占用'
+  if (record.orderId != null || record.projectId != null) return '已占用'
   if (!(Date.parse(record.expiresAt) > now)) return '已过期'
   if (!(Date.parse(record.coupon.validFrom) <= now)) return '未到使用时间'
   if (record.coupon.status === 'DRAFT') return '尚未发布'
@@ -31,6 +31,24 @@ export const evaluateCoupon = (record: UserCoupon, eligibleCents: number, now: n
   else if (eligibleCents <= 0) reason = '不适用于本次商品'
   else if (eligibleCents < threshold) reason = `适用商品满¥${(threshold / 100).toFixed(2)}可用`
   return { record, reason, discountCents: reason ? 0 : Math.min(amount, eligibleCents) }
+}
+
+/** 装修券在确认正式项目报价时抵扣，不占用预约方案中的预估金额。 */
+export const evaluateRenovationCoupon = (record: UserCoupon, quotedCents: number, now: number) => {
+  const coupon = record.coupon
+  const amount = Math.round(Number(coupon.amount) * 100)
+  const threshold = Math.round(Number(coupon.threshold) * 100)
+  let reason = getCouponUnavailableReason(record, now)
+  if (!reason && coupon.scopeType !== 'ALL' && coupon.scopeType !== 'RENOVATION')
+    reason = '仅适用于商品订单'
+  if (
+    !reason &&
+    (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(threshold) || threshold < 0)
+  )
+    reason = '优惠券信息异常'
+  if (!reason && quotedCents <= 0) reason = '当前报价无需抵扣'
+  if (!reason && quotedCents < threshold) reason = `项目报价满¥${(threshold / 100).toFixed(2)}可用`
+  return { record, reason, discountCents: reason ? 0 : Math.min(amount, quotedCents) }
 }
 
 // 临时固定规则：1 积分抵 1 元，后续在此替换业务规则。

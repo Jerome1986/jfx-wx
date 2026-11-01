@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { canSubmitAppointment } from '@/utils/appointment-access'
 import { onLoad } from '@dcloudio/uni-app'
-import { computed, nextTick, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { getRenewalPlanDetailApi } from '@/api/renewal-plan'
 import { createPlanAppointmentApi } from '@/api/appointment'
 import { useMemberStore } from '@/stores'
@@ -15,6 +15,36 @@ const activeTab = ref<FeeTab>('全部')
 const feeTabs: FeeTab[] = ['全部', '主材', '人工+辅材']
 // 方案详情
 const planDetail = ref<RenewalPlan | null>(null)
+// 卡片宽度为 750rpx 减去页面两侧各 24rpx，轮播高度跟随当前封面比例。
+const activeCoverIndex = ref(0)
+const coverRatios = ref<Record<string, number>>({})
+const coverHeight = computed(() => {
+  const cover = planDetail.value?.cover[activeCoverIndex.value]
+  const ratio = cover ? coverRatios.value[cover] : undefined
+  return ratio ? 702 * ratio : 420
+})
+const handleCoverLoad = (
+  cover: string,
+  event: { detail: { width: number | string; height: number | string } },
+) => {
+  const width = Number(event.detail.width)
+  const height = Number(event.detail.height)
+  if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+    coverRatios.value[cover] = height / width
+  }
+}
+const handleCoverChange = (event: { detail: { current: number } }) => {
+  activeCoverIndex.value = event.detail.current
+}
+// 预览全部封面图片。
+const previewCover = (index: number) => {
+  if (!planDetail.value?.cover.length) return
+  uni.previewImage({ urls: planDetail.value.cover, current: index })
+}
+const previewPlanDetail = (index: number) => {
+  if (!planDetail.value?.detail.length) return
+  uni.previewImage({ urls: planDetail.value.detail, current: index })
+}
 // 项目列表
 const items = ref<ServiceItem[]>([])
 // 加载状态
@@ -25,23 +55,6 @@ const unavailable = ref(false)
 const submitting = ref(false)
 // 当前登录会员状态
 const memberStore = useMemberStore()
-// 服务列表最小高度
-const serviceListMinHeight = ref(0)
-
-// 获取服务列表高度
-const captureServiceListHeight = async () => {
-  await nextTick()
-  uni
-    .createSelectorQuery()
-    .select('.service-list')
-    .boundingClientRect((rect) => {
-      if (rect && !Array.isArray(rect) && typeof rect.height === 'number') {
-        serviceListMinHeight.value = rect.height
-      }
-    })
-    .exec()
-}
-
 // 加载方案详情
 const loadPlanDetail = async (id: number) => {
   loading.value = true
@@ -54,6 +67,7 @@ const loadPlanDetail = async (id: number) => {
       return
     }
     planDetail.value = data
+    activeCoverIndex.value = 0
     uni.setNavigationBarTitle({ title: data.name })
     items.value = data.items.map((item) => ({
       id: item.id,
@@ -69,7 +83,6 @@ const loadPlanDetail = async (id: number) => {
       image: item.image || item.product?.mainImage?.[0] || '',
       selected: true,
     }))
-    captureServiceListHeight()
   } catch (error) {
     console.error('获取焕新方案详情失败：', error)
     unavailable.value = true
@@ -155,7 +168,6 @@ const replaceItem = (item: ServiceItem) => {
     `type=${type}`,
     `category=${encodeURIComponent(item.category)}`,
     `itemId=${item.sourceItemId}`,
-    `unit=${encodeURIComponent(item.unit)}`,
     `quantity=${item.quantity}`,
   ].join('&')
 
@@ -175,7 +187,7 @@ const replaceItem = (item: ServiceItem) => {
           productId: candidate.productId,
           title: candidate.name,
           description: candidate.description,
-          price: Number(candidate.unitPrice) || 0,
+          price: Number(candidate.unitPrice),
           quantity: Number(candidate.quantity) || 0,
           category: candidate.category,
           unit: candidate.unit,
@@ -214,7 +226,7 @@ const reserve = async () => {
     planId: planDetail.value.id,
     snapshot: {
       title: planDetail.value.name,
-      cover: planDetail.value.cover,
+      cover: planDetail.value.cover[0] || '',
       referencePrice: selectedItems
         .reduce((total, item) => total + item.price * item.quantity, 0)
         .toFixed(2),
@@ -258,17 +270,32 @@ const reserve = async () => {
       >
       <view v-else class="page-content">
         <view class="scheme-card">
-          <image
-            v-if="planDetail.cover"
-            class="scheme-cover"
-            :src="planDetail.cover"
-            mode="widthFix"
-          />
+          <swiper
+            v-if="planDetail.cover.length"
+            class="cover-swiper"
+            :style="{ height: `${coverHeight}rpx` }"
+            :current="activeCoverIndex"
+            :indicator-dots="planDetail.cover.length > 1"
+            :circular="planDetail.cover.length > 1"
+            @change="handleCoverChange"
+          >
+            <swiper-item v-for="(cover, index) in planDetail.cover" :key="index">
+              <image
+                class="scheme-cover"
+                :src="cover"
+                mode="widthFix"
+                @load="handleCoverLoad(cover, $event)"
+                @tap="previewCover(index)"
+              />
+            </swiper-item>
+          </swiper>
           <view v-else class="scheme-cover image-placeholder" />
           <view class="scheme-info">
             <view class="scheme-title">{{ planDetail.name }}</view>
             <view class="scheme-summary-row">
-              <text class="scheme-description">{{ planDetail.summary }}</text>
+              <text v-if="planDetail.summary" class="scheme-description">{{
+                planDetail.summary
+              }}</text>
               <button class="reserve-small" :disabled="submitting" @click="reserve">
                 免费预约
               </button>
@@ -332,10 +359,7 @@ const reserve = async () => {
         </view>
 
         <view class="detail-heading">{{ activeTabTitle }}明细</view>
-        <view
-          class="service-list"
-          :style="serviceListMinHeight ? { minHeight: `${serviceListMinHeight}px` } : undefined"
-        >
+        <view class="service-list">
           <view v-for="item in visibleItems" :key="item.id" class="service-card">
             <image
               v-if="item.image"
@@ -364,6 +388,17 @@ const reserve = async () => {
           </view>
           <view v-if="visibleItems.length === 0" class="empty-items">该分类暂无明细</view>
         </view>
+        <view v-if="planDetail.detail.length" class="plan-detail-images">
+          <view class="detail-heading">方案详情</view>
+          <image
+            v-for="(url, index) in planDetail.detail"
+            :key="index"
+            :src="url"
+            mode="widthFix"
+            lazy-load
+            @tap="previewPlanDetail(index)"
+          />
+        </view>
       </view>
     </scroll-view>
 
@@ -380,6 +415,11 @@ const reserve = async () => {
 </template>
 
 <style lang="scss">
+.plan-detail-images image {
+  display: block;
+  width: 100%;
+}
+
 .detail-page {
   display: flex;
   height: 100vh;
@@ -421,6 +461,10 @@ const reserve = async () => {
   overflow: hidden;
 }
 
+.cover-swiper {
+  width: 100%;
+  background: #f7f8fa;
+}
 .scheme-cover {
   display: block;
   width: 100%;

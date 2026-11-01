@@ -8,6 +8,12 @@ import { projectStatusText, useRenovationBusinessStore } from '@/stores/modules/
 import { formatTimestamp } from '@/utils/format'
 import ProjectQuoteSummary from '@/components/project/ProjectQuoteSummary.vue'
 import ProjectCancellationInfo from '@/components/project/ProjectCancellationInfo.vue'
+import ProjectCouponSummary from '@/components/project/ProjectCouponSummary.vue'
+import { userInfoFindOne } from '@/api/user'
+import { useMemberStore } from '@/stores'
+import type { UserCoupon } from '@/types/coupons'
+import { evaluateRenovationCoupon } from '@/utils/order-discounts'
+import { refreshOrderBenefits } from '@/utils/order-benefits'
 
 // 当前装修项目 ID
 const id = ref(0)
@@ -20,6 +26,55 @@ const records = ref<FollowUp[]>([])
 const loading = ref(false)
 const loadFailed = ref(false)
 const confirming = ref(false)
+const member = useMemberStore()
+const coupons = ref<UserCoupon[]>([])
+const selectedCouponId = ref(0)
+const couponLoadFailed = ref(false)
+const now = ref(Date.now())
+const couponOptions = computed(() =>
+  coupons.value
+    .filter((record) => record.coupon.scopeType !== 'PRODUCT')
+    .map((record) =>
+      evaluateRenovationCoupon(
+        record,
+        Math.round((project.value?.quotedAmount || 0) * 100),
+        now.value,
+      ),
+    ),
+)
+const selectedCoupon = computed(() =>
+  couponOptions.value.find((option) => option.record.id === selectedCouponId.value),
+)
+const couponLabels = computed(() => [
+  '不使用优惠券',
+  ...couponOptions.value.map(
+    (option) =>
+      `${option.record.coupon.name} · ¥${option.record.coupon.amount}${
+        option.reason ? `（${option.reason}）` : ''
+      }`,
+  ),
+])
+const couponLabel = computed(() =>
+  selectedCouponId.value
+    ? selectedCoupon.value
+      ? `${selectedCoupon.value.record.coupon.name}${
+          selectedCoupon.value.reason ? `（${selectedCoupon.value.reason}）` : ''
+        }`
+      : '所选优惠券不可用，请重新选择'
+    : '不使用优惠券',
+)
+const discountedAmount = computed(() =>
+  (
+    (Math.round((project.value?.quotedAmount || 0) * 100) -
+      (selectedCoupon.value?.discountCents || 0)) /
+    100
+  ).toFixed(2),
+)
+const selectCoupon = (event: { detail: { value: string | number } }) => {
+  const option = couponOptions.value[Number(event.detail.value) - 1]
+  if (option?.reason) return uni.showToast({ title: option.reason, icon: 'none' })
+  selectedCouponId.value = option?.record.id || 0
+}
 const invalidId = computed(() => !Number.isSafeInteger(id.value) || id.value <= 0)
 
 const loadProject = async () => {
@@ -33,6 +88,17 @@ const loadProject = async () => {
     if (data?.id !== id.value) throw new Error('项目详情 ID 不匹配')
     store.cacheCreatedProject(normalizeProject(data))
     records.value = data.followUps || []
+    if (data.status === 'PENDING_CONFIRM') {
+      couponLoadFailed.value = false
+      try {
+        const info = await userInfoFindOne(Number(member.profile?.id))
+        if (!Array.isArray(info.data?.userCoupons)) throw new Error('优惠券数据异常')
+        coupons.value = info.data.userCoupons
+        now.value = Date.now()
+      } catch {
+        couponLoadFailed.value = true
+      }
+    }
   } catch (error) {
     console.error('获取项目详情失败：', error)
     loadFailed.value = true
@@ -47,6 +113,10 @@ const openQuote = () =>
 const confirmQuote = async () => {
   if (confirming.value || loading.value || loadFailed.value || invalidId.value) return
   if (project.value?.status !== 'PENDING_CONFIRM') return
+  now.value = Date.now()
+  if (couponLoadFailed.value) return uni.showToast({ title: '请先重新加载优惠券', icon: 'none' })
+  if (selectedCouponId.value && (!selectedCoupon.value || selectedCoupon.value.reason))
+    return uni.showToast({ title: '所选优惠券不可用，请重新选择', icon: 'none' })
   const quoteVersion = project.value.quoteVersion
   if (!Number.isSafeInteger(quoteVersion) || !quoteVersion || quoteVersion < 1) {
     uni.showToast({ title: '缺少报价版本，请刷新详情后确认', icon: 'none' })
@@ -57,9 +127,9 @@ const confirmQuote = async () => {
     const confirmed = await new Promise<boolean>((resolve) =>
       uni.showModal({
         title: '确认项目报价',
-        content: `确认接受报价 ¥${Number(project.value?.quotedAmount || 0).toFixed(
-          2,
-        )} 并开始服务？`,
+        content: `原报价 ¥${Number(project.value?.quotedAmount || 0).toFixed(2)}，优惠券抵扣 ¥${(
+          (selectedCoupon.value?.discountCents || 0) / 100
+        ).toFixed(2)}，确认合同金额 ¥${discountedAmount.value} 并开始服务？`,
         confirmText: '确认报价',
         confirmColor: '#d92d20',
         success: (result) => resolve(result.confirm),
@@ -67,7 +137,11 @@ const confirmQuote = async () => {
       }),
     )
     if (!confirmed) return
-    const result = await confirmProjectQuoteApi(id.value, quoteVersion)
+    const result = await confirmProjectQuoteApi(
+      id.value,
+      quoteVersion,
+      selectedCouponId.value || undefined,
+    )
     // 请求封装会返回 HTTP 2xx 中的业务错误，此时不能提示确认成功。
     if (result && result.code >= 400) {
       if (result.code !== 400)
@@ -76,6 +150,7 @@ const confirmQuote = async () => {
     }
     uni.showToast({ title: '报价已确认', icon: 'success' })
     await loadProject()
+    await refreshOrderBenefits()
   } catch (error) {
     if (
       ((error as { code?: number }).code ?? (error as { statusCode?: number }).statusCode) === 409
@@ -93,6 +168,7 @@ const confirmQuote = async () => {
 
 onLoad((query) => {
   id.value = Number(query?.id) || 0
+  selectedCouponId.value = Number(query?.userCouponId) || 0
   loadProject()
 })
 </script>
@@ -177,6 +253,41 @@ onLoad((query) => {
       </view>
 
       <ProjectCancellationInfo v-if="project.status === 'CANCELED'" :project="project" />
+      <view v-if="project.status === 'PENDING_CONFIRM'" class="card">
+        <text class="section-title">装修优惠券</text>
+        <view v-if="couponLoadFailed">
+          <text>优惠券加载失败</text><button @click="loadProject">重新加载</button>
+        </view>
+        <picker
+          v-else
+          :range="couponLabels"
+          :value="
+            Math.max(
+              0,
+              couponOptions.findIndex((option) => option.record.id === selectedCouponId) + 1,
+            )
+          "
+          :disabled="confirming"
+          @change="selectCoupon"
+        >
+          <view class="row"
+            ><text>选择优惠券</text><text>{{ couponLabel }} ›</text></view
+          >
+        </picker>
+        <view class="row"
+          ><text>优惠券抵扣</text
+          ><text>−¥{{ ((selectedCoupon?.discountCents || 0) / 100).toFixed(2) }}</text></view
+        >
+        <view class="row"
+          ><text>确认后合同金额</text><text class="amount">¥{{ discountedAmount }}</text></view
+        >
+        <view class="confirm-tip"
+          >确认报价时使用一张装修券或通用券；项目取消后返还，过期券不可再次使用。</view
+        >
+      </view>
+      <view v-if="project.contractAmount != null" class="card">
+        <ProjectCouponSummary :project="project" />
+      </view>
       <view v-if="records.length" class="card follow-card">
         <view class="section-head">
           <text class="section-title">项目跟进</text>

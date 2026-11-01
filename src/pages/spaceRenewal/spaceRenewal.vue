@@ -44,7 +44,7 @@ const viewPlan = (item: RenewalPlan) => {
     `id=${item.id}`,
     `title=${encodeURIComponent(item.name)}`,
     `description=${encodeURIComponent(item.summary || '')}`,
-    `cover=${encodeURIComponent(item.cover || '')}`,
+    `cover=${encodeURIComponent(item.cover[0] || '')}`,
   ].join('&')
   uni.navigateTo({ url: `/pages/spaceRenewalDetail/spaceRenewalDetail?${query}` })
 }
@@ -73,12 +73,12 @@ const viewPlan = (item: RenewalPlan) => {
         <!-- 单个焕新方案卡片 -->
         <view v-for="item in visiblePlans" :key="item.id" class="plan-card" @click="viewPlan(item)">
           <!-- 方案封面 -->
-          <image class="plan-cover" :src="item.cover" mode="aspectFill" />
+          <image class="plan-cover" :src="item.cover[0] || ''" mode="aspectFill" />
           <!-- 方案主要信息 -->
           <view class="plan-content">
             <view class="plan-title">{{ item.name }}</view>
-            <view class="plan-description">{{ item.summary }}</view>
-            <view class="plan-tags">
+            <view v-if="item.summary" class="plan-description">{{ item.summary }}</view>
+            <view v-if="item.tags.length" class="plan-tags">
               <text v-for="tag in item.tags" :key="tag" class="plan-tag">{{ tag }}</text>
             </view>
           </view>

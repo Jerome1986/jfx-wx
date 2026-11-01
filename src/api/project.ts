@@ -66,11 +66,11 @@ export const completeEmployeeProjectApi = (id: number) => {
 }
 
 /** 客户确认项目报价并开始服务。 */
-export const confirmProjectQuoteApi = (id: number, quoteVersion: number) => {
+export const confirmProjectQuoteApi = (id: number, quoteVersion: number, userCouponId?: number) => {
   return request<unknown>({
     method: 'PATCH' as UniApp.RequestOptions['method'],
     url: `/renovation-project/${id}/confirm`,
-    data: { quoteVersion },
+    data: { quoteVersion, ...(userCouponId ? { userCouponId } : {}) },
   })
 }
 

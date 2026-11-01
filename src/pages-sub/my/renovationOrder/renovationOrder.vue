@@ -18,6 +18,7 @@ const filters: Array<{ label: string; value: UserProjectListStatus }> = [
 ]
 // 当前选中的项目状态。
 const active = ref<UserProjectListStatus>('ALL')
+const userCouponId = ref(0)
 // 接口已加载的装修项目列表。
 const list = ref<RenovationProject[]>([])
 // 当前成功加载的页码。
@@ -86,7 +87,7 @@ const projectCards = computed(() =>
     ]
     return {
       ...item,
-      displayAmount: formatQuotedAmount(item.quotedAmount),
+      displayAmount: formatQuotedAmount(item.contractAmount ?? item.quotedAmount),
       serviceContent: item.renovationScope?.trim(),
       quoteNames: quoteNames.slice(0, 3),
       extraQuoteCount: Math.max(0, quoteNames.length - 3),
@@ -100,7 +101,11 @@ const projectCards = computed(() =>
 
 // 打开用户装修项目详情。
 const open = (id: number) =>
-  uni.navigateTo({ url: `/pages-sub/my/renovationOrderDetail/renovationOrderDetail?id=${id}` })
+  uni.navigateTo({
+    url: `/pages-sub/my/renovationOrderDetail/renovationOrderDetail?id=${id}${
+      userCouponId.value ? `&userCouponId=${userCouponId.value}` : ''
+    }`,
+  })
 
 // 分页加载当前状态的用户装修项目。
 const loadProjects = async (reset = false) => {
@@ -150,6 +155,7 @@ const selectStatus = (status: UserProjectListStatus) => {
 }
 
 onLoad((query) => {
+  userCouponId.value = Number(query?.userCouponId) || 0
   // 1. 读取页面参数指定的初始状态。
   const value = query?.status as UserProjectListStatus
   if (filters.some((item) => item.value === value)) active.value = value
@@ -243,7 +249,9 @@ onShow(() => {
 
             <view class="card-footer">
               <view class="quote">
-                <text class="quote-label">项目报价</text>
+                <text class="quote-label">{{
+                  item.contractAmount != null ? '合同金额' : '项目报价'
+                }}</text>
                 <view v-if="item.displayAmount !== null" class="amount">
                   <text class="currency">¥</text>
                   <text class="amount-value">{{ item.displayAmount }}</text>
@@ -266,7 +274,9 @@ onShow(() => {
         <view v-else-if="loadFailed" class="empty retry" @click="loadProjects(true)"
           >加载失败，点击重试</view
         >
-        <view v-else-if="!list.length" class="empty">暂无相关装修项目</view>
+        <view v-else-if="!list.length" class="empty">{{
+          userCouponId ? '暂无待确认报价的项目，请先预约并等待员工报价' : '暂无相关装修项目'
+        }}</view>
       </view>
     </scroll-view>
   </view>

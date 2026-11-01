@@ -25,6 +25,7 @@ export interface CouponItem {
 export interface UserCoupon {
   /** 已占用该券的订单，未占用时为 null。 */
   orderId: number | null
+  projectId?: number | null
   id: number
   status: 'AVAILABLE' | 'USED' | 'EXPIRED' | 'INVALID'
   expiresAt: string

@@ -115,9 +115,20 @@ const useCoupon = (item: CouponItem) => {
   now.value = Date.now()
   const current = coupons.value.find((coupon) => coupon.id === item.id)
   if (!current?.usable) return
-  uni.switchTab({
-    url: item.scopeType === 'RENOVATION' ? '/pages/home/home' : '/pages/product/product',
-  })
+  const openRenovation = () =>
+    uni.navigateTo({
+      url: `/pages-sub/my/renovationOrder/renovationOrder?status=PENDING_CONFIRM&userCouponId=${item.id}`,
+    })
+  if (item.scopeType === 'RENOVATION') return openRenovation()
+  if (item.scopeType === 'ALL') {
+    uni.showActionSheet({
+      itemList: ['购买商品', '抵扣装修项目报价'],
+      success: ({ tapIndex }) =>
+        tapIndex === 1 ? openRenovation() : uni.switchTab({ url: '/pages/product/product' }),
+    })
+    return
+  }
+  uni.switchTab({ url: '/pages/product/product' })
 }
 </script>
 

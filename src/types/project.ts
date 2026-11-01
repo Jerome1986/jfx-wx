@@ -77,10 +77,9 @@ export interface ProjectEmployeeResult {
 export interface ProjectPlanResult {
   id: number
   name: string
-  cover: string
-  detail: string
+  cover: string[]
+  detail: string[]
   summary: string
-  images: string[] | null
   tags: string[]
   startingPrice: string
   status: string
@@ -94,8 +93,11 @@ export interface ProjectPlanResult {
 }
 
 /** 项目详情金额兼容后端 Decimal 字符串。 */
-export interface ProjectDetailResult extends Omit<CreateProjectResult, 'quotedAmount'> {
+export interface ProjectDetailResult
+  extends Omit<CreateProjectResult, 'quotedAmount' | 'contractAmount' | 'couponDiscount'> {
   quotedAmount?: number | string | null
+  contractAmount?: number | string | null
+  couponDiscount?: number | string
   followUps?: import('./renovation-business').FollowUp[]
   employee?: ProjectEmployeeResult | null
   plan?: ProjectPlanResult | null

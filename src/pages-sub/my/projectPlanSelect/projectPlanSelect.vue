@@ -68,7 +68,7 @@ const loadPlans = async () => {
         id: plan.id,
         name: plan.name,
         description: plan.summary,
-        cover: plan.cover,
+        cover: plan.cover[0] || '',
         items: plan.items.map((item) => ({
           id: `plan-${plan.id}-${item.id}`,
           source: 'api',

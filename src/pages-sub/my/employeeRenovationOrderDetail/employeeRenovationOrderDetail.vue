@@ -8,6 +8,7 @@ import EmployeeProjectStatus from '@/components/project/EmployeeProjectStatus.vu
 import { normalizeProject } from '@/utils/project'
 import ProjectCancelDialog from '@/components/project/ProjectCancelDialog.vue'
 import ProjectCancellationInfo from '@/components/project/ProjectCancellationInfo.vue'
+import ProjectCouponSummary from '@/components/project/ProjectCouponSummary.vue'
 import { cancelEmployeeProjectApi, PROJECT_CANCEL_API_ENABLED } from '@/api/project'
 import type { CancelProjectInput } from '@/types/project'
 
@@ -230,6 +231,9 @@ onLoad((query) => {
         </view>
 
         <ProjectCancellationInfo v-if="project.status === 'CANCELED'" :project="project" />
+        <view v-if="project.contractAmount != null" class="card">
+          <ProjectCouponSummary :project="project" />
+        </view>
 
         <view v-if="project.status === 'IN_SERVICE'" class="action-wrap">
           <button
