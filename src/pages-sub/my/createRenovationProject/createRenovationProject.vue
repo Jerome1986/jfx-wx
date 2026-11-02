@@ -2,8 +2,8 @@
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { useRenovationBusinessStore } from '@/stores/modules/renovation-business'
-import { createEmployeeProjectApi } from '@/api/project'
-import ProjectQuoteSummary from '@/components/project/ProjectQuoteSummary.vue'
+import { createEmployeeProjectApi } from '@/pages-sub/my/api/project'
+import ProjectQuoteSummary from '@/pages-sub/my/components/project/ProjectQuoteSummary.vue'
 import { validateQuote } from '@/utils/project-quote'
 import type { CreateProjectInput } from '@/types/project'
 

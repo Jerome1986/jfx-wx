@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { getServiceCityApi, getServiceOutletsByCityApi } from '@/api/service-outlet'
+import { getServiceCityApi, getServiceOutletsByCityApi } from '@/pages-sub/my/api/service-outlet'
 import type { ServiceCity, ServiceOutlet } from '@/types/service-outlets'
 
 // 网点默认封面图

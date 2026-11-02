@@ -1,0 +1,47 @@
+6355b4cf9cf80825e2bb74c67be92ff7
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.PrismaService = void 0;
+// 文件说明：Prisma 数据库客户端服务，统一管理数据库连接。
+// src/prisma/prisma.servive.ts
+const common_1 = require("@nestjs/common");
+const adapter_mariadb_1 = require("@prisma/adapter-mariadb");
+const client_1 = require("../../generated/prisma/client");
+let PrismaService = class PrismaService extends client_1.PrismaClient {
+    // 使用的数据库类型的驱动程序适配器
+    // 针对 MySQL、MsSQL、AzureSQL：npm install @prisma/adapter-mariadb
+    constructor() {
+        const adapter = new adapter_mariadb_1.PrismaMariaDb({
+            host: 'localhost',
+            port: 3306,
+            user: 'jfx',
+            password: '123456',
+            database: 'jfx'
+        });
+        super({ adapter });
+    }
+    // 初始化数据库连接
+    async onModuleInit() {
+        console.log('DATABASE_URL:', process.env.DATABASE_URL);
+        await this.$connect();
+    }
+    // 关闭数据库连接
+    async onModuleDestroy() {
+        await this.$disconnect();
+    }
+};
+exports.PrismaService = PrismaService;
+exports.PrismaService = PrismaService = __decorate([
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [])
+], PrismaService);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiRDpcXHByb2plY3RcXGNvZGVcXGpmeFxcamZ4LWFwaVxcc3JjXFxwcmlzbWFcXHByaXNtYS5zZXJ2aWNlLnRzIiwibWFwcGluZ3MiOiI7Ozs7Ozs7Ozs7OztBQUFBLGtDQUFrQztBQUNsQywrQkFBK0I7QUFDL0IsMkNBQTJFO0FBQzNFLDZEQUF3RDtBQUN4RCwwREFBNkQ7QUFHdEQsSUFBTSxhQUFhLEdBQW5CLE1BQU0sYUFDWCxTQUFRLHFCQUFZO0lBRXBCLG1CQUFtQjtJQUNuQiw4REFBOEQ7SUFDOUQ7UUFDRSxNQUFNLE9BQU8sR0FBRyxJQUFJLCtCQUFhLENBQUM7WUFDaEMsSUFBSSxFQUFFLFdBQVc7WUFDakIsSUFBSSxFQUFFLElBQUk7WUFDVixJQUFJLEVBQUUsS0FBSztZQUNYLFFBQVEsRUFBRSxRQUFRO1lBQ2xCLFFBQVEsRUFBRSxLQUFLO1NBQ2hCLENBQUMsQ0FBQztRQUNILEtBQUssQ0FBQyxFQUFFLE9BQU8sRUFBRSxDQUFDLENBQUM7SUFDckIsQ0FBQztJQUVELFdBQVc7SUFDWCxLQUFLLENBQUMsWUFBWTtRQUNoQixPQUFPLENBQUMsR0FBRyxDQUFDLGVBQWUsRUFBRSxPQUFPLENBQUMsR0FBRyxDQUFDLFlBQVksQ0FBQyxDQUFDO1FBQ3ZELE1BQU0sSUFBSSxDQUFDLFFBQVEsRUFBRSxDQUFDO0lBQ3hCLENBQUM7SUFFRCxVQUFVO0lBQ1YsS0FBSyxDQUFDLGVBQWU7UUFDbkIsTUFBTSxJQUFJLENBQUMsV0FBVyxFQUFFLENBQUM7SUFDM0IsQ0FBQztDQUNGLENBQUE7QUExQlksc0NBQWE7d0JBQWIsYUFBYTtJQUR6QixJQUFBLG1CQUFVLEdBQUU7O0dBQ0EsYUFBYSxDQTBCekIiLCJuYW1lcyI6W10sInNvdXJjZXMiOlsiRDpcXHByb2plY3RcXGNvZGVcXGpmeFxcamZ4LWFwaVxcc3JjXFxwcmlzbWFcXHByaXNtYS5zZXJ2aWNlLnRzIl0sInNvdXJjZXNDb250ZW50IjpbIi8vIOaWh+S7tuivtOaYju+8mlByaXNtYSDmlbDmja7lupPlrqLmiLfnq6/mnI3liqHvvIznu5/kuIDnrqHnkIbmlbDmja7lupPov57mjqXjgIJcclxuLy8gc3JjL3ByaXNtYS9wcmlzbWEuc2Vydml2ZS50c1xyXG5pbXBvcnQgeyBJbmplY3RhYmxlLCBPbk1vZHVsZUluaXQsIE9uTW9kdWxlRGVzdHJveSB9IGZyb20gJ0BuZXN0anMvY29tbW9uJztcclxuaW1wb3J0IHsgUHJpc21hTWFyaWFEYiB9IGZyb20gJ0BwcmlzbWEvYWRhcHRlci1tYXJpYWRiJztcclxuaW1wb3J0IHsgUHJpc21hQ2xpZW50IH0gZnJvbSAnLi4vLi4vZ2VuZXJhdGVkL3ByaXNtYS9jbGllbnQnO1xyXG5cclxuQEluamVjdGFibGUoKVxyXG5leHBvcnQgY2xhc3MgUHJpc21hU2VydmljZVxyXG4gIGV4dGVuZHMgUHJpc21hQ2xpZW50XHJcbiAgaW1wbGVtZW50cyBPbk1vZHVsZUluaXQsIE9uTW9kdWxlRGVzdHJveSB7XHJcbiAgLy8g5L2/55So55qE5pWw5o2u5bqT57G75Z6L55qE6amx5Yqo56iL5bqP6YCC6YWN5ZmoXHJcbiAgLy8g6ZKI5a+5IE15U1FM44CBTXNTUUzjgIFBenVyZVNRTO+8mm5wbSBpbnN0YWxsIEBwcmlzbWEvYWRhcHRlci1tYXJpYWRiXHJcbiAgY29uc3RydWN0b3IoKSB7XHJcbiAgICBjb25zdCBhZGFwdGVyID0gbmV3IFByaXNtYU1hcmlhRGIoe1xyXG4gICAgICBob3N0OiAnbG9jYWxob3N0JyxcclxuICAgICAgcG9ydDogMzMwNixcclxuICAgICAgdXNlcjogJ2pmeCcsXHJcbiAgICAgIHBhc3N3b3JkOiAnMTIzNDU2JyxcclxuICAgICAgZGF0YWJhc2U6ICdqZngnXHJcbiAgICB9KTtcclxuICAgIHN1cGVyKHsgYWRhcHRlciB9KTtcclxuICB9XHJcblxyXG4gIC8vIOWIneWni+WMluaVsOaNruW6k+i/nuaOpVxyXG4gIGFzeW5jIG9uTW9kdWxlSW5pdCgpIHtcclxuICAgIGNvbnNvbGUubG9nKCdEQVRBQkFTRV9VUkw6JywgcHJvY2Vzcy5lbnYuREFUQUJBU0VfVVJMKTtcclxuICAgIGF3YWl0IHRoaXMuJGNvbm5lY3QoKTtcclxuICB9XHJcblxyXG4gIC8vIOWFs+mXreaVsOaNruW6k+i/nuaOpVxyXG4gIGFzeW5jIG9uTW9kdWxlRGVzdHJveSgpIHtcclxuICAgIGF3YWl0IHRoaXMuJGRpc2Nvbm5lY3QoKTtcclxuICB9XHJcbn1cclxuIl0sInZlcnNpb24iOjN9

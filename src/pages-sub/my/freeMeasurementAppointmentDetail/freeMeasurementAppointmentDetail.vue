@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
-import AppointmentServiceDetail from '@/components/AppointmentServiceDetail.vue'
+import AppointmentServiceDetail from '@/pages-sub/my/components/AppointmentServiceDetail.vue'
 
 // 预约编号
 const appointmentId = ref(0)

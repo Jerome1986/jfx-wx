@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
-import { refreshOrderBenefits } from '@/utils/order-benefits'
+import { refreshOrderBenefits } from '@/pages-sub/my/utils/order-benefits'
 import { cancelOrder, getUserOrders, payOrder, requestWechatPayment } from '@/api/order'
 import { formatBeijingTimestamp, orderInstallationText } from '@/utils/order-booking'
-import { formatTimestamp } from '@/utils/format'
+import { formatTimestamp } from '@/pages-sub/my/utils/format'
 import type {
   ProductOrderApiStatus,
   ProductOrderFilterStatus,

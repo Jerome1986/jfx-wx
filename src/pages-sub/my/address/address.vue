@@ -2,7 +2,7 @@
 import { storeToRefs } from 'pinia'
 import { onMounted, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { getAddressListApi } from '@/api/address'
+import { getAddressListApi } from '@/pages-sub/my/api/address'
 import { type ServiceAddress, useAddressStore } from '@/stores/modules/address'
 import type { AddressItem } from '@/types/address-api'
 

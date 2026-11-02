@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { confirmProjectQuoteApi, getProjectDetailApi } from '@/api/project'
-import { normalizeProject } from '@/utils/project'
+import { confirmProjectQuoteApi, getProjectDetailApi } from '@/pages-sub/my/api/project'
+import { normalizeProject } from '@/pages-sub/my/utils/project'
 import type { FollowUp } from '@/types/renovation-business'
 import { projectStatusText, useRenovationBusinessStore } from '@/stores/modules/renovation-business'
-import { formatTimestamp } from '@/utils/format'
-import ProjectQuoteSummary from '@/components/project/ProjectQuoteSummary.vue'
-import ProjectCancellationInfo from '@/components/project/ProjectCancellationInfo.vue'
-import ProjectCouponSummary from '@/components/project/ProjectCouponSummary.vue'
+import { formatTimestamp } from '@/pages-sub/my/utils/format'
+import ProjectQuoteSummary from '@/pages-sub/my/components/project/ProjectQuoteSummary.vue'
+import ProjectCancellationInfo from '@/pages-sub/my/components/project/ProjectCancellationInfo.vue'
+import ProjectCouponSummary from '@/pages-sub/my/components/project/ProjectCouponSummary.vue'
 import { userInfoFindOne } from '@/api/user'
 import { useMemberStore } from '@/stores'
 import type { UserCoupon } from '@/types/coupons'
 import { evaluateRenovationCoupon } from '@/utils/order-discounts'
-import { refreshOrderBenefits } from '@/utils/order-benefits'
+import { refreshOrderBenefits } from '@/pages-sub/my/utils/order-benefits'
 
 // 当前装修项目 ID
 const id = ref(0)
@@ -96,6 +96,7 @@ const loadProject = async () => {
         coupons.value = info.data.userCoupons
         now.value = Date.now()
       } catch {
+        coupons.value = []
         couponLoadFailed.value = true
       }
     }
@@ -114,7 +115,8 @@ const confirmQuote = async () => {
   if (confirming.value || loading.value || loadFailed.value || invalidId.value) return
   if (project.value?.status !== 'PENDING_CONFIRM') return
   now.value = Date.now()
-  if (couponLoadFailed.value) return uni.showToast({ title: '请先重新加载优惠券', icon: 'none' })
+  if (selectedCouponId.value && couponLoadFailed.value)
+    return uni.showToast({ title: '请重新加载优惠券或选择不使用优惠券', icon: 'none' })
   if (selectedCouponId.value && (!selectedCoupon.value || selectedCoupon.value.reason))
     return uni.showToast({ title: '所选优惠券不可用，请重新选择', icon: 'none' })
   const quoteVersion = project.value.quoteVersion
@@ -256,7 +258,19 @@ onLoad((query) => {
       <view v-if="project.status === 'PENDING_CONFIRM'" class="card">
         <text class="section-title">装修优惠券</text>
         <view v-if="couponLoadFailed">
-          <text>优惠券加载失败</text><button @click="loadProject">重新加载</button>
+          <text>{{
+            selectedCouponId
+              ? '优惠券加载失败，请重试或选择不使用优惠券'
+              : '优惠券加载失败，仍可按原报价确认'
+          }}</text>
+          <button :disabled="confirming" @click="loadProject">重新加载</button>
+          <button
+            v-if="selectedCouponId"
+            :disabled="confirming"
+            @click="selectCoupon({ detail: { value: 0 } })"
+          >
+            不使用优惠券
+          </button>
         </view>
         <picker
           v-else
@@ -324,7 +338,7 @@ onLoad((query) => {
   </view>
 </template>
 
-<style lang="scss">
+<style scoped lang="scss">
 .page {
   min-height: 100vh;
   color: $jfx-font-title;
@@ -336,6 +350,7 @@ onLoad((query) => {
 }
 
 .card {
+  padding: 24rpx;
   background: #ffffff;
   border: 1rpx solid rgba(114, 89, 69, 0.045);
   border-radius: 20rpx;
@@ -540,6 +555,18 @@ onLoad((query) => {
   justify-content: space-between;
   font-size: 24rpx;
   line-height: 36rpx;
+  gap: 20rpx;
+  padding: 12rpx 0;
+}
+
+.row > text:first-child {
+  flex-shrink: 0;
+}
+
+.row > text:last-child {
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
 }
 
 .row + .row {

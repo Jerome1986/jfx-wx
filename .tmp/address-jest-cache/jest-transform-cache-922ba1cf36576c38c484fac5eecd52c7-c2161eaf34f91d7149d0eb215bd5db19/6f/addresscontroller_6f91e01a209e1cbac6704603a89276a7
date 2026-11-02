@@ -1,0 +1,98 @@
+7da12af2939d4c382adc648a09aec765
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
+var _a, _b, _c;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AddressController = void 0;
+// 文件说明：地址控制器，处理相关 HTTP 请求。
+const common_1 = require("@nestjs/common");
+const address_service_1 = require("./address.service");
+const create_address_dto_1 = require("./dto/create-address.dto");
+const update_address_dto_1 = require("./dto/update-address.dto");
+const user_jwt_guard_1 = require("../common/auth/guards/user-jwt.guard");
+const current_user_decorator_1 = require("../common/auth/decorators/current-user.decorator");
+let AddressController = class AddressController {
+    addressService;
+    // 注入 AddressService，将接口请求交给业务服务处理。
+    constructor(addressService) {
+        this.addressService = addressService;
+    }
+    // 新增地址
+    create(createAddressDto, user) {
+        return this.addressService.create(createAddressDto, user);
+    }
+    // 获取地址列表
+    findAll(user) {
+        return this.addressService.findAll(user);
+    }
+    // 获取地址详情
+    findOne(id, user) {
+        return this.addressService.findOne(id, user);
+    }
+    // 更新地址
+    update(id, updateAddressDto, user) {
+        return this.addressService.update(id, updateAddressDto, user);
+    }
+    // 删除地址
+    remove(id, user) {
+        return this.addressService.remove(id, user);
+    }
+};
+exports.AddressController = AddressController;
+__decorate([
+    (0, common_1.Post)(),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [typeof (_b = typeof create_address_dto_1.CreateAddressDto !== "undefined" && create_address_dto_1.CreateAddressDto) === "function" ? _b : Object, Object]),
+    __metadata("design:returntype", void 0)
+], AddressController.prototype, "create", null);
+__decorate([
+    (0, common_1.Get)(),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AddressController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)(':id'),
+    __param(0, (0, common_1.Param)('id', common_1.ParseIntPipe)),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Number, Object]),
+    __metadata("design:returntype", void 0)
+], AddressController.prototype, "findOne", null);
+__decorate([
+    (0, common_1.Patch)(':id'),
+    __param(0, (0, common_1.Param)('id', common_1.ParseIntPipe)),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Number, typeof (_c = typeof update_address_dto_1.UpdateAddressDto !== "undefined" && update_address_dto_1.UpdateAddressDto) === "function" ? _c : Object, Object]),
+    __metadata("design:returntype", void 0)
+], AddressController.prototype, "update", null);
+__decorate([
+    (0, common_1.Delete)(':id'),
+    __param(0, (0, common_1.Param)('id', common_1.ParseIntPipe)),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Number, Object]),
+    __metadata("design:returntype", void 0)
+], AddressController.prototype, "remove", null);
+exports.AddressController = AddressController = __decorate([
+    (0, common_1.Controller)('address'),
+    (0, common_1.UseGuards)(user_jwt_guard_1.UserJwtGuard),
+    __metadata("design:paramtypes", [typeof (_a = typeof address_service_1.AddressService !== "undefined" && address_service_1.AddressService) === "function" ? _a : Object])
+], AddressController);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiRDpcXHByb2plY3RcXGNvZGVcXGpmeFxcamZ4LWFwaVxcc3JjXFxhZGRyZXNzXFxhZGRyZXNzLmNvbnRyb2xsZXIudHMiLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7Ozs7Ozs7OztBQUFBLDJCQUEyQjtBQUMzQiwyQ0FVd0I7QUFDeEIsdURBQXNFO0FBQ3RFLGlFQUE0RDtBQUM1RCxpRUFBNEQ7QUFDNUQseUVBQW9FO0FBQ3BFLDZGQUErRTtBQUl4RSxJQUFNLGlCQUFpQixHQUF2QixNQUFNLGlCQUFpQjtJQUVDO0lBRDdCLG1DQUFtQztJQUNuQyxZQUE2QixjQUE4QjtRQUE5QixtQkFBYyxHQUFkLGNBQWMsQ0FBZ0I7SUFBRyxDQUFDO0lBRS9ELE9BQU87SUFFUCxNQUFNLENBQVMsZ0JBQWtDLEVBQWlCLElBQWtCO1FBQ2xGLE9BQU8sSUFBSSxDQUFDLGNBQWMsQ0FBQyxNQUFNLENBQUMsZ0JBQWdCLEVBQUUsSUFBSSxDQUFDLENBQUM7SUFDNUQsQ0FBQztJQUVELFNBQVM7SUFFVCxPQUFPLENBQWdCLElBQWtCO1FBQ3ZDLE9BQU8sSUFBSSxDQUFDLGNBQWMsQ0FBQyxPQUFPLENBQUMsSUFBSSxDQUFDLENBQUM7SUFDM0MsQ0FBQztJQUVELFNBQVM7SUFFVCxPQUFPLENBQTRCLEVBQVUsRUFBaUIsSUFBa0I7UUFDOUUsT0FBTyxJQUFJLENBQUMsY0FBYyxDQUFDLE9BQU8sQ0FBQyxFQUFFLEVBQUUsSUFBSSxDQUFDLENBQUM7SUFDL0MsQ0FBQztJQUVELE9BQU87SUFFUCxNQUFNLENBQ3VCLEVBQVUsRUFDN0IsZ0JBQWtDLEVBQzNCLElBQWtCO1FBRWpDLE9BQU8sSUFBSSxDQUFDLGNBQWMsQ0FBQyxNQUFNLENBQUMsRUFBRSxFQUFFLGdCQUFnQixFQUFFLElBQUksQ0FBQyxDQUFDO0lBQ2hFLENBQUM7SUFFRCxPQUFPO0lBRVAsTUFBTSxDQUE0QixFQUFVLEVBQWlCLElBQWtCO1FBQzdFLE9BQU8sSUFBSSxDQUFDLGNBQWMsQ0FBQyxNQUFNLENBQUMsRUFBRSxFQUFFLElBQUksQ0FBQyxDQUFDO0lBQzlDLENBQUM7Q0FDRixDQUFBO0FBckNZLDhDQUFpQjtBQU01QjtJQURDLElBQUEsYUFBSSxHQUFFO0lBQ0MsV0FBQSxJQUFBLGFBQUksR0FBRSxDQUFBO0lBQXNDLFdBQUEsSUFBQSxvQ0FBVyxHQUFFLENBQUE7O3lEQUFoQyxxQ0FBZ0Isb0JBQWhCLHFDQUFnQjs7K0NBRWhEO0FBSUQ7SUFEQyxJQUFBLFlBQUcsR0FBRTtJQUNHLFdBQUEsSUFBQSxvQ0FBVyxHQUFFLENBQUE7Ozs7Z0RBRXJCO0FBSUQ7SUFEQyxJQUFBLFlBQUcsRUFBQyxLQUFLLENBQUM7SUFDRixXQUFBLElBQUEsY0FBSyxFQUFDLElBQUksRUFBRSxxQkFBWSxDQUFDLENBQUE7SUFBYyxXQUFBLElBQUEsb0NBQVcsR0FBRSxDQUFBOzs7O2dEQUU1RDtBQUlEO0lBREMsSUFBQSxjQUFLLEVBQUMsS0FBSyxDQUFDO0lBRVYsV0FBQSxJQUFBLGNBQUssRUFBQyxJQUFJLEVBQUUscUJBQVksQ0FBQyxDQUFBO0lBQ3pCLFdBQUEsSUFBQSxhQUFJLEdBQUUsQ0FBQTtJQUNOLFdBQUEsSUFBQSxvQ0FBVyxHQUFFLENBQUE7O2lFQURZLHFDQUFnQixvQkFBaEIscUNBQWdCOzsrQ0FJM0M7QUFJRDtJQURDLElBQUEsZUFBTSxFQUFDLEtBQUssQ0FBQztJQUNOLFdBQUEsSUFBQSxjQUFLLEVBQUMsSUFBSSxFQUFFLHFCQUFZLENBQUMsQ0FBQTtJQUFjLFdBQUEsSUFBQSxvQ0FBVyxHQUFFLENBQUE7Ozs7K0NBRTNEOzRCQXBDVSxpQkFBaUI7SUFGN0IsSUFBQSxtQkFBVSxFQUFDLFNBQVMsQ0FBQztJQUNyQixJQUFBLGtCQUFTLEVBQUMsNkJBQVksQ0FBQzt5REFHdUIsZ0NBQWMsb0JBQWQsZ0NBQWM7R0FGaEQsaUJBQWlCLENBcUM3QiIsIm5hbWVzIjpbXSwic291cmNlcyI6WyJEOlxccHJvamVjdFxcY29kZVxcamZ4XFxqZngtYXBpXFxzcmNcXGFkZHJlc3NcXGFkZHJlc3MuY29udHJvbGxlci50cyJdLCJzb3VyY2VzQ29udGVudCI6WyIvLyDmlofku7bor7TmmI7vvJrlnLDlnYDmjqfliLblmajvvIzlpITnkIbnm7jlhbMgSFRUUCDor7fmsYLjgIJcbmltcG9ydCB7XG4gIEJvZHksXG4gIENvbnRyb2xsZXIsXG4gIERlbGV0ZSxcbiAgR2V0LFxuICBQYXJhbSxcbiAgUGFyc2VJbnRQaXBlLFxuICBQYXRjaCxcbiAgUG9zdCxcbiAgVXNlR3VhcmRzLFxufSBmcm9tICdAbmVzdGpzL2NvbW1vbic7XG5pbXBvcnQgeyBBZGRyZXNzU2VydmljZSwgdHlwZSBBZGRyZXNzQWN0b3IgfSBmcm9tICcuL2FkZHJlc3Muc2VydmljZSc7XG5pbXBvcnQgeyBDcmVhdGVBZGRyZXNzRHRvIH0gZnJvbSAnLi9kdG8vY3JlYXRlLWFkZHJlc3MuZHRvJztcbmltcG9ydCB7IFVwZGF0ZUFkZHJlc3NEdG8gfSBmcm9tICcuL2R0by91cGRhdGUtYWRkcmVzcy5kdG8nO1xuaW1wb3J0IHsgVXNlckp3dEd1YXJkIH0gZnJvbSAnLi4vY29tbW9uL2F1dGgvZ3VhcmRzL3VzZXItand0Lmd1YXJkJztcbmltcG9ydCB7IEN1cnJlbnRVc2VyIH0gZnJvbSAnLi4vY29tbW9uL2F1dGgvZGVjb3JhdG9ycy9jdXJyZW50LXVzZXIuZGVjb3JhdG9yJztcblxuQENvbnRyb2xsZXIoJ2FkZHJlc3MnKVxuQFVzZUd1YXJkcyhVc2VySnd0R3VhcmQpXG5leHBvcnQgY2xhc3MgQWRkcmVzc0NvbnRyb2xsZXIge1xuICAvLyDms6jlhaUgQWRkcmVzc1NlcnZpY2XvvIzlsIbmjqXlj6Por7fmsYLkuqTnu5nkuJrliqHmnI3liqHlpITnkIbjgIJcbiAgY29uc3RydWN0b3IocHJpdmF0ZSByZWFkb25seSBhZGRyZXNzU2VydmljZTogQWRkcmVzc1NlcnZpY2UpIHt9XG5cbiAgLy8g5paw5aKe5Zyw5Z2AXG4gIEBQb3N0KClcbiAgY3JlYXRlKEBCb2R5KCkgY3JlYXRlQWRkcmVzc0R0bzogQ3JlYXRlQWRkcmVzc0R0bywgQEN1cnJlbnRVc2VyKCkgdXNlcjogQWRkcmVzc0FjdG9yKSB7XG4gICAgcmV0dXJuIHRoaXMuYWRkcmVzc1NlcnZpY2UuY3JlYXRlKGNyZWF0ZUFkZHJlc3NEdG8sIHVzZXIpO1xuICB9XG5cbiAgLy8g6I635Y+W5Zyw5Z2A5YiX6KGoXG4gIEBHZXQoKVxuICBmaW5kQWxsKEBDdXJyZW50VXNlcigpIHVzZXI6IEFkZHJlc3NBY3Rvcikge1xuICAgIHJldHVybiB0aGlzLmFkZHJlc3NTZXJ2aWNlLmZpbmRBbGwodXNlcik7XG4gIH1cblxuICAvLyDojrflj5blnLDlnYDor6bmg4VcbiAgQEdldCgnOmlkJylcbiAgZmluZE9uZShAUGFyYW0oJ2lkJywgUGFyc2VJbnRQaXBlKSBpZDogbnVtYmVyLCBAQ3VycmVudFVzZXIoKSB1c2VyOiBBZGRyZXNzQWN0b3IpIHtcbiAgICByZXR1cm4gdGhpcy5hZGRyZXNzU2VydmljZS5maW5kT25lKGlkLCB1c2VyKTtcbiAgfVxuXG4gIC8vIOabtOaWsOWcsOWdgFxuICBAUGF0Y2goJzppZCcpXG4gIHVwZGF0ZShcbiAgICBAUGFyYW0oJ2lkJywgUGFyc2VJbnRQaXBlKSBpZDogbnVtYmVyLFxuICAgIEBCb2R5KCkgdXBkYXRlQWRkcmVzc0R0bzogVXBkYXRlQWRkcmVzc0R0byxcbiAgICBAQ3VycmVudFVzZXIoKSB1c2VyOiBBZGRyZXNzQWN0b3IsXG4gICkge1xuICAgIHJldHVybiB0aGlzLmFkZHJlc3NTZXJ2aWNlLnVwZGF0ZShpZCwgdXBkYXRlQWRkcmVzc0R0bywgdXNlcik7XG4gIH1cblxuICAvLyDliKDpmaTlnLDlnYBcbiAgQERlbGV0ZSgnOmlkJylcbiAgcmVtb3ZlKEBQYXJhbSgnaWQnLCBQYXJzZUludFBpcGUpIGlkOiBudW1iZXIsIEBDdXJyZW50VXNlcigpIHVzZXI6IEFkZHJlc3NBY3Rvcikge1xuICAgIHJldHVybiB0aGlzLmFkZHJlc3NTZXJ2aWNlLnJlbW92ZShpZCwgdXNlcik7XG4gIH1cbn1cblxuIl0sInZlcnNpb24iOjN9

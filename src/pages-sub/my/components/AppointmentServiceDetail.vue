@@ -7,10 +7,10 @@ import {
   getAppointmentDetailApi,
   updateAppointmentRequirementApi,
 } from '@/api/appointment'
-import AppointmentCaseInfo from '@/components/appointment/AppointmentCaseInfo.vue'
-import AppointmentGeneralInfo from '@/components/appointment/AppointmentGeneralInfo.vue'
-import AppointmentPlanInfo from '@/components/appointment/AppointmentPlanInfo.vue'
-import AppointmentQuoteInfo from '@/components/appointment/AppointmentQuoteInfo.vue'
+import AppointmentCaseInfo from '@/pages-sub/my/components/appointment/AppointmentCaseInfo.vue'
+import AppointmentGeneralInfo from '@/pages-sub/my/components/appointment/AppointmentGeneralInfo.vue'
+import AppointmentPlanInfo from '@/pages-sub/my/components/appointment/AppointmentPlanInfo.vue'
+import AppointmentQuoteInfo from '@/pages-sub/my/components/appointment/AppointmentQuoteInfo.vue'
 import {
   appointmentStatusText,
   appointmentTypeText,
@@ -18,7 +18,7 @@ import {
 } from '@/stores/modules/renovation-business'
 import type { Appointment } from '@/types/renovation-business'
 import type { UpdateAppointmentRequirementInput } from '@/types/appointment'
-import { formatTimestamp } from '@/utils/format'
+import { formatTimestamp } from '@/pages-sub/my/utils/format'
 // 页面传入的预约编号
 const props = defineProps<{ appointmentId: number; refreshVersion?: number }>()
 // 当前预约详情
@@ -560,7 +560,7 @@ const call = () => appointment.value && uni.makePhoneCall({ phoneNumber: appoint
     @confirm="confirmCalendarDate"
   />
 </template>
-<style lang="scss">
+<style scoped lang="scss">
 .page {
   height: 100vh;
   background: #f8f7f5;
@@ -571,7 +571,7 @@ const call = () => appointment.value && uni.makePhoneCall({ phoneNumber: appoint
 }
 
 .content {
-  padding: 24rpx 24rpx 60rpx;
+  padding: 24rpx 24rpx calc(60rpx + env(safe-area-inset-bottom));
 }
 
 .card {

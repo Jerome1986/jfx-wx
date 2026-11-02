@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
-import { getUserProjectListApi } from '@/api/project'
+import { getUserProjectListApi } from '@/pages-sub/my/api/project'
 import { projectStatusText } from '@/stores/modules/renovation-business'
 import type { RenovationProject } from '@/types/renovation-business'
 import type { UserProjectListStatus } from '@/types/project'

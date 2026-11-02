@@ -15,8 +15,8 @@ import {
   payOrder,
   requestWechatPayment,
 } from '@/api/order'
-import { refreshOrderBenefits } from '@/utils/order-benefits'
-import { maskMobile } from '@/utils/format'
+import { refreshOrderBenefits } from '@/pages-sub/my/utils/order-benefits'
+import { maskMobile } from '@/pages-sub/my/utils/format'
 import type { ProductOrderDetail } from '@/types/product-order-detail'
 import type { ProductOrderApiStatus } from '@/types/product-order'
 

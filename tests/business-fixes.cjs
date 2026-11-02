@@ -331,7 +331,7 @@ test('已取消筛选使用服务端分页，快速切换忽略旧结果', async
     {
       '@dcloudio/uni-app': { onLoad() {}, onShow() {}, onUnload() {} },
       '@/stores/modules/renovation-business': { projectStatusText: {} },
-      '@/api/project': {
+      '@/pages-sub/my/api/project': {
         getUserProjectListApi: (params) => {
           const pending = deferred()
           requests.push({ params, ...pending })

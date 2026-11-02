@@ -1,0 +1,116 @@
+824f887c66ddbc79a3ffb01261584354
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.CreateAddressDto = void 0;
+// 文件说明：地址创建请求的数据传输对象。
+const class_validator_1 = require("class-validator");
+class CreateAddressDto {
+    userId;
+    // 联系人姓名
+    contactName;
+    // 联系电话
+    phone;
+    // 地图位置名称
+    locationName;
+    // 省份
+    province;
+    // 城市
+    city;
+    // 区县
+    district;
+    // 详细地址
+    address;
+    // 门牌号
+    doorplate;
+    // 纬度
+    latitude;
+    // 经度
+    longitude;
+    // 是否为默认地址
+    isDefault;
+    // 是否启用
+    isEnabled;
+}
+exports.CreateAddressDto = CreateAddressDto;
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1),
+    __metadata("design:type", Number)
+], CreateAddressDto.prototype, "userId", void 0);
+__decorate([
+    (0, class_validator_1.IsString)({ message: '联系人姓名必须是字符串' }),
+    (0, class_validator_1.IsNotEmpty)({ message: '联系人姓名不能为空' }),
+    (0, class_validator_1.MaxLength)(50, { message: '联系人姓名不能超过50个字符' }),
+    __metadata("design:type", String)
+], CreateAddressDto.prototype, "contactName", void 0);
+__decorate([
+    (0, class_validator_1.IsString)({ message: '联系电话必须是字符串' }),
+    (0, class_validator_1.IsNotEmpty)({ message: '联系电话不能为空' }),
+    (0, class_validator_1.MaxLength)(30, { message: '联系电话不能超过30个字符' }),
+    __metadata("design:type", String)
+], CreateAddressDto.prototype, "phone", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)({ message: '地图位置名称必须是字符串' }),
+    __metadata("design:type", String)
+], CreateAddressDto.prototype, "locationName", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)({ message: '省份必须是字符串' }),
+    __metadata("design:type", String)
+], CreateAddressDto.prototype, "province", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)({ message: '城市必须是字符串' }),
+    __metadata("design:type", String)
+], CreateAddressDto.prototype, "city", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)({ message: '区县必须是字符串' }),
+    __metadata("design:type", String)
+], CreateAddressDto.prototype, "district", void 0);
+__decorate([
+    (0, class_validator_1.IsString)({ message: '详细地址必须是字符串' }),
+    (0, class_validator_1.IsNotEmpty)({ message: '详细地址不能为空' }),
+    __metadata("design:type", String)
+], CreateAddressDto.prototype, "address", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)({ message: '门牌号必须是字符串' }),
+    __metadata("design:type", String)
+], CreateAddressDto.prototype, "doorplate", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)({}, { message: '纬度必须是数字' }),
+    (0, class_validator_1.Min)(-90, { message: '纬度不能小于-90' }),
+    (0, class_validator_1.Max)(90, { message: '纬度不能大于90' }),
+    __metadata("design:type", Number)
+], CreateAddressDto.prototype, "latitude", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)({}, { message: '经度必须是数字' }),
+    (0, class_validator_1.Min)(-180, { message: '经度不能小于-180' }),
+    (0, class_validator_1.Max)(180, { message: '经度不能大于180' }),
+    __metadata("design:type", Number)
+], CreateAddressDto.prototype, "longitude", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)({ message: '是否为默认地址必须是布尔值' }),
+    __metadata("design:type", Boolean)
+], CreateAddressDto.prototype, "isDefault", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)({ message: '是否启用必须是布尔值' }),
+    __metadata("design:type", Boolean)
+], CreateAddressDto.prototype, "isEnabled", void 0);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiRDpcXHByb2plY3RcXGNvZGVcXGpmeFxcamZ4LWFwaVxcc3JjXFxhZGRyZXNzXFxkdG9cXGNyZWF0ZS1hZGRyZXNzLmR0by50cyIsIm1hcHBpbmdzIjoiOzs7Ozs7Ozs7Ozs7QUFBQSxzQkFBc0I7QUFDdEIscURBVXdCO0FBRXhCLE1BQWEsZ0JBQWdCO0lBSTNCLE1BQU0sQ0FBUztJQUVmLFFBQVE7SUFJUixXQUFXLENBQVE7SUFFbkIsT0FBTztJQUlQLEtBQUssQ0FBUTtJQUViLFNBQVM7SUFHVCxZQUFZLENBQVM7SUFFckIsS0FBSztJQUdMLFFBQVEsQ0FBUztJQUVqQixLQUFLO0lBR0wsSUFBSSxDQUFTO0lBRWIsS0FBSztJQUdMLFFBQVEsQ0FBUztJQUVqQixPQUFPO0lBR1AsT0FBTyxDQUFRO0lBRWYsTUFBTTtJQUdOLFNBQVMsQ0FBUztJQUVsQixLQUFLO0lBS0wsUUFBUSxDQUFTO0lBRWpCLEtBQUs7SUFLTCxTQUFTLENBQVM7SUFFbEIsVUFBVTtJQUdWLFNBQVMsQ0FBVTtJQUVuQixPQUFPO0lBR1AsU0FBUyxDQUFVO0NBQ3BCO0FBdkVELDRDQXVFQztBQW5FQztJQUhDLElBQUEsNEJBQVUsR0FBRTtJQUNaLElBQUEsdUJBQUssR0FBRTtJQUNQLElBQUEscUJBQUcsRUFBQyxDQUFDLENBQUM7O2dEQUNRO0FBTWY7SUFIQyxJQUFBLDBCQUFRLEVBQUMsRUFBRSxPQUFPLEVBQUUsYUFBYSxFQUFFLENBQUM7SUFDcEMsSUFBQSw0QkFBVSxFQUFDLEVBQUUsT0FBTyxFQUFFLFdBQVcsRUFBRSxDQUFDO0lBQ3BDLElBQUEsMkJBQVMsRUFBQyxFQUFFLEVBQUUsRUFBRSxPQUFPLEVBQUUsZ0JBQWdCLEVBQUUsQ0FBQzs7cURBQzFCO0FBTW5CO0lBSEMsSUFBQSwwQkFBUSxFQUFDLEVBQUUsT0FBTyxFQUFFLFlBQVksRUFBRSxDQUFDO0lBQ25DLElBQUEsNEJBQVUsRUFBQyxFQUFFLE9BQU8sRUFBRSxVQUFVLEVBQUUsQ0FBQztJQUNuQyxJQUFBLDJCQUFTLEVBQUMsRUFBRSxFQUFFLEVBQUUsT0FBTyxFQUFFLGVBQWUsRUFBRSxDQUFDOzsrQ0FDL0I7QUFLYjtJQUZDLElBQUEsNEJBQVUsR0FBRTtJQUNaLElBQUEsMEJBQVEsRUFBQyxFQUFFLE9BQU8sRUFBRSxjQUFjLEVBQUUsQ0FBQzs7c0RBQ2pCO0FBS3JCO0lBRkMsSUFBQSw0QkFBVSxHQUFFO0lBQ1osSUFBQSwwQkFBUSxFQUFDLEVBQUUsT0FBTyxFQUFFLFVBQVUsRUFBRSxDQUFDOztrREFDakI7QUFLakI7SUFGQyxJQUFBLDRCQUFVLEdBQUU7SUFDWixJQUFBLDBCQUFRLEVBQUMsRUFBRSxPQUFPLEVBQUUsVUFBVSxFQUFFLENBQUM7OzhDQUNyQjtBQUtiO0lBRkMsSUFBQSw0QkFBVSxHQUFFO0lBQ1osSUFBQSwwQkFBUSxFQUFDLEVBQUUsT0FBTyxFQUFFLFVBQVUsRUFBRSxDQUFDOztrREFDakI7QUFLakI7SUFGQyxJQUFBLDBCQUFRLEVBQUMsRUFBRSxPQUFPLEVBQUUsWUFBWSxFQUFFLENBQUM7SUFDbkMsSUFBQSw0QkFBVSxFQUFDLEVBQUUsT0FBTyxFQUFFLFVBQVUsRUFBRSxDQUFDOztpREFDckI7QUFLZjtJQUZDLElBQUEsNEJBQVUsR0FBRTtJQUNaLElBQUEsMEJBQVEsRUFBQyxFQUFFLE9BQU8sRUFBRSxXQUFXLEVBQUUsQ0FBQzs7bURBQ2pCO0FBT2xCO0lBSkMsSUFBQSw0QkFBVSxHQUFFO0lBQ1osSUFBQSwwQkFBUSxFQUFDLEVBQUUsRUFBRSxFQUFFLE9BQU8sRUFBRSxTQUFTLEVBQUUsQ0FBQztJQUNwQyxJQUFBLHFCQUFHLEVBQUMsQ0FBQyxFQUFFLEVBQUUsRUFBRSxPQUFPLEVBQUUsV0FBVyxFQUFFLENBQUM7SUFDbEMsSUFBQSxxQkFBRyxFQUFDLEVBQUUsRUFBRSxFQUFFLE9BQU8sRUFBRSxVQUFVLEVBQUUsQ0FBQzs7a0RBQ2hCO0FBT2pCO0lBSkMsSUFBQSw0QkFBVSxHQUFFO0lBQ1osSUFBQSwwQkFBUSxFQUFDLEVBQUUsRUFBRSxFQUFFLE9BQU8sRUFBRSxTQUFTLEVBQUUsQ0FBQztJQUNwQyxJQUFBLHFCQUFHLEVBQUMsQ0FBQyxHQUFHLEVBQUUsRUFBRSxPQUFPLEVBQUUsWUFBWSxFQUFFLENBQUM7SUFDcEMsSUFBQSxxQkFBRyxFQUFDLEdBQUcsRUFBRSxFQUFFLE9BQU8sRUFBRSxXQUFXLEVBQUUsQ0FBQzs7bURBQ2pCO0FBS2xCO0lBRkMsSUFBQSw0QkFBVSxHQUFFO0lBQ1osSUFBQSwyQkFBUyxFQUFDLEVBQUUsT0FBTyxFQUFFLGVBQWUsRUFBRSxDQUFDOzttREFDckI7QUFLbkI7SUFGQyxJQUFBLDRCQUFVLEdBQUU7SUFDWixJQUFBLDJCQUFTLEVBQUMsRUFBRSxPQUFPLEVBQUUsWUFBWSxFQUFFLENBQUM7O21EQUNsQiIsIm5hbWVzIjpbXSwic291cmNlcyI6WyJEOlxccHJvamVjdFxcY29kZVxcamZ4XFxqZngtYXBpXFxzcmNcXGFkZHJlc3NcXGR0b1xcY3JlYXRlLWFkZHJlc3MuZHRvLnRzIl0sInNvdXJjZXNDb250ZW50IjpbIi8vIOaWh+S7tuivtOaYju+8muWcsOWdgOWIm+W7uuivt+axgueahOaVsOaNruS8oOi+k+WvueixoeOAglxuaW1wb3J0IHtcbiAgSXNCb29sZWFuLFxuICBJc0ludCxcbiAgSXNOb3RFbXB0eSxcbiAgSXNOdW1iZXIsXG4gIElzT3B0aW9uYWwsXG4gIElzU3RyaW5nLFxuICBNYXgsXG4gIE1heExlbmd0aCxcbiAgTWluLFxufSBmcm9tICdjbGFzcy12YWxpZGF0b3InXG5cbmV4cG9ydCBjbGFzcyBDcmVhdGVBZGRyZXNzRHRvIHtcbiAgQElzT3B0aW9uYWwoKVxuICBASXNJbnQoKVxuICBATWluKDEpXG4gIHVzZXJJZD86IG51bWJlclxuXG4gIC8vIOiBlOezu+S6uuWnk+WQjVxuICBASXNTdHJpbmcoeyBtZXNzYWdlOiAn6IGU57O75Lq65aeT5ZCN5b+F6aG75piv5a2X56ym5LiyJyB9KVxuICBASXNOb3RFbXB0eSh7IG1lc3NhZ2U6ICfogZTns7vkurrlp5PlkI3kuI3og73kuLrnqbonIH0pXG4gIEBNYXhMZW5ndGgoNTAsIHsgbWVzc2FnZTogJ+iBlOezu+S6uuWnk+WQjeS4jeiDvei2hei/hzUw5Liq5a2X56ymJyB9KVxuICBjb250YWN0TmFtZTogc3RyaW5nXG5cbiAgLy8g6IGU57O755S16K+dXG4gIEBJc1N0cmluZyh7IG1lc3NhZ2U6ICfogZTns7vnlLXor53lv4XpobvmmK/lrZfnrKbkuLInIH0pXG4gIEBJc05vdEVtcHR5KHsgbWVzc2FnZTogJ+iBlOezu+eUteivneS4jeiDveS4uuepuicgfSlcbiAgQE1heExlbmd0aCgzMCwgeyBtZXNzYWdlOiAn6IGU57O755S16K+d5LiN6IO96LaF6L+HMzDkuKrlrZfnrKYnIH0pXG4gIHBob25lOiBzdHJpbmdcblxuICAvLyDlnLDlm77kvY3nva7lkI3np7BcbiAgQElzT3B0aW9uYWwoKVxuICBASXNTdHJpbmcoeyBtZXNzYWdlOiAn5Zyw5Zu+5L2N572u5ZCN56ew5b+F6aG75piv5a2X56ym5LiyJyB9KVxuICBsb2NhdGlvbk5hbWU/OiBzdHJpbmdcblxuICAvLyDnnIHku71cbiAgQElzT3B0aW9uYWwoKVxuICBASXNTdHJpbmcoeyBtZXNzYWdlOiAn55yB5Lu95b+F6aG75piv5a2X56ym5LiyJyB9KVxuICBwcm92aW5jZT86IHN0cmluZ1xuXG4gIC8vIOWfjuW4glxuICBASXNPcHRpb25hbCgpXG4gIEBJc1N0cmluZyh7IG1lc3NhZ2U6ICfln47luILlv4XpobvmmK/lrZfnrKbkuLInIH0pXG4gIGNpdHk/OiBzdHJpbmdcblxuICAvLyDljLrljr9cbiAgQElzT3B0aW9uYWwoKVxuICBASXNTdHJpbmcoeyBtZXNzYWdlOiAn5Yy65Y6/5b+F6aG75piv5a2X56ym5LiyJyB9KVxuICBkaXN0cmljdD86IHN0cmluZ1xuXG4gIC8vIOivpue7huWcsOWdgFxuICBASXNTdHJpbmcoeyBtZXNzYWdlOiAn6K+m57uG5Zyw5Z2A5b+F6aG75piv5a2X56ym5LiyJyB9KVxuICBASXNOb3RFbXB0eSh7IG1lc3NhZ2U6ICfor6bnu4blnLDlnYDkuI3og73kuLrnqbonIH0pXG4gIGFkZHJlc3M6IHN0cmluZ1xuXG4gIC8vIOmXqOeJjOWPt1xuICBASXNPcHRpb25hbCgpXG4gIEBJc1N0cmluZyh7IG1lc3NhZ2U6ICfpl6jniYzlj7flv4XpobvmmK/lrZfnrKbkuLInIH0pXG4gIGRvb3JwbGF0ZT86IHN0cmluZ1xuXG4gIC8vIOe6rOW6plxuICBASXNPcHRpb25hbCgpXG4gIEBJc051bWJlcih7fSwgeyBtZXNzYWdlOiAn57qs5bqm5b+F6aG75piv5pWw5a2XJyB9KVxuICBATWluKC05MCwgeyBtZXNzYWdlOiAn57qs5bqm5LiN6IO95bCP5LqOLTkwJyB9KVxuICBATWF4KDkwLCB7IG1lc3NhZ2U6ICfnuqzluqbkuI3og73lpKfkuo45MCcgfSlcbiAgbGF0aXR1ZGU/OiBudW1iZXJcblxuICAvLyDnu4/luqZcbiAgQElzT3B0aW9uYWwoKVxuICBASXNOdW1iZXIoe30sIHsgbWVzc2FnZTogJ+e7j+W6puW/hemhu+aYr+aVsOWtlycgfSlcbiAgQE1pbigtMTgwLCB7IG1lc3NhZ2U6ICfnu4/luqbkuI3og73lsI/kuo4tMTgwJyB9KVxuICBATWF4KDE4MCwgeyBtZXNzYWdlOiAn57uP5bqm5LiN6IO95aSn5LqOMTgwJyB9KVxuICBsb25naXR1ZGU/OiBudW1iZXJcblxuICAvLyDmmK/lkKbkuLrpu5jorqTlnLDlnYBcbiAgQElzT3B0aW9uYWwoKVxuICBASXNCb29sZWFuKHsgbWVzc2FnZTogJ+aYr+WQpuS4uum7mOiupOWcsOWdgOW/hemhu+aYr+W4g+WwlOWAvCcgfSlcbiAgaXNEZWZhdWx0PzogYm9vbGVhblxuXG4gIC8vIOaYr+WQpuWQr+eUqFxuICBASXNPcHRpb25hbCgpXG4gIEBJc0Jvb2xlYW4oeyBtZXNzYWdlOiAn5piv5ZCm5ZCv55So5b+F6aG75piv5biD5bCU5YC8JyB9KVxuICBpc0VuYWJsZWQ/OiBib29sZWFuXG59XG5cbiJdLCJ2ZXJzaW9uIjozfQ==

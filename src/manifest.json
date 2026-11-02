@@ -49,13 +49,15 @@
   /* 小程序特有相关 */
   "mp-weixin": {
     "appid": "wxb75446684c08268d",
+    "optimization": {
+      "subPackages": true
+    },
     "setting": {
       "urlCheck": false
     },
-    "requiredPrivateInfos": [
-      "chooseLocation"
-    ],
-    "usingComponents": true
+    "requiredPrivateInfos": ["chooseLocation"],
+    "usingComponents": true,
+    "lazyCodeLoading": "requiredComponents"
   },
   "mp-alipay": {
     "usingComponents": true

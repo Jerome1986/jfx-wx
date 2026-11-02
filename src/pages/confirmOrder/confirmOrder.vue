@@ -29,7 +29,7 @@ const orderLocked = computed(
   () =>
     checking.value ||
     paying.value ||
-    !!paymentParams.value ||
+    !!createdOrderId.value ||
     creationUncertain.value ||
     paymentSucceeded.value,
 )
@@ -244,8 +244,8 @@ const pay = async () => {
   }
   // 保存发起支付的用户 ID，避免异步返回时更新其他账号。
   const ownerId = cartStore.userId
-  const continuingPayment = !!paymentParams.value
-  if (!paymentParams.value) {
+  const continuingPayment = !!createdOrderId.value
+  if (!createdOrderId.value) {
     if (!(await refresh()) || cartStore.userId !== ownerId) return
     // 2. 首次支付前校验地址、商品、优惠券和应付金额。
     now.value = Date.now()
@@ -305,24 +305,37 @@ const pay = async () => {
       if (result.code !== 200) throw new Error(result.message || '创建订单失败')
       // 5. 校验并缓存微信支付参数，取消支付后复用，避免重复创建订单。
       const params = result.data
-      if (
-        !Number.isInteger(params?.orderId) ||
-        params.orderId <= 0 ||
-        !params?.timeStamp ||
-        !params.nonceStr ||
-        !params.packageValue ||
-        !params.paySign ||
-        !['RSA', 'MD5', 'HMAC-SHA256'].includes(params.signType)
-      )
-        throw new Error('支付参数不完整')
+      if (!Number.isInteger(params?.orderId) || params.orderId <= 0) throw new Error('订单编号缺失')
+      // 建单成功和支付参数就绪是两个阶段；先保存订单，任何后续失败都不重新建单。
       createdOrderId.value = params.orderId
-      paymentParams.value = params
       submittedDiscounts.value = discounts
       submittedAmount.value = money(discounts.payableCents)
+      if ('paymentReady' in params && params.paymentReady === false) {
+        uni.showToast({
+          title: params.paymentMessage || '订单已创建，请在订单中继续支付',
+          icon: 'none',
+        })
+        openCreatedOrder()
+        return
+      }
+      const readyParams = params as WechatPaymentParams
+      if (
+        !readyParams.timeStamp ||
+        !readyParams.nonceStr ||
+        !readyParams.packageValue ||
+        !readyParams.paySign ||
+        !['RSA', 'MD5', 'HMAC-SHA256'].includes(readyParams.signType)
+      )
+        throw new Error('支付参数不完整')
+      paymentParams.value = readyParams
     } catch (error) {
       if (cartStore.userId !== ownerId) return
+      if (createdOrderId.value) {
+        openCreatedOrder()
+        return
+      }
       if ((error as { statusCode?: number }).statusCode === 400) {
-        // HTTP 400 明确未创建订单；请求层已展示服务端校验提示。
+        // 建单后支付失败由服务端返回订单 ID；此处仅处理建单前的参数错误。
         return
       }
       console.error('创建支付订单失败', error)
@@ -334,7 +347,7 @@ const pay = async () => {
       paying.value = false
     }
   }
-  if (!paymentParams.value || cartStore.userId !== ownerId) return
+  if (cartStore.userId !== ownerId) return
   paying.value = true
   try {
     // 继续付款必须重新校验原订单，不能绕过服务端时限使用旧签名。
@@ -348,6 +361,7 @@ const pay = async () => {
         return
       }
     }
+    if (!paymentParams.value) return
     // 6. 使用服务端签名参数调起微信支付，等待成功或失败回调。
     await requestWechatPayment(paymentParams.value)
     if (cartStore.userId !== ownerId) return
@@ -539,7 +553,7 @@ const pay = async () => {
             ? '查看订单'
             : creationUncertain
             ? '请核对订单'
-            : paymentParams
+            : createdOrderId
             ? '继续支付'
             : '立即支付'
         }}

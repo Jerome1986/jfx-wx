@@ -28,9 +28,19 @@ export interface ConfirmOrderResult extends WechatPaymentParams {
   orderId: number
 }
 
+export interface CreatedOrderWithoutPayment {
+  orderId: number
+  paymentReady: false
+  paymentMessage: string
+}
+
 // 创建订单并获取微信支付参数，接口路径保持服务端现有拼写。
 export const confirmOrder = (data: ConfirmOrderInput) =>
-  request<ConfirmOrderResult>({ method: 'POST', url: '/order/confrimOrder', data })
+  request<ConfirmOrderResult | CreatedOrderWithoutPayment>({
+    method: 'POST',
+    url: '/order/confrimOrder',
+    data,
+  })
 
 // 调用微信收银台，不在前端修改订单支付状态。
 export const requestWechatPayment = (params: WechatPaymentParams) =>

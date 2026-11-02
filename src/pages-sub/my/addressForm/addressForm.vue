@@ -6,7 +6,7 @@ import {
   deleteAddressApi,
   getAddressDetailApi,
   updateAddressApi,
-} from '@/api/address'
+} from '@/pages-sub/my/api/address'
 import { useAddressStore } from '@/stores/modules/address'
 import { useMemberStore } from '@/stores/modules/member'
 import type { AddressFormMode as FormMode } from '@/types/address-form'

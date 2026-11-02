@@ -1,4 +1,4 @@
-﻿/* eslint-env node */
+/* eslint-env node */
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
@@ -31,7 +31,7 @@ function setup(confirm = true) {
   )
   let benefitRefreshes = 0
   const dependencies = {
-    '@/utils/order-benefits': { refreshOrderBenefits: async () => { benefitRefreshes++ } },
+    '@/pages-sub/my/utils/order-benefits': { refreshOrderBenefits: async () => { benefitRefreshes++ } },
     vue,
     '@dcloudio/uni-app': Object.fromEntries(
       ['onLoad', 'onShow', 'onHide', 'onUnload'].map((name) => [
@@ -43,7 +43,7 @@ function setup(confirm = true) {
     ),
     '@/stores/modules/member': { useMemberStore: () => member },
     '@/utils/order-booking': booking,
-    '@/utils/format': {},
+    '@/pages-sub/my/utils/format': {},
     '@/api/order': {
       payOrder: async (id) => {
         actions.push(['pay', id])

@@ -13,7 +13,7 @@ import CustomNavHome from '@/components/CustomNavHome.vue'
 import RenovationCalculator from '@/components/RenovationCalculator.vue'
 import SectionHeader from '@/components/SectionHeader.vue'
 import { useShare } from '@/utils/share'
-import type { SelectedCase } from '@/types/home'
+import type { BannerItem, SelectedCase } from '@/types/home'
 import type { RenewalPlan } from '@/types/space-renewal'
 
 useShare({
@@ -38,13 +38,34 @@ const memberStore = useMemberStore()
 
 // 轮播图列表
 const swiperList = ref<string[]>([])
+const bannerList = ref<BannerItem[]>([])
+
+const handleBannerClick = ({ index }: { index: number }) => {
+  const banner = bannerList.value[index]
+  if (!banner?.target) return
+  // 仅允许配置的咨询页面，避免任意路径跳转。
+  if (banner.targetType === 'page') {
+    if (banner.target === '/pages/renovationBudget/renovationBudget') {
+      uni.navigateTo({ url: banner.target })
+    }
+    return
+  }
+  const id = Number(banner.target)
+  if (!Number.isSafeInteger(id) || id <= 0) return
+  if (banner.targetType === 'renewal-plan') {
+    uni.navigateTo({ url: `/pages/spaceRenewalDetail/spaceRenewalDetail?id=${id}` })
+  } else if (banner.targetType === 'product') {
+    uni.navigateTo({ url: `/pages/productDetail/productDetail?id=${id}` })
+  }
+}
 
 // 加载列表
 const loadBannerList = async () => {
   try {
     const { data } = await getBannerListApi()
     // 轮播图地址列表
-    const images = data.map((item) => item.image).filter(Boolean)
+    bannerList.value = data.filter((item) => item.status === 'PUBLISHED' && item.image)
+    const images = bannerList.value.map((item) => item.image)
     swiperList.value = images
   } catch (error) {
     console.error('获取首页轮播图失败：', error)
@@ -211,6 +232,7 @@ const goToCaseDetail = (item: SelectedCase) => {
           radius="12"
           height="176"
           :list="swiperList"
+          @click="handleBannerClick"
           autoplay
           :indicator="{ type: 'dots-bar' }"
         >

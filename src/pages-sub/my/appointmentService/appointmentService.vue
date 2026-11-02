@@ -6,7 +6,7 @@ import { useMemberStore } from '@/stores'
 import { appointmentStatusText, appointmentTypeText } from '@/stores/modules/renovation-business'
 import type { Appointment, AppointmentStatus, AppointmentType } from '@/types/renovation-business'
 import { getAppointmentSummary } from '@/utils/appointment'
-import { formatTimestamp } from '@/utils/format'
+import { formatTimestamp } from '@/pages-sub/my/utils/format'
 type Filter = 'all' | AppointmentStatus
 // 预约状态筛选项
 const filters: Array<{ label: string; value: Filter }> = [

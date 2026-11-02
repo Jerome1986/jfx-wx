@@ -1,0 +1,5 @@
+const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto')
+const target = path.resolve('../jfx-api/src/order/order.service.ts')
+if (crypto.createHash('sha256').update(fs.readFileSync(target)).digest('hex') !== fs.readFileSync('.tmp/prepay-source.sha', 'utf8')) throw Error('Backend source changed')
+fs.copyFileSync('.tmp/order.service.ts', target)
+fs.copyFileSync('.tmp/order-prepay-failure.spec.ts', path.resolve('../jfx-api/src/order/order-prepay-failure.spec.ts'))

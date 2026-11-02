@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
-import { getEmployeeProjectListApi } from '@/api/project'
-import EmployeeProjectStatus from '@/components/project/EmployeeProjectStatus.vue'
+import { getEmployeeProjectListApi } from '@/pages-sub/my/api/project'
+import EmployeeProjectStatus from '@/pages-sub/my/components/project/EmployeeProjectStatus.vue'
 import type { RenovationProject } from '@/types/renovation-business'
 import type { EmployeeProjectListParams } from '@/types/project'
-import { formatTimestamp } from '@/utils/format'
+import { formatTimestamp } from '@/pages-sub/my/utils/format'
 
 type Filter = EmployeeProjectListParams['status']
 const filters: Array<{ label: string; value: Filter }> = [

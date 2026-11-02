@@ -3,8 +3,11 @@ import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { useRenovationBusinessStore } from '@/stores/modules/renovation-business'
 import type { ProjectQuoteLine, ProjectQuote } from '@/types/project-quote'
-import { getEmployeeProjectDetailApi, updateEmployeeProjectQuoteApi } from '@/api/project'
-import { normalizeProject } from '@/utils/project'
+import {
+  getEmployeeProjectDetailApi,
+  updateEmployeeProjectQuoteApi,
+} from '@/pages-sub/my/api/project'
+import { normalizeProject } from '@/pages-sub/my/utils/project'
 import type { RenewalReplacementCandidate } from '@/types/renewal-replacement'
 import {
   applyReplacement,
@@ -15,9 +18,9 @@ import {
   newQuoteLineId,
   quoteTotals,
 } from '@/utils/project-quote'
-import ProjectQuoteSummary from '@/components/project/ProjectQuoteSummary.vue'
-import ProjectQuoteLineCard from '@/components/project/ProjectQuoteLineCard.vue'
-import ProjectQuoteLineEditor from '@/components/project/ProjectQuoteLineEditor.vue'
+import ProjectQuoteSummary from '@/pages-sub/my/components/project/ProjectQuoteSummary.vue'
+import ProjectQuoteLineCard from '@/pages-sub/my/components/project/ProjectQuoteLineCard.vue'
+import ProjectQuoteLineEditor from '@/pages-sub/my/components/project/ProjectQuoteLineEditor.vue'
 
 type FeeTab = '全部' | '主材' | '人工+辅材'
 const store = useRenovationBusinessStore()

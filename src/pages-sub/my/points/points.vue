@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
-import { getPointRecords, getScoreSummary } from '@/api/points'
+import { getPointRecords, getScoreSummary } from '@/pages-sub/my/api/points'
 import type { PointsRecord, PointsType } from '@/types/points'
 
 // 当前类型

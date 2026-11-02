@@ -26,6 +26,19 @@ defineProps<{ project: RenovationProject }>()
   gap: 20rpx;
   margin-top: 20rpx;
   font-size: 26rpx;
+  line-height: 1.5;
+  align-items: flex-start;
+}
+.coupon-line:first-child {
+  margin-top: 0;
+}
+.coupon-line > text:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.coupon-line > text:last-child {
+  flex-shrink: 0;
+  text-align: right;
 }
 .contract-amount {
   color: #d92d20;

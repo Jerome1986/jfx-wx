@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { devLoginApi } from '@/api/dev-login'
+import { devLoginApi } from '@/pages-sub/my/api/dev-login'
 import { useMemberStore, useRenovationBusinessStore } from '@/stores'
 import { useAddressStore } from '@/stores/modules/address'
 import type { UserRole } from '@/types/UserItem'
@@ -110,7 +110,7 @@ const login = async (role: UserRole) => {
 .debug-page {
   min-height: 100vh;
   box-sizing: border-box;
-  padding: 32rpx;
+  padding: 32rpx 32rpx calc(32rpx + env(safe-area-inset-bottom));
   background: #f8f7f5;
 }
 .account-card,

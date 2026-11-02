@@ -17,12 +17,11 @@ import EmployeeMy from '@/components/my/EmployeeMy.vue'
 
 // 会员状态仓库
 const memberStore = useMemberStore()
-// 是否为开发环境
-const isDevelopment = import.meta.env.DEV
-// 打开开发调试页面
-const openDevDebug = () => {
-  uni.navigateTo({ url: '/pages-sub/my/devDebug/devDebug' })
-}
+// 开发调试入口暂时隐藏，测试时取消脚本、模板和样式中的对应注释即可恢复。
+// const isDevelopment = import.meta.env.DEV
+// const openDevDebug = () => {
+//   uni.navigateTo({ url: '/pages-sub/my/devDebug/devDebug' })
+// }
 // 当前用户是否为员工
 const isEmployee = computed(() => memberStore.profile?.role === 'EMPLOYEE')
 // 刷新状态
@@ -112,12 +111,15 @@ onShow(async () => {
     :performance-summary="employeePerformance"
   />
   <CustomerMy v-else />
+  <!-- 开发调试入口暂时隐藏，保留供后续测试复用。
   <view v-if="isDevelopment" class="dev-debug-entry">
     <button class="dev-debug-button" @click="openDevDebug">开发调试</button>
   </view>
+  -->
 </template>
 
 <style scoped lang="scss">
+/* 开发调试入口样式，恢复入口时一并取消注释。
 .dev-debug-entry {
   position: fixed;
   right: 24rpx;
@@ -136,4 +138,5 @@ onShow(async () => {
     border: 0;
   }
 }
+*/
 </style>

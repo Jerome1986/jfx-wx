@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { RenovationProject } from '@/types/renovation-business'
-import { formatTimestamp } from '@/utils/format'
+import { formatTimestamp } from '@/pages-sub/my/utils/format'
 defineProps<{ project: RenovationProject }>()
 </script>
 <template>

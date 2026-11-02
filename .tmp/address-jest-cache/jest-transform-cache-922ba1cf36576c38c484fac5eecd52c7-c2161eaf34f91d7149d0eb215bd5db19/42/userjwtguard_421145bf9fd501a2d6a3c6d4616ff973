@@ -1,0 +1,52 @@
+4349176f9d527db37681407055bf43cb
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var _a;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.UserJwtGuard = void 0;
+const common_1 = require("@nestjs/common");
+const jwt_1 = require("@nestjs/jwt");
+let UserJwtGuard = class UserJwtGuard {
+    jwtService;
+    // 注入 JWT 服务，用于验证请求中的登录令牌。
+    constructor(jwtService) {
+        this.jwtService = jwtService;
+    }
+    // 校验登录令牌并写入当前用户信息
+    async canActivate(context) {
+        const request = context.switchToHttp().getRequest();
+        console.log('后端', request.headers);
+        const [scheme, token] = request.headers.authorization?.split(' ') ?? [];
+        if (scheme !== 'Bearer' || !token) {
+            throw new common_1.UnauthorizedException('请先登录');
+        }
+        try {
+            const payload = await this.jwtService.verifyAsync(token);
+            console.log('登录凭证', payload);
+            if ((payload.type !== 'user' && payload.type !== 'admin') ||
+                !Number.isInteger(payload.userId) ||
+                payload.userId <= 0) {
+                throw new common_1.UnauthorizedException('登录凭证无效');
+            }
+            request.user = payload;
+            return true;
+        }
+        catch {
+            throw new common_1.UnauthorizedException('登录凭证无效或已过期');
+        }
+    }
+};
+exports.UserJwtGuard = UserJwtGuard;
+exports.UserJwtGuard = UserJwtGuard = __decorate([
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [typeof (_a = typeof jwt_1.JwtService !== "undefined" && jwt_1.JwtService) === "function" ? _a : Object])
+], UserJwtGuard);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiRDpcXHByb2plY3RcXGNvZGVcXGpmeFxcamZ4LWFwaVxcc3JjXFxjb21tb25cXGF1dGhcXGd1YXJkc1xcdXNlci1qd3QuZ3VhcmQudHMiLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7Ozs7OztBQUFBLDJDQUt1QjtBQUN2QixxQ0FBd0M7QUFPakMsSUFBTSxZQUFZLEdBQWxCLE1BQU0sWUFBWTtJQUVNO0lBRDdCLDBCQUEwQjtJQUMxQixZQUE2QixVQUFzQjtRQUF0QixlQUFVLEdBQVYsVUFBVSxDQUFZO0lBQUksQ0FBQztJQUV4RCxrQkFBa0I7SUFDbEIsS0FBSyxDQUFDLFdBQVcsQ0FBQyxPQUF5QjtRQUN6QyxNQUFNLE9BQU8sR0FBRyxPQUFPLENBQUMsWUFBWSxFQUFFLENBQUMsVUFBVSxFQUE0QixDQUFBO1FBQzdFLE9BQU8sQ0FBQyxHQUFHLENBQUMsSUFBSSxFQUFFLE9BQU8sQ0FBQyxPQUFPLENBQUMsQ0FBQTtRQUVsQyxNQUFNLENBQUMsTUFBTSxFQUFFLEtBQUssQ0FBQyxHQUFHLE9BQU8sQ0FBQyxPQUFPLENBQUMsYUFBYSxFQUFFLEtBQUssQ0FBQyxHQUFHLENBQUMsSUFBSSxFQUFFLENBQUE7UUFFdkUsSUFBSSxNQUFNLEtBQUssUUFBUSxJQUFJLENBQUMsS0FBSyxFQUFFLENBQUM7WUFDbEMsTUFBTSxJQUFJLDhCQUFxQixDQUFDLE1BQU0sQ0FBQyxDQUFBO1FBQ3pDLENBQUM7UUFFRCxJQUFJLENBQUM7WUFDSCxNQUFNLE9BQU8sR0FBRyxNQUFNLElBQUksQ0FBQyxVQUFVLENBQUMsV0FBVyxDQUFpQixLQUFLLENBQUMsQ0FBQTtZQUN4RSxPQUFPLENBQUMsR0FBRyxDQUFDLE1BQU0sRUFBRSxPQUFPLENBQUMsQ0FBQTtZQUU1QixJQUNFLENBQUMsT0FBTyxDQUFDLElBQUksS0FBSyxNQUFNLElBQUksT0FBTyxDQUFDLElBQUksS0FBSyxPQUFPLENBQUM7Z0JBQ3JELENBQUMsTUFBTSxDQUFDLFNBQVMsQ0FBQyxPQUFPLENBQUMsTUFBTSxDQUFDO2dCQUNqQyxPQUFPLENBQUMsTUFBTSxJQUFJLENBQUMsRUFDbkIsQ0FBQztnQkFDRCxNQUFNLElBQUksOEJBQXFCLENBQUMsUUFBUSxDQUFDLENBQUE7WUFDM0MsQ0FBQztZQUNELE9BQU8sQ0FBQyxJQUFJLEdBQUcsT0FBTyxDQUFBO1lBQ3RCLE9BQU8sSUFBSSxDQUFBO1FBQ2IsQ0FBQztRQUFDLE1BQU0sQ0FBQztZQUNQLE1BQU0sSUFBSSw4QkFBcUIsQ0FBQyxZQUFZLENBQUMsQ0FBQTtRQUMvQyxDQUFDO0lBQ0gsQ0FBQztDQUNGLENBQUE7QUFoQ1ksb0NBQVk7dUJBQVosWUFBWTtJQUR4QixJQUFBLG1CQUFVLEdBQUU7eURBRzhCLGdCQUFVLG9CQUFWLGdCQUFVO0dBRnhDLFlBQVksQ0FnQ3hCIiwibmFtZXMiOltdLCJzb3VyY2VzIjpbIkQ6XFxwcm9qZWN0XFxjb2RlXFxqZnhcXGpmeC1hcGlcXHNyY1xcY29tbW9uXFxhdXRoXFxndWFyZHNcXHVzZXItand0Lmd1YXJkLnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7XG4gIENhbkFjdGl2YXRlLFxuICBFeGVjdXRpb25Db250ZXh0LFxuICBJbmplY3RhYmxlLFxuICBVbmF1dGhvcml6ZWRFeGNlcHRpb24sXG59IGZyb20gJ0BuZXN0anMvY29tbW9uJ1xuaW1wb3J0IHsgSnd0U2VydmljZSB9IGZyb20gJ0BuZXN0anMvand0J1xuaW1wb3J0IHR5cGUge1xuICBBdXRoZW50aWNhdGVkVXNlclJlcXVlc3QsXG4gIFVzZXJKd3RQYXlsb2FkLFxufSBmcm9tICcuLi9pbnRlcmZhY2VzL3VzZXItand0LXBheWxvYWQuaW50ZXJmYWNlJ1xuXG5ASW5qZWN0YWJsZSgpXG5leHBvcnQgY2xhc3MgVXNlckp3dEd1YXJkIGltcGxlbWVudHMgQ2FuQWN0aXZhdGUge1xuICAvLyDms6jlhaUgSldUIOacjeWKoe+8jOeUqOS6jumqjOivgeivt+axguS4reeahOeZu+W9leS7pOeJjOOAglxuICBjb25zdHJ1Y3Rvcihwcml2YXRlIHJlYWRvbmx5IGp3dFNlcnZpY2U6IEp3dFNlcnZpY2UpIHsgfVxuXG4gIC8vIOagoemqjOeZu+W9leS7pOeJjOW5tuWGmeWFpeW9k+WJjeeUqOaIt+S/oeaBr1xuICBhc3luYyBjYW5BY3RpdmF0ZShjb250ZXh0OiBFeGVjdXRpb25Db250ZXh0KSB7XG4gICAgY29uc3QgcmVxdWVzdCA9IGNvbnRleHQuc3dpdGNoVG9IdHRwKCkuZ2V0UmVxdWVzdDxBdXRoZW50aWNhdGVkVXNlclJlcXVlc3Q+KClcbiAgICBjb25zb2xlLmxvZygn5ZCO56uvJywgcmVxdWVzdC5oZWFkZXJzKVxuXG4gICAgY29uc3QgW3NjaGVtZSwgdG9rZW5dID0gcmVxdWVzdC5oZWFkZXJzLmF1dGhvcml6YXRpb24/LnNwbGl0KCcgJykgPz8gW11cblxuICAgIGlmIChzY2hlbWUgIT09ICdCZWFyZXInIHx8ICF0b2tlbikge1xuICAgICAgdGhyb3cgbmV3IFVuYXV0aG9yaXplZEV4Y2VwdGlvbign6K+35YWI55m75b2VJylcbiAgICB9XG5cbiAgICB0cnkge1xuICAgICAgY29uc3QgcGF5bG9hZCA9IGF3YWl0IHRoaXMuand0U2VydmljZS52ZXJpZnlBc3luYzxVc2VySnd0UGF5bG9hZD4odG9rZW4pXG4gICAgICBjb25zb2xlLmxvZygn55m75b2V5Yet6K+BJywgcGF5bG9hZClcblxuICAgICAgaWYgKFxuICAgICAgICAocGF5bG9hZC50eXBlICE9PSAndXNlcicgJiYgcGF5bG9hZC50eXBlICE9PSAnYWRtaW4nKSB8fFxuICAgICAgICAhTnVtYmVyLmlzSW50ZWdlcihwYXlsb2FkLnVzZXJJZCkgfHxcbiAgICAgICAgcGF5bG9hZC51c2VySWQgPD0gMFxuICAgICAgKSB7XG4gICAgICAgIHRocm93IG5ldyBVbmF1dGhvcml6ZWRFeGNlcHRpb24oJ+eZu+W9leWHreivgeaXoOaViCcpXG4gICAgICB9XG4gICAgICByZXF1ZXN0LnVzZXIgPSBwYXlsb2FkXG4gICAgICByZXR1cm4gdHJ1ZVxuICAgIH0gY2F0Y2gge1xuICAgICAgdGhyb3cgbmV3IFVuYXV0aG9yaXplZEV4Y2VwdGlvbign55m75b2V5Yet6K+B5peg5pWI5oiW5bey6L+H5pyfJylcbiAgICB9XG4gIH1cbn1cbiJdLCJ2ZXJzaW9uIjozfQ==

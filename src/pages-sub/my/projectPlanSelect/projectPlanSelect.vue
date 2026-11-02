@@ -4,7 +4,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { useRenovationBusinessStore } from '@/stores/modules/renovation-business'
 import { getRenewalPlanListApi } from '@/api/renewal-plan'
 import type { ProjectPlanCandidate, ProjectQuoteLine } from '@/types/project-quote'
-import ProjectPlanCard from '@/components/project/ProjectPlanCard.vue'
+import ProjectPlanCard from '@/pages-sub/my/components/project/ProjectPlanCard.vue'
 // 装修业务 Store，用于更新建项草稿。
 const store = useRenovationBusinessStore()
 // 当前建项关联的预约 ID。

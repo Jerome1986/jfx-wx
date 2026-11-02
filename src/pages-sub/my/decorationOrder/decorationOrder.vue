@@ -5,7 +5,7 @@ import { getAppointmentListApi } from '@/api/appointment'
 import { appointmentStatusText, appointmentTypeText } from '@/stores/modules/renovation-business'
 import type { Appointment, AppointmentType } from '@/types/renovation-business'
 import { getAppointmentSummary } from '@/utils/appointment'
-import { formatTimestamp, maskMobile } from '@/utils/format'
+import { formatTimestamp, maskMobile } from '@/pages-sub/my/utils/format'
 
 // 每页加载数量
 const PAGE_SIZE = 10

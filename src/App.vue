@@ -26,7 +26,7 @@ onHide(() => {
 page {
   background-color: $jfx-pageBackGroundColor;
   height: 100%;
-  overflow: hidden;
+  // 原生页面允许内容滚动；使用 scroll-view 的页面自行约束容器高度。
   box-sizing: border-box;
 }
 </style>

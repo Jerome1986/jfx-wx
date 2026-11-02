@@ -171,7 +171,7 @@ for (const scenario of ['success', 'conflict', 'network']) {
             },
           }),
         },
-        '@/api/project': {
+        '@/pages-sub/my/api/project': {
           PROJECT_CANCEL_API_ENABLED: true,
           cancelEmployeeProjectApi: async (id, input) => {
             writes++
@@ -229,7 +229,7 @@ test('取消接口未启用时只预览，不请求接口或修改本地项目',
       '@/stores/modules/renovation-business': {
         useRenovationBusinessStore: () => ({ getProject: () => project }),
       },
-      '@/api/project': {
+      '@/pages-sub/my/api/project': {
         PROJECT_CANCEL_API_ENABLED: false,
         cancelEmployeeProjectApi: async () => {
           calls++
@@ -287,7 +287,7 @@ test('创建成功先记录项目再清理草稿，跳转失败只重试导航',
     {
       '@dcloudio/uni-app': { onLoad() {} },
       '@/stores/modules/renovation-business': { useRenovationBusinessStore: () => store },
-      '@/api/project': {
+      '@/pages-sub/my/api/project': {
         createEmployeeProjectApi: async () => {
           requests++
           return { data: { id: 7 } }
@@ -371,10 +371,11 @@ test('预览总额在汇总后舍入，不逐项舍入累加', () => {
   )
 })
 
-function pageHarness(employee, api) {
+function pageHarness(employee, api, userApi = {}) {
   const projects = vue.reactive({})
   const shows = []
   const navigation = []
+  const dialogs = []
   const store = {
     getProject: (id) => projects[id],
     cacheCreatedProject: (project) => {
@@ -389,11 +390,17 @@ function pageHarness(employee, api) {
       useRenovationBusinessStore: () => store,
       projectStatusText: {},
     },
-    '@/api/project': api,
+    '@/pages-sub/my/api/project': api,
+    '@/api/user': { userInfoFindOne: async () => ({ data: { userCoupons: [] } }), ...userApi },
+    '@/stores': { useMemberStore: () => ({ profile: { id: 1 } }) },
+    '@/pages-sub/my/utils/order-benefits': { refreshOrderBenefits: async () => {} },
   }
   const uni = {
     showToast() {},
-    showModal: (options) => options.success?.({ confirm: true }),
+    showModal: (options) => {
+      dialogs.push(options)
+      options.success?.({ confirm: true })
+    },
     navigateBack: (options) => navigation.push(options),
     navigateTo: (options) => navigation.push(options),
   }
@@ -402,12 +409,114 @@ function pageHarness(employee, api) {
     : 'src/pages-sub/my/renovationOrderDetail/renovationOrderDetail.vue'
   const expose = employee
     ? 'id, target, loadEditor, editQuote, quoteVersion, saveQuote, editable, conflicted, submitting, addItem, planId'
-    : 'id, loadProject, confirmQuote, project, confirming'
+    : 'id, loadProject, confirmQuote, project, confirming, selectedCouponId, selectCoupon, coupons, couponLoadFailed, discountedAmount'
   const page = load(file, mocks, { uni }, expose)
   page.id.value = 7
   if (employee) page.target.value = 'edit'
-  return { page, navigation, projects }
+  return { page, navigation, projects, dialogs }
 }
+
+test('优惠券加载失败时不选券仍可按原报价确认，不提交券 ID', async () => {
+  const calls = []
+  const { page, dialogs } = pageHarness(
+    false,
+    {
+      getProjectDetailApi: async () => ({ data: detail(3) }),
+      confirmProjectQuoteApi: async (...args) => {
+        calls.push(args)
+        return { code: 200 }
+      },
+    },
+    {
+      userInfoFindOne: async () => {
+        throw new Error('offline')
+      },
+    },
+  )
+  await page.loadProject()
+  assert.equal(page.couponLoadFailed.value, true)
+  await page.confirmQuote()
+  assert.deepEqual(calls, [[7, 3, undefined]])
+  assert.match(dialogs[0].content, /合同金额 ¥3060\.00/)
+})
+
+test('带券进入但加载失败时保留选择并拦截；主动不使用后可确认', async () => {
+  const calls = []
+  const { page, dialogs } = pageHarness(
+    false,
+    {
+      getProjectDetailApi: async () => ({ data: detail() }),
+      confirmProjectQuoteApi: async (...args) => {
+        calls.push(args)
+        return { code: 200 }
+      },
+    },
+    {
+      userInfoFindOne: async () => {
+        throw new Error('offline')
+      },
+    },
+  )
+  page.selectedCouponId.value = 9
+  await page.loadProject()
+  await page.confirmQuote()
+  assert.equal(page.selectedCouponId.value, 9)
+  assert.equal(calls.length, 0)
+  assert.equal(dialogs.length, 0)
+  page.selectCoupon({ detail: { value: 0 } })
+  await page.confirmQuote()
+  assert.deepEqual(calls, [[7, 1, undefined]])
+  assert.equal(page.discountedAmount.value, '3060.00')
+})
+
+test('选券后刷新失败清除旧抵扣，重试成功后仍可正常用券', async () => {
+  let fail = false
+  const calls = []
+  const coupon = {
+    id: 9,
+    status: 'AVAILABLE',
+    orderId: null,
+    projectId: null,
+    expiresAt: new Date(Date.now() + 86400000).toISOString(),
+    coupon: {
+      name: '装修券',
+      amount: '100.00',
+      threshold: '1000.00',
+      scopeType: 'RENOVATION',
+      status: 'PUBLISHED',
+      validFrom: '2020-01-01',
+    },
+  }
+  const { page, dialogs } = pageHarness(
+    false,
+    {
+      getProjectDetailApi: async () => ({ data: detail() }),
+      confirmProjectQuoteApi: async (...args) => {
+        calls.push(args)
+        return { code: 200 }
+      },
+    },
+    {
+      userInfoFindOne: async () => {
+        if (fail) throw new Error('offline')
+        return { data: { userCoupons: [coupon] } }
+      },
+    },
+  )
+  page.selectedCouponId.value = 9
+  await page.loadProject()
+  assert.equal(page.discountedAmount.value, '2960.00')
+  fail = true
+  await page.loadProject()
+  assert.equal(page.coupons.value.length, 0)
+  await page.confirmQuote()
+  assert.equal(calls.length, 0)
+  fail = false
+  await page.loadProject()
+  await page.confirmQuote()
+  assert.deepEqual(calls, [[7, 1, 9]])
+  assert.match(dialogs[0].content, /合同金额 ¥2960\.00/)
+})
 test('员工保存固定进入编辑时版本，阻止重复提交，成功退出编辑', async () => {
   let reads = 0,
     writes = 0,
@@ -478,7 +587,7 @@ test('客户冲突后刷新展示新报价，但必须再次主动确认', async
 })
 test('接口封装正确传入 PATCH 路径及报价版本', async () => {
   const calls = []
-  const api = load('src/api/project.ts', {
+  const api = load('src/pages-sub/my/api/project.ts', {
     '@/utils/http': {
       request: async (options) => {
         calls.push(options)
@@ -587,7 +696,7 @@ for (const outcome of ['success', 'business-error', 'network-error']) {
             cacheCreatedProject: (value) => Object.assign(project, value),
           }),
         },
-        '@/api/project': {
+        '@/pages-sub/my/api/project': {
           completeEmployeeProjectApi: async () => {
             if (outcome === 'network-error') throw new Error('offline')
             return { code: outcome === 'business-error' ? 400 : 200 }
@@ -624,7 +733,7 @@ test('返回预约详情后重新查询关联项目，刷新失败时禁止使�
   let reads = 0
   let fail = false
   const page = load(
-    'src/components/AppointmentServiceDetail.vue',
+    'src/pages-sub/my/components/AppointmentServiceDetail.vue',
     {
       '@/api/appointment': {
         getAppointmentDetailApi: async () => {
